@@ -1,0 +1,31 @@
+DRIFT ZONE
+==========
+
+JOUER EN LIGNE (conseillé, toujours à jour)
+  https://abdoulhamadywone-dot.github.io/drift-zone/
+  - Sur téléphone : ouvre l'adresse dans Chrome (Android) ou Safari (iPhone),
+    puis « Installer l'application » / « Ajouter à l'écran d'accueil ».
+    Le jeu s'installe comme une vraie appli et marche même sans Internet.
+  - Sur PC : ouvre l'adresse dans Chrome ou Edge, puis l'icône « Installer »
+    dans la barre d'adresse.
+  - Mises à jour : quand une nouvelle version est publiée, un bandeau bleu
+    « Nouvelle version disponible » apparaît dans le jeu → « Mettre à jour ».
+
+ÉMULATEUR MOBILE
+  En ligne : https://abdoulhamadywone-dot.github.io/drift-zone/emulateur.html
+  Sur ce PC : double-clique sur « Emulateur mobile.bat ».
+  Choisis le téléphone, tourne l'écran, joue avec la souris.
+  « Gaz auto » permet de tourner en accélérant. Le clavier marche aussi.
+
+VERSION INSTALLÉE SUR CE PC (sans Internet)
+  « Lancer Drift Zone.bat » : lance le jeu depuis ce dossier.
+  « Mettre a jour.bat »     : télécharge la dernière version depuis GitHub
+                               et remplace les fichiers de ce dossier.
+
+FLUIDITÉ SUR TÉLÉPHONE
+  Options → Qualité « Basse » (choisie automatiquement sur téléphone).
+  Le jeu baisse aussi tout seul la résolution s'il rame.
+
+À SAVOIR
+  - Le mode « En ligne » (multijoueur) ne marche que dans la version claude.ai.
+  - Progression (crédits, garage, records) enregistrée dans chaque navigateur.
