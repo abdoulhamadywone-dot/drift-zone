@@ -104,6 +104,31 @@ input:focus{border-color:var(--accent)}
 body.pad #padHint{display:block}
 body.pad #hint .kb2{display:none}
 input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;background:none}
+#nitroBtn{position:absolute;right:18px;bottom:150px;pointer-events:auto;cursor:pointer;user-select:none;display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;border-radius:14px;background:rgba(8,20,36,.62);border:2px solid rgba(56,189,248,.35);transition:.15s;--n:0}
+#nitroBtn .ring{width:44px;height:44px;border-radius:50%;background:conic-gradient(#38bdf8 calc(var(--n)*360deg),rgba(255,255,255,.12) 0);display:flex;align-items:center;justify-content:center;flex:none}
+#nitroBtn .ring b{width:34px;height:34px;border-radius:50%;background:#0b1626;display:flex;align-items:center;justify-content:center;font-size:18px}
+#nitroBtn .t{display:flex;flex-direction:column;line-height:1.05}
+#nitroBtn .t span{font-family:"Russo One";font-size:15px;letter-spacing:.08em;color:#a5f3fc}
+#nitroBtn .t small{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.06em}
+#nitroBtn kbd{font-size:13px;padding:0 7px;background:rgba(56,189,248,.25);border-color:rgba(165,243,252,.6)}
+#nitroBtn.ready{border-color:#38bdf8;box-shadow:0 0 18px rgba(56,189,248,.55);animation:nready 1.1s ease-in-out infinite}
+#nitroBtn.on{border-color:#fff;background:rgba(56,189,248,.45);box-shadow:0 0 26px #38bdf8}
+#nitroBtn.empty{opacity:.55}
+@keyframes nready{50%{box-shadow:0 0 6px rgba(56,189,248,.25)}}
+.has-touch #nitroBtn{display:none}
+#street{position:absolute;top:16px;left:50%;transform:translateX(-50%) translateY(-12px);opacity:0;transition:.45s;padding:7px 16px;font-weight:700;font-size:16px;letter-spacing:.06em;white-space:nowrap;text-align:center;border-left:4px solid #00a95c}
+#street.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#street small{display:block;font-size:14px;opacity:.85;font-family:Arial,sans-serif;letter-spacing:0}
+.has-touch #street{top:56px;font-size:13px;padding:5px 12px}.has-touch #street small{font-size:12px}
+#mapName{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.08em;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
+.has-touch #mapName{display:none}
+.carGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin-bottom:6px}
+.carCard{padding:9px 10px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,.04);cursor:pointer;transition:.15s}
+.carCard:hover{background:rgba(255,255,255,.08)}
+.carCard.sel{border-color:var(--accent);background:rgba(255,61,90,.12)}
+.carCard b{display:block;font-family:"Russo One";font-weight:400;font-size:14px}
+.carCard span{font-size:12px;opacity:.7}
+.carCard i{display:block;height:4px;border-radius:2px;margin-top:6px;background:linear-gradient(90deg,var(--accent2),var(--accent));width:calc(var(--p)*100%)}
 #speedFx{position:absolute;inset:0;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,transparent 45%,rgba(56,189,248,.18) 75%,rgba(56,189,248,.35));}
 
 /* ---------- Touch ---------- */
@@ -115,7 +140,9 @@ input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;backg
 #tGas{right:18px;bottom:18px;width:92px;height:92px}
 #tHb{right:122px;bottom:18px;width:76px;height:76px;font-size:11px;background:rgba(255,183,3,.18)}
 #tBrake{right:24px;bottom:122px;width:66px;height:66px;font-size:11px}
-#tNitro{right:104px;bottom:110px;width:62px;height:62px;font-size:11px;background:rgba(56,189,248,.25)}
+#tNitro{right:100px;bottom:106px;width:72px;height:72px;font-size:12px;background:radial-gradient(circle,rgba(11,22,38,.85) 58%,transparent 60%),conic-gradient(#38bdf8 calc(var(--n,0)*360deg),rgba(255,255,255,.14) 0);border-color:rgba(165,243,252,.5);color:#a5f3fc}
+#tNitro.ready{box-shadow:0 0 18px rgba(56,189,248,.7);border-color:#a5f3fc;animation:nready 1.1s ease-in-out infinite}
+#tNitro.on{background:radial-gradient(circle,rgba(56,189,248,.7) 58%,transparent 60%),conic-gradient(#38bdf8 calc(var(--n,0)*360deg),rgba(255,255,255,.14) 0)}
 .has-touch #speedo{right:auto;top:auto;bottom:64px;left:50%;transform:translateX(-50%);min-width:0;padding:3px 12px 5px;text-align:center;display:grid;grid-template-columns:auto auto;column-gap:8px;align-items:end;background:rgba(10,14,24,.45)}
 .has-touch #speedo .val{font-size:22px;line-height:1}
 .has-touch #speedo .gear,.has-touch #speedo #rpm,.has-touch #speedo .nlab{display:none}
@@ -221,7 +248,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 <div id="loading">
   <div class="logo disp">DRIFT ZONE</div>
   <div id="loadBar"><i></i></div>
-  <div id="loadTxt">CHARGEMENT DE LA VILLE…</div>
+  <div id="loadTxt">CHARGEMENT DE NOUAKCHOTT…</div>
 </div>
 
 <div id="hud" class="hidden">
@@ -239,11 +266,13 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
   <div id="combo" style="opacity:0"><div class="pts disp" id="comboPts">0</div><div class="mult disp" id="comboMult">x1</div><div class="ang" id="comboAng">0°</div><div class="bar"><i id="comboBar"></i></div></div>
   <div id="popups"></div>
   <div id="speedo" class="panel"><div class="gear disp" id="gear">1</div><div class="val disp" id="speed">0</div><div class="unit">KM/H</div><div class="meter" id="rpm"><i id="rpmBar"></i></div><div class="nlab">NITRO</div><div class="meter" id="nitroM"><i id="nitroBar"></i></div></div>
-  <div id="minimap" class="panel"><canvas id="mapCv" width="320" height="320"></canvas></div>
+  <div id="minimap" class="panel"><canvas id="mapCv" width="320" height="320"></canvas><div id="mapName"></div></div>
+  <div id="street" class="panel"></div>
+  <div id="nitroBtn" title="Nitro"><div class="ring"><b>🔥</b></div><div class="t"><span>NITRO</span><small>appuie sur <kbd id="nitroKey">MAJ</kbd></small></div></div>
   <div id="lights" class="panel hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="countdown" class="disp hidden">3</div>
   <div id="wrong" class="panel disp hidden">⚠ MAUVAIS SENS</div>
-  <div id="hint" class="panel"><span class="kb2"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> nitro · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>K</kbd> morceau suivant</span><span id="padHint">🎮 RT/A gaz · LT/B frein · RB/X frein à main · LB/Y nitro · Select replacer · R3 caméra · Start pause</span></div>
+  <div id="hint" class="panel"><span class="kb2"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> NITRO · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>K</kbd> morceau suivant</span><span id="padHint">🎮 RT gaz · LT/B frein · RB/X frein à main · <b style="color:#a5f3fc">A / ✕ NITRO</b> · Select replacer · R3 caméra · Start pause</span></div>
   <div id="nowPlaying" class="panel"></div>
 </div>
 
@@ -268,9 +297,9 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
     <div class="pane" id="pane-play">
       <div class="grid" id="modeList"></div>
-      <div id="raceOpts">
-        <h3>Réglages de la course</h3>
-        <div class="row" style="gap:18px">
+      <div class="row" style="gap:22px;align-items:flex-end;margin-top:14px">
+        <div><div class="lbl" style="margin-bottom:6px">Ambiance · Nouakchott</div><div class="seg" id="segNight"><button data-v="0">☀️ Jour</button><button data-v="1">🌙 Nuit</button></div></div>
+        <div id="raceOpts" class="row" style="gap:18px">
           <div><div class="lbl" style="margin-bottom:6px">Difficulté</div><div class="seg" id="segDiff"><button data-v="0">Facile</button><button data-v="1">Normal</button><button data-v="2">Pro</button></div></div>
           <div><div class="lbl" style="margin-bottom:6px">Tours</div><div class="seg" id="segLaps"><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div></div>
         </div>
@@ -280,12 +309,15 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
     <div class="pane hidden" id="pane-garage">
       <div class="two">
         <div>
-          <h3 style="margin-top:0">Audi RS Q8 · ta voiture</h3>
+          <h3 style="margin-top:0">Choisis ta voiture</h3>
+          <div class="carGrid" id="carList"></div>
+          <h3 id="carTitle">Audi RS Q8 · ta voiture</h3>
           <div id="carStats"></div>
-          <h3>Peinture</h3>
+          <div id="paintBox"><h3>Peinture</h3>
           <div class="row" id="paints"></div>
           <h3>Jantes</h3>
-          <div class="row" id="rims"></div>
+          <div class="row" id="rims"></div></div>
+          <div class="note" id="carNote" style="margin-top:8px"></div>
         </div>
         <div>
           <h3 style="margin-top:0">Améliorations</h3>
@@ -316,9 +348,10 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
       <div class="two">
         <div>
           <h3 style="margin-top:0">Qualité graphique</h3>
-          <div class="seg" id="segQual"><button data-v="0">Basse</button><button data-v="1">Haute</button></div>
-          <div class="note" id="qualNote" style="margin-top:6px">« Basse » est conseillé sur téléphone : le jeu est plus fluide.</div>
+          <div class="seg" id="segQual"><button data-v="0">Basse</button><button data-v="1">Haute</button><button data-v="2">Ultra</button></div>
+          <div class="note" id="qualNote" style="margin-top:6px">« Haute » : belle image et fluide sur téléphone. « Ultra » : le maximum, pour PC. « Basse » : vieux téléphones.</div>
           <div class="note" id="verLabel" style="margin-top:14px;opacity:.5"></div>
+          <div class="note" style="margin-top:4px;opacity:.5;font-size:12px">Crédits : « Ferrari 458 Italia » par vicent091036 (Sketchfab, CC BY 4.0) · Buggy du « Starter Kit Racing » par Kenney (kenney.nl).</div>
           <h3>Son</h3>
           <div class="seg" id="segSound"><button data-v="1">Activé</button><button data-v="0">Coupé</button></div>
           <h3>Musique</h3>
@@ -331,9 +364,9 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <h3 style="margin-top:0">Commandes</h3>
           <kbd>Z</kbd>/<kbd>↑</kbd> accélérer · <kbd>S</kbd>/<kbd>↓</kbd> freiner/reculer<br>
           <kbd>Q</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> tourner · <kbd>Espace</kbd> frein à main<br>
-          <kbd>Maj</kbd> ou <kbd>N</kbd> nitro · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>Échap</kbd> pause<br>
-          <b>Manette USB / Xbox / PlayStation</b> : RT ou A gaz · LT ou B frein · RB ou X frein à main · LB ou Y nitro · stick ou croix pour tourner · Select replacer · clic stick droit caméra · Start pause. Dans les menus : croix/stick pour choisir, A valider, B retour, LB/RB changer d'onglet.<br><span id="padStatus" style="color:#ffd166"></span><br>
-          Le nitro se recharge quand tu drifts. Les fans t'acclament quand tu passes près d'eux.
+          <b style="color:#a5f3fc">NITRO : un seul bouton → <kbd>Maj</kbd></b> (ou le bouton 🔥 à l'écran) · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>Échap</kbd> pause<br>
+          <b>Manette USB / Xbox / PlayStation</b> : RT gaz · LT ou B frein · RB ou X frein à main · <b style="color:#a5f3fc">A (✕ sur PlayStation) = NITRO</b> · stick ou croix pour tourner · Select replacer · clic stick droit caméra · Start pause. Dans les menus : croix/stick pour choisir, A valider, B retour, LB/RB changer d'onglet.<br><span id="padStatus" style="color:#ffd166"></span><br>
+          Le nitro se recharge quand tu drifts, et d'un coup quand tu roules sur une bouteille bleue posée sur la route. Prends les raccourcis (panneaux orange) pour gagner du temps.
         </div>
       </div>
     </div>
@@ -373,7 +406,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.2.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.3.0';</script>
 <script src="game.js"></script>
 <div id="updBar" class="hidden"><span>🚀 Nouvelle version de Drift Zone disponible</span><button id="updGo">Mettre à jour</button><button id="updX" aria-label="Plus tard">✕</button></div>
 <script>

@@ -22,9 +22,34 @@ VERSION INSTALLÉE SUR CE PC (sans Internet)
   « Mettre a jour.bat »     : télécharge la dernière version depuis GitHub
                                et remplace les fichiers de ce dossier.
 
-FLUIDITÉ SUR TÉLÉPHONE
-  Options → Qualité « Basse » (choisie automatiquement sur téléphone).
-  Le jeu baisse aussi tout seul la résolution s'il rame.
+QUALITÉ GRAPHIQUE (Options)
+  « Haute » : choisie automatiquement sur téléphone (image nette, lisse et fluide).
+  « Ultra » : choisie automatiquement sur PC (ombres douces, ville plus dense).
+  « Basse » : seulement pour les vieux téléphones.
+  Le jeu ajuste tout seul la résolution pour rester fluide, sans descendre
+  sous une image nette.
+
+NOUAKCHOTT
+  Le circuit passe par l'avenue Gamal Abdel Nasser, l'avenue Charles de Gaulle,
+  la route de l'Espoir, les avenues Kennedy, Lumumba et Moktar Ould Daddah,
+  la route de Rosso. Deux raccourcis (panneaux orange) : rue de l'Ambassade
+  du Sénégal et rue Mamadou Konaté.
+  Monuments : tour SNIM, Grande Mosquée, Mosquée Marocaine, palais présidentiel,
+  Musée national, Stade olympique, Mauricenter, Fasq Hôtel, Azalaï Marhaba,
+  Hôtel Tfeila, Hôtel Halima, plage et océan Atlantique.
+  Mode nuit : menu Jouer → Ambiance → Nuit.
+
+NITRO
+  Un seul bouton : Maj (clavier), A / ✕ (manette), ou le bouton bleu à l'écran.
+  Roule sur les bouteilles bleues posées sur la route : boost + recharge.
+
+VOITURES (Garage)
+  Audi RS Q8, Supercar 458, Pick-up 4x4, Taxi, SUV 4x4, Police, Buggy du désert.
+
+CRÉDITS
+  Modèle « Ferrari 458 Italia » : vicent091036 (Sketchfab, CC BY 4.0).
+  Buggy : « Starter Kit Racing » de Kenney (kenney.nl).
+  Ville, véhicules du pack, personnages et Audi : tes fichiers.
 
 À SAVOIR
   - Le mode « En ligne » (multijoueur) ne marche que dans la version claude.ai.
