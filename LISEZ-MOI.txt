@@ -52,8 +52,36 @@ NOUAKCHOTT : UNE VILLE CONTINUE EN 3 MANCHES
   Mode nuit : menu Jouer → Ambiance → Nuit.
 
 MANETTE (USB / PlayStation / Xbox)
-  ✕ (A)      accélérer           △ (Y)  freiner
-  □ (X)      drift (frein à main) O (B)  NITRO
+  ✕          démarrer (valider dans les menus) et accélérer
+  □          accélérateur
+  △          marche arrière (freine d'abord si tu roules en avant)
+  O          NITRO
+  R1         drift (frein à main)
+  Croix      gauche = tourner à gauche, droite = tourner à droite,
+             haut = avancer, bas = frein / marche arrière (comme le stick)
+  Stick gauche : volant ; vers l'avant = accélérer, vers l'arrière = frein /
+             marche arrière
+  Stick droit : haut = accélérer, bas = frein, gauche = drift, droite = nitro
+  Gâchettes : R2 gaz, L2 frein. Clic d'un stick = caméra. Select = replacer.
+  Start : pause.
+  MENUS : la croix (ou le stick) déplace le cadre jaune sur les modes, les
+  voitures du garage, les options… ✕ choisit, Start lance la course,
+  O revient, L1 / R1 changent d'onglet. Pause et fin de course : croix ou
+  Select pour choisir, ✕ ou Start pour valider.
+  SI UN BOUTON NE MARCHE PAS (manette USB générique) : Options →
+  « Configurer la manette 1 », puis appuie sur chaque bouton demandé.
+  La configuration est gardée pour cette manette (et pour la 2e si c'est
+  le même modèle, sinon « Manette 2 »).
+
+MODE 2 JOUEURS (même PC, écran partagé)
+  Menu Jouer → « 2 joueurs ». Le Joueur 1 choisit sa voiture au Garage,
+  le Joueur 2 avec la croix gauche / droite de la manette 2 (ou en cliquant).
+  Course en 3 ou 6 manches, en duel ou avec 4 pilotes IA.
+  Joueur 1 = manette 1 (ou Z Q S D, Espace, Maj gauche) en haut de l'écran.
+  Joueur 2 = manette 2 (ou flèches, Entrée = drift, Ctrl droit = nitro) en bas.
+  Ce mode fonctionne hors ligne (pas encore en ligne à deux sur le même PC).
+
+NITRO
   Croix      gauche / droite pour tourner, haut = avancer,
              bas = frein puis marche arrière
   Stick gauche : volant (gauche / droite) ; vers l'avant = accélérer,
@@ -70,7 +98,7 @@ NITRO
   (manette), ou le bouton bleu à l'écran.
   Roule sur les bouteilles bleues posées sur la route : boost + recharge.
 
-VOITURES (Garage)
+VOITURES (Garage : chaque voiture avec sa photo)
   Audi RS Q8, Nissan Silvia S15, Dodge Challenger Hellcat, Dodge Viper SRT-10,
   Supercar 458, Specter GT3. Chaque moteur a son propre son, synthétisé
   harmonique par harmonique : V8 biturbo feutré (Audi), 4 cylindres turbo

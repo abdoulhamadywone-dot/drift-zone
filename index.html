@@ -101,6 +101,15 @@ input:focus{border-color:var(--accent)}
 #nowPlaying.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .has-touch #nowPlaying{bottom:auto;top:14px}
 #padHint{display:none}
+#duoHud{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none}
+body.duo #duoHud{display:block}
+body.duo #hud>*:not(#duoHud):not(#lights):not(#countdown):not(#nowPlaying){display:none!important}
+.p2row{display:flex;gap:8px;flex-wrap:wrap}
+.p2car{display:flex;flex-direction:column;align-items:center;gap:4px;width:118px;padding:6px;border-radius:12px;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#e2e8f0;font:600 12px inherit;cursor:pointer}
+.p2car img{width:104px;height:58px;object-fit:cover;border-radius:8px;background:#111}
+.p2car.sel{border-color:#38bdf8;background:rgba(56,189,248,.16)}
+.carCard img{display:block;width:100%;height:84px;object-fit:cover;border-radius:8px;margin-bottom:6px;background:#111}
+.padsel{outline:3px solid #ffd166!important;outline-offset:3px;box-shadow:0 0 0 6px rgba(255,209,102,.25)!important}
 .btn.padsel{outline:3px solid #ffd166;outline-offset:3px;box-shadow:0 0 0 6px rgba(255,209,102,.25)}
 body.pad #padHint{display:block}
 body.pad #hint .kb2{display:none}
@@ -253,6 +262,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 </div>
 
 <div id="hud" class="hidden">
+  <canvas id="duoHud"></canvas>
   <div id="labels"></div>
   <div id="speedFx"></div>
   <div id="hudL">
@@ -304,6 +314,11 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <div><div class="lbl" style="margin-bottom:6px">Difficulté</div><div class="seg" id="segDiff"><button data-v="0">Facile</button><button data-v="1">Normal</button><button data-v="2">Pro</button></div></div>
           <div><div class="lbl" style="margin-bottom:6px">Manches</div><div class="seg" id="segLaps"><button data-v="1">3</button><button data-v="2">6</button></div></div>
         </div>
+      </div>
+      <div id="duoOpts" class="hidden" style="margin-top:14px">
+        <div class="lbl" style="margin-bottom:6px">Joueur 2 · sa voiture (croix gauche / droite sur la manette 2) — le Joueur 1 choisit la sienne au Garage</div>
+        <div class="p2row" id="p2cars"></div>
+        <div class="row" style="gap:18px;margin-top:10px;align-items:flex-end"><div><div class="lbl" style="margin-bottom:6px">Adversaires IA</div><div class="seg" id="segDuoAI"><button data-v="0">Aucun (duel)</button><button data-v="1">+ 4 pilotes IA</button></div></div><div class="note" id="duoPads" style="max-width:520px"></div></div>
       </div>
     </div>
 
@@ -366,7 +381,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <kbd>Z</kbd>/<kbd>↑</kbd> accélérer · <kbd>S</kbd>/<kbd>↓</kbd> freiner/reculer<br>
           <kbd>Q</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> tourner · <kbd>Espace</kbd> frein à main<br>
           <b style="color:#a5f3fc">NITRO : un seul bouton → <kbd>Maj</kbd></b> (ou le bouton 🔥 à l'écran) · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>Échap</kbd> pause<br>
-          <b>Manette USB / PlayStation / Xbox</b> : <b>✕</b> (A) accélérer · <b>△</b> (Y) freiner · <b>□</b> (X) drift · <b style="color:#a5f3fc">O (B) = NITRO</b> · croix : gauche/droite pour tourner, haut avancer, bas frein / marche arrière · stick gauche : volant (avant / arrière aussi) · stick droit : haut gaz, bas frein, gauche drift, droite nitro · RT gaz, LT frein, RB frein à main · Select replacer · clic stick droit caméra · Start pause. Dans le tableau de pause / de fin : Select (ou la croix) choisit, Start valide. Dans les menus : croix/stick pour choisir, ✕ ou Start pour jouer, LB/RB changer d'onglet.<br><span id="padStatus" style="color:#ffd166"></span><br>
+          <b>Manette USB / PlayStation / Xbox</b> : <b>✕</b> démarrer (accélère aussi) · <b>□</b> accélérateur · <b>△</b> marche arrière / frein · <b style="color:#a5f3fc">O = NITRO</b> · <b>R1</b> drift · croix : gauche / droite pour tourner, haut avancer, bas frein · stick gauche : volant + avant / arrière · stick droit : haut gaz, bas frein, gauche drift, droite nitro · Select replacer · clic stick caméra · Start pause.<br>Dans les menus : <b>croix ou stick</b> pour se déplacer (modes, voitures, options…), <b>✕</b> choisir, <b>Start</b> lancer la course, <b>O</b> retour, <b>L1 / R1</b> changer d'onglet. Pause et fin de course : croix ou Select pour choisir, ✕ ou Start pour valider.<br>Si un bouton ne fait pas ce qu'il faut (manette USB générique), configure-la : <button class="btn small" id="btnPadCfg">🎮 Configurer la manette 1</button> <button class="btn small ghost" id="btnPadCfg2">Manette 2</button> <button class="btn small ghost" id="btnPadReset">Par défaut</button><br><span id="padStatus" style="color:#ffd166"></span><br>
           Le nitro se recharge quand tu drifts, et d'un coup quand tu roules sur une bouteille bleue posée sur la route. Prends les raccourcis (panneaux orange) pour gagner du temps.
         </div>
       </div>
@@ -376,6 +391,17 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
       <div class="keys"><span class="tip" id="modeTip"></span></div>
       <button class="btn" id="btnPlay">JOUER ▶</button>
     </div>
+  </div>
+</div>
+
+<div id="padWiz" class="screen hidden" style="z-index:90">
+  <div class="card modal" style="max-width:560px">
+    <div class="lbl" id="wizPad">Manette</div>
+    <div class="logo disp" style="font-size:34px;margin:6px 0">CONFIGURATION</div>
+    <div class="lbl" id="wizStep">1 / 12</div>
+    <div id="wizMsg" style="font-size:20px;margin:18px 0 22px;line-height:1.4">Appuie sur…</div>
+    <div class="note" style="margin-bottom:14px">Appuie sur le bouton (ou pousse le stick) de ta manette. « Passer » garde le réglage par défaut.</div>
+    <div class="btns"><button class="btn ghost" id="wizSkip">Passer</button><button class="btn ghost" id="wizCancel">Annuler</button></div>
   </div>
 </div>
 
@@ -407,7 +433,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.5.1';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.6.0';</script>
 <script src="engine-dsp.js"></script>
 <script src="game.js"></script>
 <div id="updBar" class="hidden"><span>🚀 Nouvelle version de Drift Zone disponible</span><button id="updGo">Mettre à jour</button><button id="updX" aria-label="Plus tard">✕</button></div>
