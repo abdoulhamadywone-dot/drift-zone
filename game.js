@@ -1699,11 +1699,16 @@ bindTouch('tLeft', 'left'); bindTouch('tRight', 'right'); bindTouch('tGas', 'gas
 const pad = { prev: {}, active: false, name: '' };
 function getPad() { try { const ps = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of ps) if (p && p.connected !== false) return p; } catch (e) {} return null; }
 const bv = (p, i) => { const b = p.buttons[i]; if (!b) return 0; return typeof b === 'object' ? (b.value || (b.pressed ? 1 : 0)) : (b ? 1 : 0); };
+function dpad(p) { // croix directionnelle (boutons 12-15, ou « chapeau » sur l'axe 9 des manettes USB génériques)
+  const d = { u: bv(p, 12) > 0.5, d: bv(p, 13) > 0.5, l: bv(p, 14) > 0.5, r: bv(p, 15) > 0.5 };
+  if (p.mapping !== 'standard' && p.axes.length > 9) { const h = p.axes[9]; if (Math.abs(h) <= 1.05) { const k = Math.round((h + 1) * 3.5) % 8; if (k === 7 || k <= 1) d.u = true; if (k >= 1 && k <= 3) d.r = true; if (k >= 3 && k <= 5) d.d = true; if (k >= 5 && k <= 7) d.l = true; } }
+  return d;
+}
 function padEdges(p) {
   const now = {}, pressed = [];
   for (let i = 0; i < p.buttons.length; i++) { now[i] = bv(p, i) > 0.5; if (now[i] && !pad.prev[i]) pressed.push(i); }
-  const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
-  now.L = ax < -0.6; now.R = ax > 0.6; now.U = ay < -0.6; now.D = ay > 0.6;
+  const ax = p.axes[0] || 0, ay = p.axes[1] || 0, dp = dpad(p);
+  now.L = ax < -0.6 || dp.l; now.R = ax > 0.6 || dp.r; now.U = ay < -0.6 || dp.u; now.D = ay > 0.6 || dp.d;
   for (const k of ['L', 'R', 'U', 'D']) if (now[k] && !pad.prev[k]) pressed.push(k);
   pad.prev = now; return pressed;
 }
@@ -1725,10 +1730,16 @@ function pollPad() {
     if (has(9)) pauseGame();
     else if (has(8) && state === 'play') resetToTrack(player, true);
     else if (has(11) || has(10)) cycleCam();
-  } else if (state === 'pause') {
-    if (has(9) || has(0)) resumeGame(); else if (has(1)) toMenu(); else if (has(3) && mode() !== 'online') startGame();
-  } else if (state === 'results') {
-    if (has(0) || has(9)) $('btnAgain').click(); else if (has(1)) toMenu();
+  } else if (state === 'pause' || state === 'results') {
+    // tableau de bord : Select (ou la croix / le stick) choisit, Start (ou ✕) valide
+    const list = [...$(state).querySelectorAll('.btns .btn')].filter(b => b.offsetParent !== null && !b.disabled);
+    if (!list.length) return;
+    if (pad.sel === undefined || pad.selFor !== state || pad.sel >= list.length) { pad.sel = 0; pad.selFor = state; }
+    let mv = 0; if (has(8) || has(13) || has('D') || has('R')) mv = 1; if (has(12) || has('U') || has('L')) mv = -1;
+    if (mv) { pad.sel = (pad.sel + mv + list.length) % list.length; blip(660, 0.05, 0.06); }
+    list.forEach((b, k) => b.classList.toggle('padsel', k === pad.sel));
+    if (has(9) || has(0)) { const b = list[pad.sel]; pad.sel = undefined; list.forEach(x => x.classList.remove('padsel')); b.click(); }
+    else if (has(1) && state === 'pause') resumeGame();
   } else if (state === 'menu') {
     const tabs = ['play', 'garage', 'online', 'options'];
     if (has(4) || has(5)) { const i = tabs.indexOf(menuTab); const t = tabs[(i + (has(5) ? 1 : tabs.length - 1)) % tabs.length]; document.querySelector('.tab[data-tab="' + t + '"]').click(); }
@@ -1742,7 +1753,7 @@ function pollPad() {
     if (has(0) || has(9)) startGame();
   }
 }
-function nitroKeyName() { return pad.active ? 'A / ✕' : 'MAJ'; }
+function nitroKeyName() { return pad.active ? 'O / B' : 'MAJ'; }
 { // bouton nitro à l'écran (souris / doigt)
   const el = $('nitroBtn');
   const on = e => { e.preventDefault(); touch.mnitro = true; initAudio(); }, off = () => { touch.mnitro = false; };
@@ -1757,13 +1768,18 @@ function readInput() {
   let nitro = (k.ShiftLeft || k.ShiftRight || touch.nitro || touch.mnitro) ? 1 : 0; // un seul bouton nitro : Maj (ou le bouton à l'écran)
   const p = pad.active ? getPad() : null;
   if (p) {
-    const ax = p.axes[0] || 0, dz = 0.14;
-    if (Math.abs(ax) > dz) steer = -Math.sign(ax) * Math.min(1, (Math.abs(ax) - dz) / (1 - dz));
-    if (bv(p, 14) > 0.5) steer = 1; if (bv(p, 15) > 0.5) steer = -1;
-    thr = Math.max(thr, bv(p, 7));
-    brk = Math.max(brk, bv(p, 6), bv(p, 1));
-    if (bv(p, 5) > 0.5 || bv(p, 2) > 0.5) hb = 1;
-    if (bv(p, 0) > 0.5) nitro = 1; // un seul bouton nitro : A (Xbox) / ✕ (PlayStation)
+    // ✕ accélère · △ freine · □ drift · O nitro · croix : direction, haut = avancer, bas = frein / marche arrière
+    // stick gauche = volant (avant / arrière aussi) · stick droit : haut accélère, bas freine, gauche drift, droite nitro
+    // gâchettes et boutons de tranche comme avant : RT gaz, LT frein, RB frein à main
+    const A = i => p.axes[i] || 0, dz = 0.14, dp = dpad(p);
+    const lx = A(0), ly = A(1), rx = p.axes.length > 3 ? A(2) : 0, ry = p.axes.length > 3 ? A(3) : 0;
+    const fwd = v => (v < -0.35 ? Math.min(1, (-v - 0.35) / 0.45) : 0), back = v => (v > 0.5 ? 1 : 0);
+    if (Math.abs(lx) > dz) steer = -Math.sign(lx) * Math.min(1, (Math.abs(lx) - dz) / (1 - dz));
+    if (dp.l) steer = 1; if (dp.r) steer = -1;
+    thr = Math.max(thr, bv(p, 0), bv(p, 7), dp.u ? 1 : 0, fwd(ly), fwd(ry));
+    brk = Math.max(brk, bv(p, 3), bv(p, 6), dp.d ? 1 : 0, back(ly), back(ry));
+    if (bv(p, 2) > 0.5 || bv(p, 5) > 0.5 || rx < -0.5) hb = 1;
+    if (bv(p, 1) > 0.5 || rx > 0.5) nitro = 1;
   }
   return { thr, brk, steer: clamp(steer, -1, 1), hb, nitro };
 }
@@ -1994,7 +2010,11 @@ function startGame() {
   else { state = 'countdown'; $('countdown').classList.remove('hidden'); $('lights').classList.add('hidden'); }
   updateHud();
 }
-function showScreen(id) { for (const s of ['menu', 'pause', 'results']) $(s).classList.toggle('hidden', s !== id); }
+function showScreen(id) {
+  for (const s of ['menu', 'pause', 'results']) $(s).classList.toggle('hidden', s !== id);
+  document.querySelectorAll('.btn.padsel').forEach(b => b.classList.remove('padsel'));
+  if (pad.active && (id === 'pause' || id === 'results')) { pad.sel = 0; pad.selFor = id; const b = $(id).querySelector('.btns .btn'); if (b) b.classList.add('padsel'); }
+}
 function pauseGame() {
   if (state !== 'play' && state !== 'countdown') return;
   if (mode() === 'online') { // pas de vraie pause en ligne
@@ -2458,7 +2478,7 @@ function updateHud() {
   $('score').textContent = fmtInt(game.score);
   $('scoreSub').textContent = m === 'online' ? 'Session en ligne' : 'Record : ' + fmtInt(Math.max(game.best, m === 'drift' ? game.score : 0));
   const racing = m === 'race' || (m === 'online' && net.raceState !== 'free');
-  { const mi = mancheAt(pc.idx), lapC = Math.max(pc.lap, 1); $('lapN').textContent = racing ? Math.min((Math.min(lapC, game.laps) - 1) * 3 + mi + 1, game.laps * 3) + ' / ' + game.laps * 3 : (mi + 1) + ' / 3'; }
+  { const mi = pc.lap >= 1 ? mancheAt(pc.idx) : 0, lapC = Math.max(pc.lap, 1); $('lapN').textContent = racing ? Math.min((Math.min(lapC, game.laps) - 1) * 3 + mi + 1, game.laps * 3) + ' / ' + game.laps * 3 : (mi + 1) + ' / 3'; }
   $('lapTime').textContent = fmtTime(state === 'countdown' || pc.frozen ? 0.0001 : (racing ? game.raceT : game.raceT - pc.lapStart)).replace('--', '0:00.00');
   const bl = m === 'time' ? game.bestLapT : (racing ? pc.bestLap : store.get('lap_best3', Infinity));
   $('lapBest').textContent = (racing ? 'Meilleur tour : ' : 'Meilleur : ') + fmtTime(bl);
@@ -2800,7 +2820,7 @@ loadAll(() => {
   ensurePlayer(); placeCar(player, idxWrap(-Math.round(12 / SEG)), 0); player.frozen = true;
   $('loading').classList.add('hidden');
   state = 'menu'; showScreen('menu'); renderMenu();
-  if (TEST) window.__dz = { buildCar, CARS, loadAsset, updateDistCull, TAG, EL, MANCHES, audio, ASSETS, carKey, LM_PLACED, showScreen, BR, BOTTLES, nearestBr, applyAmbience, selectCar, placeCar, get bottleCount() { return game.bottles || 0; }, perf, get pixelRatio() { return pixelRatio; }, LOW, scene, renderer, camera, get player() { return player; }, get cars() { return cars; }, game, combo, keys, net, prof, get state() { return state; }, startGame, netUpdate, onlinePeers, physicsStep, aiInput, __setPlay() { state = 'play'; $('lights').classList.add('hidden'); }, standings, K, N, SEG, track: i => [PX[i], PZ[i]], endSession, toMenu,
+  if (TEST) window.__dz = { readInput, pollPad, buildCar, CARS, loadAsset, updateDistCull, TAG, EL, MANCHES, audio, ASSETS, carKey, LM_PLACED, showScreen, BR, BOTTLES, nearestBr, applyAmbience, selectCar, placeCar, get bottleCount() { return game.bottles || 0; }, perf, get pixelRatio() { return pixelRatio; }, LOW, scene, renderer, camera, get player() { return player; }, get cars() { return cars; }, game, combo, keys, net, prof, get state() { return state; }, startGame, netUpdate, onlinePeers, physicsStep, aiInput, __setPlay() { state = 'play'; $('lights').classList.add('hidden'); }, standings, K, N, SEG, track: i => [PX[i], PZ[i]], endSession, toMenu,
     simulate(sec, ctl) { const dt = 1 / 60, out = []; for (let t = 0; t < sec; t += dt) { const ins = new Map(); ins.set(player, ctl ? ctl(player, t) : AUTO(player)); for (const c of cars) if (c.isAI) ins.set(c, aiInput(c, cars)); const prevs = new Map(cars.map(c => [c, c.idx])); for (let s = 0; s < 3; s++) for (const c of cars) if (!c.frozen) physicsStep(c, ins.get(c) || NO_INPUT, dt / 3); for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) collidePair(cars[i], cars[j], false); for (const c of cars) if (c.isAI) { const lp = trackLaps(c, prevs.get(c)); if (lp && lp.crossed && c.lap > game.laps && !c.finished) { c.finished = true; c.finishTime = game.raceT; } } if (state === 'play') { gameLogic(dt, prevs.get(player)); bottleLogic(dt); } else { game.raceT += dt; trackLaps(player, prevs.get(player)); } aiLogic(dt); if (state === 'finish') { game.finishWait -= dt; if (game.finishWait <= 0) endSession(); } if (state === 'results') break; } return out; } };
 });
 frame();

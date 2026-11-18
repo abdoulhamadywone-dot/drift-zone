@@ -51,8 +51,23 @@ NOUAKCHOTT : UNE VILLE CONTINUE EN 3 MANCHES
   photos pour que je colle encore mieux à la réalité.
   Mode nuit : menu Jouer → Ambiance → Nuit.
 
+MANETTE (USB / PlayStation / Xbox)
+  ✕ (A)      accélérer           △ (Y)  freiner
+  □ (X)      drift (frein à main) O (B)  NITRO
+  Croix      gauche / droite pour tourner, haut = avancer,
+             bas = frein puis marche arrière
+  Stick gauche : volant (gauche / droite) ; vers l'avant = accélérer,
+             vers l'arrière = frein / marche arrière
+  Stick droit : haut = accélérer, bas = frein, gauche = drift, droite = nitro
+  RT gaz, LT frein, RB frein à main, clic stick droit = caméra (comme avant)
+  Start : pause. Select : replacer la voiture.
+  Tableau de pause / de fin de course : Select (ou la croix) passe d'un bouton
+  à l'autre (Reprendre, Recommencer, Menu principal), Start valide.
+  Menu principal : ✕ ou Start pour lancer la course.
+
 NITRO
-  Un seul bouton : Maj (clavier), A / ✕ (manette), ou le bouton bleu à l'écran.
+  Un seul bouton : Maj (clavier), O (B sur Xbox) ou stick droit vers la droite
+  (manette), ou le bouton bleu à l'écran.
   Roule sur les bouteilles bleues posées sur la route : boost + recharge.
 
 VOITURES (Garage)

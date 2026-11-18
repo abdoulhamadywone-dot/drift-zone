@@ -101,6 +101,7 @@ input:focus{border-color:var(--accent)}
 #nowPlaying.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .has-touch #nowPlaying{bottom:auto;top:14px}
 #padHint{display:none}
+.btn.padsel{outline:3px solid #ffd166;outline-offset:3px;box-shadow:0 0 0 6px rgba(255,209,102,.25)}
 body.pad #padHint{display:block}
 body.pad #hint .kb2{display:none}
 input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;background:none}
@@ -272,7 +273,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
   <div id="lights" class="panel hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="countdown" class="disp hidden">3</div>
   <div id="wrong" class="panel disp hidden">⚠ MAUVAIS SENS</div>
-  <div id="hint" class="panel"><span class="kb2"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> NITRO · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>K</kbd> morceau suivant</span><span id="padHint">🎮 RT gaz · LT/B frein · RB/X frein à main · <b style="color:#a5f3fc">A / ✕ NITRO</b> · Select replacer · R3 caméra · Start pause</span></div>
+  <div id="hint" class="panel"><span class="kb2"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> NITRO · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>K</kbd> morceau suivant</span><span id="padHint">🎮 ✕ gaz · △ frein · □ drift · <b style="color:#a5f3fc">O NITRO</b> · croix / sticks pour conduire · Select replacer · R3 caméra · Start pause</span></div>
   <div id="nowPlaying" class="panel"></div>
 </div>
 
@@ -365,7 +366,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <kbd>Z</kbd>/<kbd>↑</kbd> accélérer · <kbd>S</kbd>/<kbd>↓</kbd> freiner/reculer<br>
           <kbd>Q</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> tourner · <kbd>Espace</kbd> frein à main<br>
           <b style="color:#a5f3fc">NITRO : un seul bouton → <kbd>Maj</kbd></b> (ou le bouton 🔥 à l'écran) · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>Échap</kbd> pause<br>
-          <b>Manette USB / Xbox / PlayStation</b> : RT gaz · LT ou B frein · RB ou X frein à main · <b style="color:#a5f3fc">A (✕ sur PlayStation) = NITRO</b> · stick ou croix pour tourner · Select replacer · clic stick droit caméra · Start pause. Dans les menus : croix/stick pour choisir, A valider, B retour, LB/RB changer d'onglet.<br><span id="padStatus" style="color:#ffd166"></span><br>
+          <b>Manette USB / PlayStation / Xbox</b> : <b>✕</b> (A) accélérer · <b>△</b> (Y) freiner · <b>□</b> (X) drift · <b style="color:#a5f3fc">O (B) = NITRO</b> · croix : gauche/droite pour tourner, haut avancer, bas frein / marche arrière · stick gauche : volant (avant / arrière aussi) · stick droit : haut gaz, bas frein, gauche drift, droite nitro · RT gaz, LT frein, RB frein à main · Select replacer · clic stick droit caméra · Start pause. Dans le tableau de pause / de fin : Select (ou la croix) choisit, Start valide. Dans les menus : croix/stick pour choisir, ✕ ou Start pour jouer, LB/RB changer d'onglet.<br><span id="padStatus" style="color:#ffd166"></span><br>
           Le nitro se recharge quand tu drifts, et d'un coup quand tu roules sur une bouteille bleue posée sur la route. Prends les raccourcis (panneaux orange) pour gagner du temps.
         </div>
       </div>
@@ -406,7 +407,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.5.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.5.1';</script>
 <script src="engine-dsp.js"></script>
 <script src="game.js"></script>
 <div id="updBar" class="hidden"><span>🚀 Nouvelle version de Drift Zone disponible</span><button id="updGo">Mettre à jour</button><button id="updX" aria-label="Plus tard">✕</button></div>
