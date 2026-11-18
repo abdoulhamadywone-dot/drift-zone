@@ -52,26 +52,25 @@ NOUAKCHOTT : UNE VILLE CONTINUE EN 3 MANCHES
   Mode nuit : menu Jouer → Ambiance → Nuit.
 
 MANETTE (USB / PlayStation / Xbox)
-  ✕          démarrer (valider dans les menus) et accélérer
-  □          accélérateur
-  △          marche arrière (freine d'abord si tu roules en avant)
+  ✕          accélérer (et choisir dans les menus)
   O          NITRO
-  R1         drift (frein à main)
+  □          drift
+  △          frein (puis marche arrière quand la voiture est arrêtée)
   Croix      gauche = tourner à gauche, droite = tourner à droite,
-             haut = avancer, bas = frein / marche arrière (comme le stick)
-  Stick gauche : volant ; vers l'avant = accélérer, vers l'arrière = frein /
-             marche arrière
-  Stick droit : haut = accélérer, bas = frein, gauche = drift, droite = nitro
-  Gâchettes : R2 gaz, L2 frein. Clic d'un stick = caméra. Select = replacer.
-  Start : pause.
-  MENUS : la croix (ou le stick) déplace le cadre jaune sur les modes, les
+             haut = avancer, bas = reculer / freiner
+  Stick gauche : avancer (vers l'avant) / reculer (vers l'arrière)
+  Stick droit  : tourner à gauche / à droite
+  Start      lancer le jeu, pause / reprendre
+  Select     options (dans le menu : onglet Options ; en course : menu
+             pause avec caméra, son, replacer la voiture, recommencer…)
+  L1         replacer la voiture · clic d'un stick : caméra
+  MENUS : la croix (ou un stick) déplace le cadre jaune sur les modes, les
   voitures du garage, les options… ✕ choisit, Start lance la course,
-  O revient, L1 / R1 changent d'onglet. Pause et fin de course : croix ou
-  Select pour choisir, ✕ ou Start pour valider.
+  O revient, L1 / R1 changent d'onglet.
   SI UN BOUTON NE MARCHE PAS (manette USB générique) : Options →
-  « Configurer la manette 1 », puis appuie sur chaque bouton demandé.
-  La configuration est gardée pour cette manette (et pour la 2e si c'est
-  le même modèle, sinon « Manette 2 »).
+  « Configurer la manette 1 », puis appuie sur chaque bouton demandé
+  (✕, O, □, △, la croix, le stick gauche vers l'avant, le stick droit vers
+  la gauche, Start, Select). La configuration est gardée pour cette manette.
 
 MODE 2 JOUEURS (même PC, écran partagé)
   Menu Jouer → « 2 joueurs ». Le Joueur 1 choisit sa voiture au Garage,

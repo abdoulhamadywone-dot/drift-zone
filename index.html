@@ -283,7 +283,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
   <div id="lights" class="panel hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="countdown" class="disp hidden">3</div>
   <div id="wrong" class="panel disp hidden">⚠ MAUVAIS SENS</div>
-  <div id="hint" class="panel"><span class="kb2"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> NITRO · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>K</kbd> morceau suivant</span><span id="padHint">🎮 ✕ gaz · △ frein · □ drift · <b style="color:#a5f3fc">O NITRO</b> · croix / sticks pour conduire · Select replacer · R3 caméra · Start pause</span></div>
+  <div id="hint" class="panel"><span class="kb2"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> NITRO · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>K</kbd> morceau suivant</span><span id="padHint">🎮 ✕ gaz · △ frein · □ drift · <b style="color:#a5f3fc">O NITRO</b> · croix / sticks pour conduire · L1 replacer · Start pause · Select options</span></div>
   <div id="nowPlaying" class="panel"></div>
 </div>
 
@@ -381,7 +381,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <kbd>Z</kbd>/<kbd>↑</kbd> accélérer · <kbd>S</kbd>/<kbd>↓</kbd> freiner/reculer<br>
           <kbd>Q</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> tourner · <kbd>Espace</kbd> frein à main<br>
           <b style="color:#a5f3fc">NITRO : un seul bouton → <kbd>Maj</kbd></b> (ou le bouton 🔥 à l'écran) · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>Échap</kbd> pause<br>
-          <b>Manette USB / PlayStation / Xbox</b> : <b>✕</b> démarrer (accélère aussi) · <b>□</b> accélérateur · <b>△</b> marche arrière / frein · <b style="color:#a5f3fc">O = NITRO</b> · <b>R1</b> drift · croix : gauche / droite pour tourner, haut avancer, bas frein · stick gauche : volant + avant / arrière · stick droit : haut gaz, bas frein, gauche drift, droite nitro · Select replacer · clic stick caméra · Start pause.<br>Dans les menus : <b>croix ou stick</b> pour se déplacer (modes, voitures, options…), <b>✕</b> choisir, <b>Start</b> lancer la course, <b>O</b> retour, <b>L1 / R1</b> changer d'onglet. Pause et fin de course : croix ou Select pour choisir, ✕ ou Start pour valider.<br>Si un bouton ne fait pas ce qu'il faut (manette USB générique), configure-la : <button class="btn small" id="btnPadCfg">🎮 Configurer la manette 1</button> <button class="btn small ghost" id="btnPadCfg2">Manette 2</button> <button class="btn small ghost" id="btnPadReset">Par défaut</button><br><span id="padStatus" style="color:#ffd166"></span><br>
+          <b>Manette USB / PlayStation / Xbox</b> : <b>✕</b> accélérer · <b style="color:#a5f3fc">O = NITRO</b> · <b>□</b> drift · <b>△</b> frein (marche arrière à l'arrêt) · <b>croix</b> : gauche / droite pour tourner, haut avancer, bas reculer / freiner · <b>stick gauche</b> : avancer / reculer · <b>stick droit</b> : tourner à gauche / à droite · <b>Start</b> lancer le jeu / pause · <b>Select</b> options · L1 replacer la voiture · clic stick caméra.<br>Dans les menus : <b>croix ou stick</b> pour se déplacer (modes, voitures, options…), <b>✕</b> choisir, <b>Start</b> lancer la course, <b>Select</b> options, <b>O</b> retour, <b>L1 / R1</b> changer d'onglet.<br>Si un bouton ne fait pas ce qu'il faut (manette USB générique), configure-la : <button class="btn small" id="btnPadCfg">🎮 Configurer la manette 1</button> <button class="btn small ghost" id="btnPadCfg2">Manette 2</button> <button class="btn small ghost" id="btnPadReset">Par défaut</button><br><span id="padStatus" style="color:#ffd166"></span><br>
           Le nitro se recharge quand tu drifts, et d'un coup quand tu roules sur une bouteille bleue posée sur la route. Prends les raccourcis (panneaux orange) pour gagner du temps.
         </div>
       </div>
@@ -411,6 +411,8 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
     <div class="btns">
       <button class="btn" id="btnResume">Reprendre</button>
       <button class="btn ghost" id="btnRestart">Recommencer</button>
+      <button class="btn ghost" id="btnPReset">↺ Replacer la voiture</button>
+      <div class="row" style="gap:8px"><button class="btn ghost" id="btnPCam" style="flex:1">🎥 Caméra</button><button class="btn ghost" id="btnPSound" style="flex:1">🔊 Son</button></div>
       <button class="btn ghost" id="btnNext2">⏭ Morceau suivant</button>
       <button class="btn ghost" id="btnMenu">Menu principal</button>
     </div>
@@ -433,7 +435,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.6.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.6.1';</script>
 <script src="engine-dsp.js"></script>
 <script src="game.js"></script>
 <div id="updBar" class="hidden"><span>🚀 Nouvelle version de Drift Zone disponible</span><button id="updGo">Mettre à jour</button><button id="updX" aria-label="Plus tard">✕</button></div>

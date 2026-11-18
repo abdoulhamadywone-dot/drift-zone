@@ -1716,12 +1716,13 @@ bindTouch('tLeft', 'left'); bindTouch('tRight', 'right'); bindTouch('tGas', 'gas
 /* --- Manette (USB, Xbox, PlayStation, génériques) --- */
 /* ======================= Manettes (jusqu'à 2 joueurs) ======================= */
 // Chaque manette a sa configuration (Options → Configurer la manette). Sans configuration :
-// ✕ démarrer / accélérer · □ accélérateur · △ marche arrière / frein · O nitro · R1 drift
-// croix : gauche / droite tourner, haut avancer, bas frein · stick gauche = volant + avant / arrière
-// stick droit : haut gaz, bas frein, gauche drift, droite nitro · L1 / R1 onglets dans les menus
+// ✕ accélérer · O nitro · □ drift · △ frein (puis marche arrière à l'arrêt)
+// croix : gauche / droite tourner, haut avancer, bas reculer / freiner
+// stick gauche : avancer / reculer · stick droit : tourner à gauche / à droite
+// Start : lancer le jeu / pause · Select : options · L1 replacer la voiture · L1 / R1 onglets dans les menus
 const pad = { prev: {}, active: false, name: '', sel: undefined, selFor: null };
 const pad2 = { prev: {} };
-const PADMAP_KEY = 'padmap3';
+const PADMAP_KEY = 'padmap4';
 let padMaps = store.get(PADMAP_KEY, {}) || {};
 function getPads() { const out = []; try { for (const p of (navigator.getGamepads ? navigator.getGamepads() : [])) if (p && p.connected !== false) out.push(p); } catch (e) {} return out; }
 function getPad(k) { return getPads()[k || 0] || null; }
@@ -1731,18 +1732,20 @@ const padKey = p => (p.id || 'manette') + '|' + (p.mapping || 'raw');
 const padRest = {};
 function restOf(p) { const k = padKey(p) + '#' + p.index; if (!padRest[k]) padRest[k] = p.axes.map(a => (Math.abs(a) > 0.5 && Math.abs(a) <= 1.01 ? a : 0)); return padRest[k]; }
 const B = i => ['b', i];
-const DEF_STD = { ok: [B(0)], gas: [B(0), B(2), B(7)], rev: [B(3), B(6)], drift: [B(5)], nitro: [B(1)], left: [B(14)], right: [B(15)], up: [B(12)], down: [B(13)], start: [B(9)], select: [B(8)], cam: [B(10), B(11)], tabL: [B(4)], tabR: [B(5)], back: [B(1)] };
+const DEF_STD = { ok: [B(0)], gas: [B(7)], rev: [B(3), B(6)], drift: [B(2), B(5)], nitro: [B(1)], left: [B(14)], right: [B(15)], up: [B(12)], down: [B(13)], start: [B(9)], select: [B(8)], reset: [B(4)], cam: [B(10), B(11)], tabL: [B(4)], tabR: [B(5)], back: [B(1)] };
 // manettes USB génériques (sans « mapping standard ») : ordre habituel △ O ✕ □ L1 R1 L2 R2 Select Start L3 R3
-const DEF_RAW = { ok: [B(2)], gas: [B(2), B(3), B(7)], rev: [B(0), B(6)], drift: [B(5)], nitro: [B(1)], left: [], right: [], up: [], down: [], start: [B(9)], select: [B(8)], cam: [B(10), B(11)], tabL: [B(4)], tabR: [B(5)], back: [B(1)] };
-function padMap(p) { const base = p.mapping === 'standard' ? DEF_STD : DEF_RAW, c = padMaps[padKey(p)]; return c ? Object.assign({}, base, c) : base; }
+const DEF_RAW = { ok: [B(2)], gas: [B(7)], rev: [B(0), B(6)], drift: [B(3), B(5)], nitro: [B(1)], left: [], right: [], up: [], down: [], start: [B(9)], select: [B(8)], reset: [B(4)], cam: [B(10), B(11)], tabL: [B(4)], tabR: [B(5)], back: [B(1)] };
+const CUSTOM_CLEAR = { gas: [], rev: [], drift: [], nitro: [], left: [], right: [], up: [], down: [] };
+function padMap(p) { const base = p.mapping === 'standard' ? DEF_STD : DEF_RAW, c = padMaps[padKey(p)]; return c ? Object.assign({}, base, CUSTOM_CLEAR, c) : base; }
 function bindVal(p, bd, rest) {
   if (bd[0] === 'b') return bv(p, bd[1]);
   if (bd[0] === 'a') { const v = ((p.axes[bd[1]] || 0) - (rest[bd[1]] || 0)) * bd[2]; return v > 0.3 ? clamp((v - 0.3) / 0.55, 0, 1) : 0; }
   if (bd[0] === 'v') { const v = p.axes[bd[1]]; return v !== undefined && Math.abs(v - bd[2]) < 0.09 ? 1 : 0; }
   return 0;
 }
-function hat(p) { // croix lue sur l'axe « chapeau » des manettes génériques
+function hat(p) { // croix lue sur l'axe « chapeau » (axe 9) ou sur les axes 6 / 7 des manettes génériques
   const d = { u: 0, d: 0, l: 0, r: 0 };
+  if (p.mapping !== 'standard' && p.axes.length >= 8 && p.axes.length < 10) { const x = p.axes[6], y = p.axes[7], dig = v => Math.abs(v) < 0.02 || Math.abs(Math.abs(v) - 1) < 0.02; if (dig(x) && dig(y)) { if (x < -0.5) d.l = 1; if (x > 0.5) d.r = 1; if (y < -0.5) d.u = 1; if (y > 0.5) d.d = 1; } }
   if (p.mapping !== 'standard' && p.axes.length > 9) { const h = p.axes[9]; if (Math.abs(h) <= 1.05) { const k = Math.round((h + 1) * 3.5) % 8; if (k === 7 || k <= 1) d.u = 1; if (k >= 1 && k <= 3) d.r = 1; if (k >= 3 && k <= 5) d.d = 1; if (k >= 5 && k <= 7) d.l = 1; } }
   return d;
 }
@@ -1752,19 +1755,19 @@ function padActs(p) {
   for (const k in m) { let v = 0; for (const bd of m[k]) v = Math.max(v, bindVal(p, bd, rest)); o[k] = v; }
   const custom = !!padMaps[padKey(p)], hh = custom ? { u: 0, d: 0, l: 0, r: 0 } : hat(p);
   o.left = Math.max(o.left, hh.l); o.right = Math.max(o.right, hh.r); o.up = Math.max(o.up, hh.u); o.down = Math.max(o.down, hh.d);
-  // stick gauche (axes 0 / 1) : volant, et avant / arrière
-  const sx = (m.steerAxis && m.steerAxis[0]) ? m.steerAxis[0] : ['a', 0, -1];
-  const lx = A(sx[1]) * -sx[2], ly = A(sx[1] === 0 ? 1 : sx[1] + 1);
-  o.stickX = Math.abs(lx) > 0.14 ? Math.sign(lx) * Math.min(1, (Math.abs(lx) - 0.14) / 0.86) : 0; // > 0 = droite
-  o.stickF = ly < -0.35 ? Math.min(1, (-ly - 0.35) / 0.45) : 0; o.stickB = ly > 0.5 ? 1 : 0;
-  if (p.mapping === 'standard' && p.axes.length > 3) { const rx = A(2), ry = A(3); o.rUp = ry < -0.35 ? Math.min(1, (-ry - 0.35) / 0.45) : 0; o.rDown = ry > 0.5 ? 1 : 0; o.rLeft = rx < -0.5 ? 1 : 0; o.rRight = rx > 0.5 ? 1 : 0; }
-  else o.rUp = o.rDown = o.rLeft = o.rRight = 0;
-  // pour les menus
-  o.navL = Math.max(o.left, o.stickX < -0.6 ? 1 : 0); o.navR = Math.max(o.right, o.stickX > 0.6 ? 1 : 0);
+  // stick droit : volant (axe 2 par défaut) · stick gauche : avancer / reculer (axe 1)
+  const sa = (m.steerAxis && m.steerAxis[0]) ? m.steerAxis[0] : ['a', 2, -1], ga = (m.gasAxis && m.gasAxis[0]) ? m.gasAxis[0] : ['a', 1, -1];
+  const rx = p.axes.length > sa[1] ? A(sa[1]) * -sa[2] : 0, ly = -(A(ga[1]) * ga[2]); // rx > 0 = droite · ly < 0 = vers l'avant
+  const lx = sa[1] !== 0 ? A(0) : 0; // le stick gauche tourne aussi un peu (utile si la croix passe par le stick gauche)
+  const dzs = (v, z) => (Math.abs(v) > z ? Math.sign(v) * Math.min(1, (Math.abs(v) - z) / (1 - z)) : 0);
+  o.stickX = dzs(rx, 0.14) || dzs(lx, 0.35);
+  o.stickF = ly < -0.3 ? Math.min(1, (-ly - 0.3) / 0.5) : 0; o.stickB = ly > 0.45 ? 1 : 0;
+  // pour les menus : croix, ou n'importe quel stick
+  o.navL = Math.max(o.left, rx < -0.6 || lx < -0.6 ? 1 : 0); o.navR = Math.max(o.right, rx > 0.6 || lx > 0.6 ? 1 : 0);
   o.navU = Math.max(o.up, ly < -0.6 ? 1 : 0); o.navD = Math.max(o.down, ly > 0.6 ? 1 : 0);
   return o;
 }
-const EDGE_ACTS = ['ok', 'back', 'start', 'select', 'cam', 'tabL', 'tabR', 'navL', 'navR', 'navU', 'navD'];
+const EDGE_ACTS = ['ok', 'back', 'start', 'select', 'reset', 'cam', 'tabL', 'tabR', 'navL', 'navR', 'navU', 'navD'];
 function padEdgesOf(p, st) {
   const a = padActs(p), now = {}, pressed = [];
   for (const k of EDGE_ACTS) { now[k] = a[k] > 0.5; if (now[k] && !st.prev[k]) pressed.push(k); }
@@ -1813,7 +1816,8 @@ function navMove(dx, dy) {
     const r = e.getBoundingClientRect(), ex = r.left + r.width / 2, ey = r.top + r.height / 2, ddx = ex - cx, ddy = ey - cy;
     const along = dx ? ddx * dx : ddy * dy, perp = dx ? Math.abs(ddy) : Math.abs(ddx);
     if (along <= 6) continue;
-    const sc = along + perp * 2.2; if (sc < bs) { bs = sc; best = e; }
+    const overlap = dx ? (r.top < r0.bottom - 2 && r.bottom > r0.top + 2) : (r.left < r0.right - 2 && r.right > r0.left + 2); // même ligne / même colonne d'abord
+    const sc = overlap ? along + perp * 0.3 : along + perp * 2.2 + 2000; if (sc < bs) { bs = sc; best = e; }
   }
   if (best) { navSet(best); blip(660, 0.04, 0.05); }
 }
@@ -1822,9 +1826,9 @@ function navClear() { if (nav.el) nav.el.classList.remove('padsel'); nav.el = nu
 
 /* --- Assistant de configuration : on appuie sur chaque bouton de sa manette --- */
 const WIZ_STEPS = [
-  ['ok', '✕ — DÉMARRER (valider dans les menus, accélère aussi)'], ['gas', '□ — ACCÉLÉRATEUR'], ['rev', '△ — MARCHE ARRIÈRE / FREIN'], ['nitro', 'O — NITRO'],
-  ['drift', 'DRIFT (frein à main) — par exemple R1'], ['left', 'CROIX GAUCHE'], ['right', 'CROIX DROITE'], ['up', 'CROIX HAUT (avancer)'], ['down', 'CROIX BAS (frein)'],
-  ['steerAxis', 'STICK GAUCHE poussé vers la GAUCHE'], ['start', 'START'], ['select', 'SELECT'],
+  ['ok', '✕ — ACCÉLÉRER (et valider dans les menus)'], ['nitro', 'O — NITRO'], ['drift', '□ — DRIFT'], ['rev', '△ — FREIN (marche arrière à l\'arrêt)'],
+  ['left', 'CROIX GAUCHE (tourner à gauche)'], ['right', 'CROIX DROITE (tourner à droite)'], ['up', 'CROIX HAUT (avancer)'], ['down', 'CROIX BAS (reculer / freiner)'],
+  ['gasAxis', 'STICK GAUCHE poussé vers l\'AVANT'], ['steerAxis', 'STICK DROIT poussé vers la GAUCHE'], ['start', 'START (lancer le jeu / pause)'], ['select', 'SELECT (options)'],
 ];
 const wiz = { on: false, k: 0, pi: 0, base: null, map: null, wait: 0 };
 function wizSnap(p) { return { b: p.buttons.map((b, i) => bv(p, i)), a: p.axes.slice() }; }
@@ -1858,11 +1862,12 @@ function wizPoll(dt) {
   const b0 = wiz.base, want = WIZ_STEPS[wiz.k][0];
   // on attend que tout soit relâché (position de repos) avant d'écouter le bouton suivant
   if (!wiz.armed) { const neutral = p.buttons.every((_, i) => bv(p, i) < 0.3 || (b0.b[i] || 0) > 0.3) && p.axes.every((v, i) => Math.abs(v - (b0.a[i] || 0)) < 0.25); if (neutral) wiz.armed = true; return; }
-  if (want !== 'steerAxis') for (let i = 0; i < p.buttons.length; i++) if (bv(p, i) > 0.6 && (b0.b[i] || 0) < 0.3) return wizNext(['b', i]);
+  const axisStep = want === 'steerAxis' || want === 'gasAxis';
+  if (!axisStep) for (let i = 0; i < p.buttons.length; i++) if (bv(p, i) > 0.6 && (b0.b[i] || 0) < 0.3) return wizNext(['b', i]);
   for (let i = 0; i < p.axes.length; i++) {
     const v = p.axes[i], r = b0.a[i] || 0;
-    if (Math.abs(r) > 1.02 || Math.abs(v) > 1.02) { if (Math.abs(v - r) > 0.2 && Math.abs(v) <= 1.02 && want !== 'steerAxis') return wizNext(['v', i, +v.toFixed(3)]); continue; } // croix « chapeau »
-    if (Math.abs(v - r) > 0.65) { if (want === 'steerAxis') return wizNext(['a', i, v > r ? 1 : -1]); return wizNext(['a', i, v > r ? 1 : -1]); }
+    if (Math.abs(r) > 1.02 || Math.abs(v) > 1.02) { if (Math.abs(v - r) > 0.2 && Math.abs(v) <= 1.02 && !axisStep) return wizNext(['v', i, +v.toFixed(3)]); continue; } // croix « chapeau »
+    if (Math.abs(v - r) > 0.65) return wizNext(['a', i, v > r ? 1 : -1]);
   }
 }
 $('wizSkip').onclick = () => { if (wiz.k >= 0) wizNext(null); else wizClose(false); };
@@ -1881,9 +1886,9 @@ function pollPad(dt) {
   if (!pad.active) { if (!e.length && !e2.length && !anyOn(ps[0]) && !(ps[1] && anyOn(ps[1]))) return; pad.active = true; pad.name = (ps[0].id || '').replace(/\(.*?\)/g, '').trim().slice(0, 40); document.body.classList.add('pad'); padStatusText(); initAudio(); }
   const has = k => e.includes(k) || e2.includes(k);
   if (state === 'play' || state === 'countdown') {
-    if (has('start')) pauseGame();
-    else if (e.includes('select') && state === 'play') resetToTrack(player, true);
-    else if (e2.includes('select') && state === 'play' && player2) resetToTrack(player2, true);
+    if (has('start') || has('select')) pauseGame(); // Start : pause · Select : menu des options de la course
+    else if (e.includes('reset') && state === 'play') resetToTrack(player, true);
+    else if (e2.includes('reset') && state === 'play' && player2) resetToTrack(player2, true);
     else if (has('cam')) cycleCam();
     return;
   }
@@ -1903,10 +1908,12 @@ function pollPad(dt) {
       if (has('tabL') || has('tabR')) { const i = tabs.indexOf(menuTab); const t = tabs[(i + (has('tabR') ? 1 : tabs.length - 1)) % tabs.length]; document.querySelector('.tab[data-tab="' + t + '"]').click(); navClear(); navResolve(root); }
       if (has('ok')) navOk();
       else if (has('start')) startGame();
+      else if (has('select')) { document.querySelector('.tab[data-tab="' + (menuTab === 'options' ? 'play' : 'options') + '"]').click(); navClear(); navResolve(root); }
       else if (has('back') && menuTab !== 'play') { showTab('play'); navClear(); navResolve(root); }
     } else {
       if (has('select')) { const l = [...root.querySelectorAll('.btns .btn')].filter(b => b.offsetParent !== null); const i = l.indexOf(nav.el); navSet(l[(i + 1) % l.length]); blip(660, 0.04, 0.05); }
-      if (has('ok') || has('start')) navOk();
+      if (has('start')) { if (state === 'pause') resumeGame(); else $('btnAgain').click(); } // Start : reprendre / rejouer
+      else if (has('ok')) navOk();
       else if (has('back') && state === 'pause') resumeGame();
     }
   }
@@ -1936,10 +1943,10 @@ function readInput(k) {
     const a = padActs(p);
     if (a.stickX) steer = -a.stickX;
     if (a.left > 0.5) steer = 1; if (a.right > 0.5) steer = -1;
-    thr = Math.max(thr, a.ok, a.gas, a.up, a.stickF, a.rUp);
-    brk = Math.max(brk, a.rev, a.down, a.stickB, a.rDown);
-    if (a.drift > 0.5 || a.rLeft) hb = 1;
-    if (a.nitro > 0.5 || a.rRight) nitro = 1;
+    thr = Math.max(thr, a.ok, a.gas, a.up, a.stickF);
+    brk = Math.max(brk, a.rev, a.down, a.stickB);
+    if (a.drift > 0.5) hb = 1;
+    if (a.nitro > 0.5) nitro = 1;
   }
   return { thr, brk, steer: clamp(steer, -1, 1), hb, nitro };
 }
@@ -2184,7 +2191,7 @@ function pauseGame() {
   if (mode() === 'online') { // pas de vraie pause en ligne
     game.pausedFrom = state; state = 'pause'; showScreen('pause'); $('btnRestart').classList.add('hidden'); return;
   }
-  game.pausedFrom = state; state = 'pause'; showScreen('pause'); $('btnRestart').classList.remove('hidden'); updateAudio(null, { thr: 0 }, 0, false);
+  game.pausedFrom = state; state = 'pause'; pauseOptsText(); showScreen('pause'); $('btnRestart').classList.remove('hidden'); updateAudio(null, { thr: 0 }, 0, false);
 }
 function resumeGame() { showScreen(null); state = game.pausedFrom || 'play'; clock.getDelta(); }
 function toMenu() {
@@ -2396,7 +2403,7 @@ function gameLogic(dt, prevIdx) {
   const dotT = pc.onBr ? Math.sin(pc.h) * pc.onBr.br.TX[pc.onBr.k] + Math.cos(pc.h) * pc.onBr.br.TZ[pc.onBr.k] : Math.sin(pc.h) * TX[pc.idx] + Math.cos(pc.h) * TZ[pc.idx];
   game.wrongT = (dotT < -0.35 && pc.speed > 4) ? game.wrongT + dt : 0;
   if (pc.speed < 2.5 && (pc.off || pc.edge < 0.9)) game.stuck += dt; else game.stuck = Math.max(0, game.stuck - dt);
-  if (game.stuck > 3) { game.stuck = -2; popup('BLOQUÉ ?', isTouch ? 'Touche ↺ pour te replacer' : 'Appuie sur R pour te replacer'); }
+  if (game.stuck > 3) { game.stuck = -2; popup('BLOQUÉ ?', pad.active ? 'Appuie sur L1 pour te replacer' : isTouch ? 'Touche ↺ pour te replacer' : 'Appuie sur R pour te replacer'); }
   if (pc.nitro > 0.3 && !pc.nitroOn && !game.nitroTold && game.raceT > 2) { game.nitroTold = true; popup('🔥 NITRO PRÊT', (isTouch && !pad.active ? 'Bouton NITRO bleu' : 'Appuie sur ' + nitroKeyName()) + ' · ramasse les bouteilles bleues', false, 'blue'); }
   if (m === 'chrono') { game.timeLeft -= dt; if (game.timeLeft <= 0) { game.timeLeft = 0; endSession(); } }
 }
@@ -2954,6 +2961,11 @@ $('segCam').onclick = e => { const v = e.target.dataset.v; if (v === undefined) 
 $('nameInput').addEventListener('input', e => { const v = [...e.target.value].filter(ch => { const c = ch.codePointAt(0); return c >= 32 && !(c >= 0x7f && c <= 0x9f) && !(c >= 0x200b && c <= 0x200f) && !(c >= 0x2028 && c <= 0x202e) && !(c >= 0x2060 && c <= 0x206f) && c !== 0xfeff && !(c >= 0xe000 && c <= 0xf8ff); }).join('').slice(0, 16); prof.name = v.trim() || 'Pilote'; store.set('name', prof.name); $('chipName').textContent = '👤 ' + prof.name; if (player) player.name = prof.name; sendPresence(true); });
 $('btnPlay').onclick = startGame;
 $('btnResume').onclick = resumeGame;
+const CAM_NAMES = ['Proche', 'Loin', 'Drone'];
+function pauseOptsText() { $('btnPCam').textContent = '🎥 Caméra : ' + CAM_NAMES[prof.cam]; $('btnPSound').textContent = prof.muted ? '🔇 Son : coupé' : '🔊 Son : activé'; }
+$('btnPCam').onclick = () => { cycleCam(); pauseOptsText(); };
+$('btnPSound').onclick = () => { initAudio(); setMuted(!prof.muted); pauseOptsText(); };
+$('btnPReset').onclick = () => { resumeGame(); resetToTrack(player, true); };
 $('btnRestart').onclick = startGame;
 $('btnMenu').onclick = toMenu;
 $('btnAgain').onclick = () => {
