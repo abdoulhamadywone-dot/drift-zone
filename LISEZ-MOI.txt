@@ -80,17 +80,38 @@ MODE 2 JOUEURS (même PC, écran partagé)
   Joueur 2 = manette 2 (ou flèches, Entrée = drift, Ctrl droit = nitro) en bas.
   Ce mode fonctionne hors ligne (pas encore en ligne à deux sur le même PC).
 
-NITRO
-  Croix      gauche / droite pour tourner, haut = avancer,
-             bas = frein puis marche arrière
-  Stick gauche : volant (gauche / droite) ; vers l'avant = accélérer,
-             vers l'arrière = frein / marche arrière
-  Stick droit : haut = accélérer, bas = frein, gauche = drift, droite = nitro
-  RT gaz, LT frein, RB frein à main, clic stick droit = caméra (comme avant)
-  Start : pause. Select : replacer la voiture.
-  Tableau de pause / de fin de course : Select (ou la croix) passe d'un bouton
-  à l'autre (Reprendre, Recommencer, Menu principal), Start valide.
-  Menu principal : ✕ ou Start pour lancer la course.
+MODE TAXI NOUAKCHOTT (nouveau)
+  Menu Jouer → « Taxi Nouakchott ». Une autre partie du jeu, dans une ville
+  en damier aux noms de Nouakchott : avenue Gamal Abdel Nasser, avenue
+  Charles de Gaulle, route de l'Espoir, carrefours BMD, Madrid, Bamako,
+  Cité Smar, PK10…
+  Choisis ton taximan :
+    Moulaye     taxi jaune, rapide (moteur nerveux)
+    Taximan Ba  le vétéran : ses clients sont plus patients (+25 % de temps)
+    Sidi        taxi vert, maniable
+    Mamadou     taxi bleu, connaît la ville (courses +15 %)
+  Durée du service : 4, 6 ou 8 minutes. Circulation : calme, normale, dense.
+  LE BUT : gagner le plus d'ouguiyas (MRU) avant la fin du service.
+  - Les clients attendent aux arrêts (cercles et colonnes de lumière VERTS,
+    visibles de loin et sur la carte). Arrête-toi dans le cercle : le client
+    monte et annonce sa destination.
+  - Destinations : Tour SNIM, AFARCO, BMD, Marché Capitale, Grande Mosquée,
+    hôtels Fasq, Iman, Tasiast, Nouakchott, Sheraton, Mauricenter, Palais des
+    Congrès, Musée national, Stade olympique, Gare routière, Plage des
+    pêcheurs, carrefours Madrid, Bamako, BMD, Cité Smar, PK10…
+    Le cercle JAUNE et la flèche au-dessus du taxi montrent le chemin.
+  - Arrive à l'heure pour le pourboire. Chaque choc fait perdre des étoiles
+    au client (et donc le pourboire).
+  - Code de la route : feux rouges à respecter, piétons qui traversent (même
+    sans regarder !), animaux, charrettes, camions, bus, ambulance…
+    Feu grillé, excès de vitesse ou piéton renversé devant la police =
+    amende + poursuite (sirène). Sème la police… ou fais-toi arrêter.
+  - Klaxon : H (clavier), R1 (manette), bouton 📯 à l'écran. Les piétons sur
+    la chaussée se dépêchent, les clients te font signe.
+  - Clavier : Z Q S D / flèches, Espace frein à main, Maj turbo, R replacer
+    le taxi, C caméra, Échap pause.
+  - Manette : mêmes boutons qu'en course ; R1 = klaxon, L1 = replacer.
+  - À la fin du service, ta recette est convertie en crédits pour le garage.
 
 NITRO
   Un seul bouton : Maj (clavier), O (B sur Xbox) ou stick droit vers la droite
@@ -109,4 +130,7 @@ CRÉDITS
   « Nissan Silvia Neo Runner » : P. Kotwica (CC BY-NC : usage non commercial uniquement).
   « Ferrari 458 Italia » : vicent091036 (Sketchfab, CC BY 4.0).
   Hellcat, Viper SRT-10, Specter GT3, ville, personnages et Audi : tes fichiers.
+  Mode Taxi : taxis, voitures de police, ambulance, camions, ville, passants,
+  animaux, Moulaye, Taximan Ba et le passager : tes dossiers d'assets
+  (allégés et retexturés dans Blender pour le jeu).
   Bâtiments de Nouakchott : modélisés dans Blender pour le jeu.

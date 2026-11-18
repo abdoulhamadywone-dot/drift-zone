@@ -89,6 +89,38 @@ input:focus{border-color:var(--accent)}
 #wrong{position:absolute;top:45%;left:50%;transform:translateX(-50%);font-size:34px;color:#ff6b6b;padding:8px 22px;animation:pulse2 .5s infinite alternate}
 @keyframes pulse2{to{opacity:.4}}
 #hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:14px;opacity:.8;white-space:nowrap;padding:6px 14px}
+/* ---------- Mode Taxi ---------- */
+#taxiHud{display:none}
+body.taxi #taxiHud{display:block}
+body.taxi #hudL,body.taxi #hudLap,body.taxi #hudTimer,body.taxi #combo,body.taxi #standings,body.taxi #street,body.taxi #wrong,body.taxi #lights,body.taxi #countdown,body.taxi #hint .kb2{display:none!important}
+body.taxi #nitroBtn .t span::after{content:' · TURBO'}
+#txMoney{position:absolute;top:14px;left:14px;padding:10px 16px;min-width:180px;border-left:4px solid #22c55e}
+#txMoney .val{font-size:28px;line-height:1;color:#a7f3d0}
+#txMoney .sub{font-size:14px;opacity:.75;margin-top:4px}
+#txClock{position:absolute;top:14px;left:50%;transform:translateX(-50%);padding:6px 18px;font-size:26px}
+#txClock.warn{color:var(--accent);animation:pulse .6s infinite alternate}
+#txJob{position:absolute;top:14px;right:14px;padding:10px 16px;text-align:right;min-width:230px;max-width:46vw;border-right:4px solid #ffd60a}
+#txJob .val{font-size:20px;line-height:1.15;margin-top:2px}
+#txJob .sub{font-size:14px;opacity:.85;margin-top:3px}
+#txJob .stars{color:#ffd60a;letter-spacing:.05em}
+#txJob b.late{color:#ff6b6b}
+#txWanted{position:absolute;top:150px;right:14px;padding:6px 14px;font-weight:700;font-size:16px;letter-spacing:.08em;color:#93c5fd}
+#txWanted b{color:#fca5a5}
+#txWanted.chase{animation:copflash .5s infinite alternate}
+@keyframes copflash{from{box-shadow:0 0 0 2px #ef4444,0 0 18px #ef4444}to{box-shadow:0 0 0 2px #3b82f6,0 0 18px #3b82f6}}
+#txSay{position:absolute;bottom:92px;left:50%;transform:translateX(-50%) translateY(10px);max-width:min(560px,86vw);padding:8px 16px;font-size:16px;font-weight:600;opacity:0;transition:.35s;text-align:center}
+#txSay.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#txStreet{position:absolute;left:14px;bottom:208px;font-size:13px;font-weight:700;letter-spacing:.05em;text-shadow:0 1px 4px #000;opacity:.9;max-width:200px}
+body.taxi #topBtns{top:118px}
+#tHorn{left:62px;bottom:116px;width:64px;height:64px;font-size:26px;background:rgba(255,214,10,.18);border-color:rgba(255,214,10,.6);display:none}
+body.taxi #tHorn{display:flex}
+#btnHorn{display:none}
+body.taxi #btnHorn{display:flex}
+#hint .kbT{display:none}body.taxi #hint .kbT{display:inline}body.pad #hint .kbT{display:none!important}
+.has-touch.taxi #nowPlaying{display:none}
+@media (max-width:700px){#txJob{min-width:0;padding:7px 10px}#txJob .val{font-size:16px}#txMoney{min-width:0;padding:7px 10px}#txMoney .val{font-size:20px}#txClock{font-size:20px;top:8px}#txWanted{top:118px}body.taxi #topBtns{top:96px}}
+@media (max-height:460px){#txSay{bottom:110px;font-size:14px}#txStreet{display:none}#txWanted{top:96px}body.taxi #topBtns{top:84px}body.taxi #nowPlaying{display:none}.has-touch.taxi #minimap,body.taxi #minimap{display:block!important;width:104px;height:104px;left:10px;top:100px;bottom:auto}body.taxi #mapName{display:none}}
+
 #topBtns{position:absolute;top:104px;right:14px;display:flex;gap:8px;pointer-events:auto}
 .iconBtn{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--glass);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .iconBtn:hover{background:rgba(255,255,255,.12)}
@@ -435,8 +467,9 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.6.1';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.7.0';</script>
 <script src="engine-dsp.js"></script>
+<script src="taxi.js"></script>
 <script src="game.js"></script>
 <div id="updBar" class="hidden"><span>🚀 Nouvelle version de Drift Zone disponible</span><button id="updGo">Mettre à jour</button><button id="updX" aria-label="Plus tard">✕</button></div>
 <script>

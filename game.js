@@ -41,7 +41,10 @@ const MODES = [
   { id: 'time', ic: '👻', name: 'Contre-la-montre', desc: 'Bats ta meilleure traversée de la ville face à ton fantôme.' },
   { id: 'online', ic: '🌐', name: 'En ligne', desc: 'Roule et fais la course avec d’autres joueurs.', badge: 'MULTI' },
   { id: 'duo', ic: '🎮', name: '2 joueurs', desc: 'Deux manettes, un seul écran : course à deux à travers Nouakchott.', badge: 'DUO' },
+  { id: 'taxi', ic: '🚕', name: 'Taxi Nouakchott', desc: 'Moulaye, Taximan Ba… prends les clients aux arrêts, respecte les feux et la police, gagne des ouguiyas !', badge: 'NOUVEAU' },
 ];
+const MODE_ORDER = [6, 0, 1, 2, 3, 4, 5];
+let TAXI = null; // mode Taxi (taxi.js)
 const PAINTS = [0xc8102e, 0x1d4ed8, 0xf5f5f5, 0x111214, 0x9aa3ad, 0x16a34a, 0xf97316, 0x7c3aed, 0xfacc15, 0x0ea5b7];
 const RIMS = [{ n: 'Argent', c: 0xe2e5ea }, { n: 'Noir', c: 0x1d1e21 }, { n: 'Or', c: 0xc9a227 }, { n: 'Bronze', c: 0x8a5a2b }];
 const UPGRADES = [
@@ -438,8 +441,8 @@ function addInstanced(geo, mat, mats, colors, opt) {
     list.forEach((idx, j) => { const m = mats[idx]; im.setMatrixAt(j, m); if (colors) im.setColorAt(j, colors[idx]); v.copy(c0).applyMatrix4(m); box.expandByPoint(v); ms = Math.max(ms, m.getMaxScaleOnAxis()); });
     const sph = new THREE.Sphere(); box.getBoundingSphere(sph); sph.radius += r0 * ms; g.boundingSphere = sph;
     im.castShadow = !!opt.cast; im.receiveShadow = !!opt.receive; im.name = opt.name || '';
-    scene.add(im); out.push(im);
-    if (opt.maxD) DCULL.push({ m: im, c: sph.center.clone(), r: sph.radius, d: opt.maxD });
+    (opt.parent || scene).add(im); out.push(im);
+    if (opt.maxD) (opt.cull || DCULL).push({ m: im, c: sph.center.clone(), r: sph.radius, d: opt.maxD });
   }
   return out;
 }
@@ -1285,10 +1288,15 @@ function buildCity() {
     const key = pick(TREES); put(key, x, z, rnd() * 6.28, 0.9 + rnd() * 0.7); occ.push({ x, z, r: 2.2 }); nt++;
     if (rnd() < 0.4 && has('N_Bush01')) { const bx = x + (rnd() - 0.5) * 6, bz = z + (rnd() - 0.5) * 6; if (free(bx, bz, 1)) put(rnd() < 0.5 ? 'N_Bush01' : 'N_Bush02', bx, bz, rnd() * 6, 1); }
   }
-  // création des InstancedMesh (un appel de rendu par type d'objet)
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s3 = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
+  instanceLib(inst, {});
+  buildSigns(inst, rnd);
+}
+// création des InstancedMesh (un appel de rendu par type d'objet) : aussi utilisé par le mode Taxi
+function instanceLib(inst, O) {
+  const city = ASSETS.city;
+  const q = new THREE.Quaternion(), p = new THREE.Vector3(), s3 = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
   for (const key in inst) {
-    const src = (ASSETS.mrt && ASSETS.mrt.getObjectByName(key)) || city.getObjectByName(key); if (!src) continue;
+    const src = (ASSETS.mrt && ASSETS.mrt.getObjectByName(key)) || (city && city.getObjectByName(key)); if (!src) continue;
     const isM = key.startsWith('mrt_');
     const meshes = []; src.updateMatrixWorld(true);
     src.traverse(o => { if (o.isMesh) meshes.push(o); });
@@ -1307,14 +1315,13 @@ function buildCity() {
       const big = key.startsWith('B_') || isM;
       const cols = isM && /_wall/.test(me.name) ? inst[key].map((e, j) => PALETTE_WALL[(j * 5 + key.length * 3) % PALETTE_WALL.length]) : null;
       const isDet = !/_wall/.test(me.name) && isM, small = !big;
-      addInstanced(me.geometry, me.material, mats, cols, { cast: !LITE, receive: big && !LOW, cell: isDet || small ? 170 : (LITE ? 420 : 380), name: key + ':' + me.name, maxD: isDet ? 280 * DSCALE : small ? 300 * DSCALE : (HIQ ? 0 : 900) });
+      addInstanced(me.geometry, me.material, mats, cols, { cast: !LITE, receive: big && !LOW, cell: O.cell || (isDet || small ? 170 : (LITE ? 420 : 380)), name: key + ':' + me.name, maxD: O.maxD ? O.maxD(isDet, small) : (isDet ? 280 * DSCALE : small ? 300 * DSCALE : (HIQ ? 0 : 900)), parent: O.parent, cull: O.cull });
       if (me.material) { me.material.envMapIntensity = 0.35; }
     }
   }
-  buildSigns(inst, rnd);
 }
 // toutes les enseignes de boutiques = un seul maillage (un seul appel de dessin)
-function buildSigns(inst, rnd) {
+function buildSigns(inst, rnd, parent) {
   const pos = [], uv = [], idx = [], A = signAtlas, byKind = {};
   A.cells.forEach((c, n) => (byKind[c.k] = byKind[c.k] || []).push(n));
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), v = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
@@ -1337,7 +1344,7 @@ function buildSigns(inst, rnd) {
   if (!idx.length) return;
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); g.computeBoundingSphere();
   const m = surf({ map: A.tex, roughness: 0.6, envMapIntensity: 0.3 }); m.emissiveMap = A.tex; nightReg(m, 0.1, 0.85); m.polygonOffset = true; m.polygonOffsetFactor = -2;
-  const me = new THREE.Mesh(g, m); scene.add(me);
+  const me = new THREE.Mesh(g, m); (parent || scene).add(me); return me;
 }
 function buildFans() {
   const src = ASSETS.fans || ASSETS.fans_lo; if (!src || !fansData.length) return;
@@ -1698,7 +1705,8 @@ window.addEventListener('keydown', e => {
   if (e.repeat) return;
   if (e.code === 'Escape' || e.code === 'KeyP') { if (state === 'play' || state === 'countdown') pauseGame(); else if (state === 'pause') resumeGame(); }
   if (state !== 'play' && state !== 'countdown') return;
-  if (e.code === 'KeyR' && state === 'play') resetToTrack(player, true);
+  if (e.code === 'KeyR' && state === 'play') { if (TAXI && TAXI.active) TAXI.reset(); else resetToTrack(player, true); }
+  if (e.code === 'KeyH' && TAXI && TAXI.active) TAXI.horn();
   if (e.code === 'KeyC') cycleCam();
   if (e.code === 'KeyM') setMuted(!prof.muted);
   if (e.code === 'KeyK') nextTrack();
@@ -1887,7 +1895,8 @@ function pollPad(dt) {
   const has = k => e.includes(k) || e2.includes(k);
   if (state === 'play' || state === 'countdown') {
     if (has('start') || has('select')) pauseGame(); // Start : pause · Select : menu des options de la course
-    else if (e.includes('reset') && state === 'play') resetToTrack(player, true);
+    else if (e.includes('reset') && state === 'play') { if (TAXI && TAXI.active) TAXI.reset(); else resetToTrack(player, true); }
+    else if (TAXI && TAXI.active && has('tabR')) TAXI.horn();
     else if (e2.includes('reset') && state === 'play' && player2) resetToTrack(player2, true);
     else if (has('cam')) cycleCam();
     return;
@@ -1969,6 +1978,10 @@ function placeCar(c, i, lat, h) {
   c.skidLast[0] = c.skidLast[1] = null;
 }
 function physicsStep(c, inp, dt) {
+  dynStep(c, inp, dt);
+  return trackStep(c);
+}
+function dynStep(c, inp, dt) { // dynamique du véhicule (sans le circuit) : réutilisée par le mode Taxi
   const sp = c.spec;
   c.steer += (inp.steer - c.steer) * Math.min(1, dt * (c.drifting ? 6 : 9));
   const fx = Math.sin(c.h), fz = Math.cos(c.h), sx = Math.cos(c.h), sz = -Math.sin(c.h);
@@ -2016,6 +2029,9 @@ function physicsStep(c, inp, dt) {
   c.h += c.w * dt;
   c.vx = fx * vF + sx * vS; c.vz = fz * vF + sz * vS;
   c.x += c.vx * dt; c.z += c.vz * dt;
+  c.vF = vF; c.slip = slip; c.speed = Math.hypot(c.vx, c.vz);
+}
+function trackStep(c) {
   const nn = nearest(c.x, c.z, c.idx < 0 ? -1 : c.idx);
   const nb = nearestAnyBr(c.x, c.z);
   const prev = c.idx; c.idx = nn.i; c.lat = nn.lat; c.onBr = null;
@@ -2039,7 +2055,7 @@ function physicsStep(c, inp, dt) {
       if (vn > 3.5) c.crash = Math.max(c.crash, vn);
     }
   }
-  c.vF = vF; c.slip = slip; c.speed = Math.hypot(c.vx, c.vz);
+  c.speed = Math.hypot(c.vx, c.vz);
   return prev;
 }
 // collisions entre voitures (2 cercles par voiture)
@@ -2121,6 +2137,8 @@ function clearAI() { for (const c of cars) if (!c.isPlayer && c.model) scene.rem
 function resetPlayerRun(c) { Object.assign(c, { lap: 0, cp: true, lapStart: 0, lapTimes: [], bestLap: Infinity, finished: false, finishTime: 0, nitro: 0.35, crash: 0, boost: 1, stuck: 0, frozen: true, prog: 0 }); }
 
 function startGame() {
+  if (mode() === 'taxi' && TAXI) { initAudio(); saveProf(); TAXI.start(); return; }
+  if (TAXI && TAXI.active) TAXI.exit();
   initAudio(); saveProf(); ensurePlayer(); clearAI();
   if (ghostCar) { scene.remove(ghostCar.model.root); ghostCar = null; }
   clearSkids(); clearSmoke();
@@ -2192,9 +2210,11 @@ function pauseGame() {
     game.pausedFrom = state; state = 'pause'; showScreen('pause'); $('btnRestart').classList.add('hidden'); return;
   }
   game.pausedFrom = state; state = 'pause'; pauseOptsText(); showScreen('pause'); $('btnRestart').classList.remove('hidden'); updateAudio(null, { thr: 0 }, 0, false);
+  if (TAXI && TAXI.active) TAXI.pause();
 }
 function resumeGame() { showScreen(null); state = game.pausedFrom || 'play'; clock.getDelta(); }
 function toMenu() {
+  if (TAXI && TAXI.active) TAXI.exit();
   if (mode() === 'online') leaveOnline();
   state = 'menu'; showScreen('menu'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); document.body.classList.remove('duo');
   updateAudio(null, { thr: 0 }, 0, false); clearAI();
@@ -2891,7 +2911,8 @@ function renderMenu() {
   $('chipName').textContent = '👤 ' + prof.name;
   $('chipCr').textContent = '💰 ' + fmtInt(prof.credits) + ' cr';
   const ml = $('modeList'); ml.innerHTML = '';
-  MODES.forEach((m, i) => {
+  MODE_ORDER.map(i => [MODES[i], i]).forEach(([m, i]) => {
+    if (!m || (m.id === 'taxi' && !TAXI)) return;
     if (m.id === 'duo' && isTouch && !pad.active) return; // 2 joueurs : PC avec manettes
     const d = document.createElement('div'); d.className = 'opt' + (i === prof.mode ? ' sel' : '');
     let rec = '';
@@ -2899,14 +2920,16 @@ function renderMenu() {
     if (m.id === 'chrono') rec = 'Record : ' + fmtInt(store.get('best_chrono', 0));
     if (m.id === 'time') { const g = store.get('ghost3', null); rec = 'Meilleur tour : ' + (g ? fmtTime(g.t) : '--'); }
     if (m.id === 'race') { const b = store.get('best_race_pos', 0); rec = b ? 'Meilleure place : ' + b + (b === 1 ? 'er' : 'e') : ''; }
+    if (m.id === 'taxi') { const b = store.get('best_taxi', 0); rec = b ? 'Meilleur service : ' + fmtInt(b) + ' MRU' : ''; }
     if (m.id === 'online') rec = net.status === 'ok' ? '🟢 ' + ((net.peers || []).filter(p => p.kind === 'viewer').length) + ' en ligne' : '';
     d.innerHTML = (m.badge ? '<div class="badge">' + m.badge + '</div>' : '') + '<div class="ic">' + m.ic + '</div><div class="nm disp">' + m.name + '</div><div class="ds">' + m.desc + '</div>' + (rec ? '<div class="ds" style="opacity:.9;margin-top:6px;color:#ffd166">' + rec + '</div>' : '');
     d.onclick = () => { prof.mode = i; store.set('mode', i); renderMenu(); };
     ml.appendChild(d);
   });
   $('raceOpts').classList.toggle('hidden', !raceLike(mode())); renderDuo();
+  if (TAXI) TAXI.renderOpts(mode() === 'taxi');
   setSeg('segDiff', prof.diff); setSeg('segLaps', prof.laps);
-  $('modeTip').textContent = { race: 'Astuce : freine avant les virages serrés, garde le nitro pour les lignes droites.', drift: 'Astuce : frein à main pour lancer la glisse, puis contre-braque en gardant les gaz.', chrono: 'Astuce : les longs drifts près du bord rapportent plus.', time: 'Astuce : le fantôme bleu rejoue ton meilleur tour.', online: 'Astuce : partage le jeu à tes amis pour rouler ensemble.' }[mode()] || '';
+  $('modeTip').textContent = { race: 'Astuce : freine avant les virages serrés, garde le nitro pour les lignes droites.', drift: 'Astuce : frein à main pour lancer la glisse, puis contre-braque en gardant les gaz.', chrono: 'Astuce : les longs drifts près du bord rapportent plus.', time: 'Astuce : le fantôme bleu rejoue ton meilleur tour.', taxi: 'Astuce : arrête-toi dans le cercle vert, le client monte. Klaxon : H, R1 ou 📯.', online: 'Astuce : partage le jeu à tes amis pour rouler ensemble.' }[mode()] || '';
   $('btnPlay').textContent = mode() === 'online' ? 'REJOINDRE ▶' : 'JOUER ▶';
   renderGarage(); renderOptions(); renderNet();
   $('nameInput').value = prof.name;
@@ -2965,7 +2988,7 @@ const CAM_NAMES = ['Proche', 'Loin', 'Drone'];
 function pauseOptsText() { $('btnPCam').textContent = '🎥 Caméra : ' + CAM_NAMES[prof.cam]; $('btnPSound').textContent = prof.muted ? '🔇 Son : coupé' : '🔊 Son : activé'; }
 $('btnPCam').onclick = () => { cycleCam(); pauseOptsText(); };
 $('btnPSound').onclick = () => { initAudio(); setMuted(!prof.muted); pauseOptsText(); };
-$('btnPReset').onclick = () => { resumeGame(); resetToTrack(player, true); };
+$('btnPReset').onclick = () => { resumeGame(); if (TAXI && TAXI.active) TAXI.reset(); else resetToTrack(player, true); };
 $('btnRestart').onclick = startGame;
 $('btnMenu').onclick = toMenu;
 $('btnAgain').onclick = () => {
@@ -2975,7 +2998,7 @@ $('btnAgain').onclick = () => {
 $('btnMenu2').onclick = toMenu;
 $('btnPause').onclick = pauseGame;
 $('btnCam').onclick = cycleCam;
-$('btnReset').onclick = () => { if (state === 'play' && player) resetToTrack(player, true); };
+$('btnReset').onclick = () => { if (state === 'play' && TAXI && TAXI.active) TAXI.reset(); else if (state === 'play' && player) resetToTrack(player, true); };
 $('btnMute').onclick = () => { initAudio(); setMuted(!prof.muted); };
 $('musicVol').addEventListener('input', e => { music.vol = (+e.target.value || 0) / 100; store.set('musicVol', Math.round(music.vol * 100)); });
 $('btnNext').onclick = () => { initAudio(); nextTrack(); };
@@ -3000,6 +3023,7 @@ function frame() {
   dtS += (raw - dtS) * (Math.abs(raw - dtS) > 0.03 ? 0.6 : 0.25);
   const dt = clamp(dtS, 0.004, 0.1);
   menuTime += dt;
+  if (TAXI && TAXI.active) { pollPad(dt); updateMusic(dt); TAXI.frame(dt); perfAdapt(raw, state === 'play' || state === 'countdown'); renderer.render(scene, camera); return; }
   if ((frameN = (frameN + 1) % 4) === 0) updateDistCull();
   pollPad(dt); updateMusic(dt);
   let inp = NO_INPUT;
@@ -3071,11 +3095,14 @@ function frame() {
     updateAudio2(player2, inputs.get(player2) || NO_INPUT, act);
     if (act) { hudAcc += dt; if (hudAcc > 1 / 20) { hudAcc = 0; if (player2) { for (const q of duo.msg) if (q) q.t -= 1 / 20; duoHud(); } else { updateHud(); updateTags(); } } }
   }
-  // résolution adaptative : garde le jeu fluide sur les téléphones (sans va-et-vient)
+  perfAdapt(raw, state === 'play' || state === 'countdown' || state === 'finish');
+  if (player2 && (state === 'play' || state === 'countdown' || state === 'finish' || state === 'pause')) renderDuo2();
+  else { if (camera.aspect !== window.innerWidth / window.innerHeight) { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); } renderer.render(scene, camera); }
+}
+function perfAdapt(raw, playing) { // résolution adaptative : garde le jeu fluide sur les téléphones (sans va-et-vient)
   perf.t += raw; perf.n++;
   if (perf.t > 2) {
     const fps = perf.n / perf.t; perf.t = 0; perf.n = 0; perf.fps = fps;
-    const playing = state === 'play' || state === 'countdown' || state === 'finish';
     if (playing) {
       perf.lock = Math.max(0, (perf.lock || 0) - 2);
       let pr = pixelRatio;
@@ -3086,11 +3113,23 @@ function frame() {
       if (pr !== pixelRatio) { pixelRatio = pr; renderer.setPixelRatio(pr); renderer.setSize(window.innerWidth, window.innerHeight); }
     }
   }
-  if (player2 && (state === 'play' || state === 'countdown' || state === 'finish' || state === 'pause')) renderDuo2();
-  else { if (camera.aspect !== window.innerWidth / window.innerHeight) { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); } renderer.render(scene, camera); }
 }
 const perf = { t: 0, n: 0, fps: 60 };
 let hudAcc = 0;
+
+/* ======================= Interface pour le mode Taxi (taxi.js) ======================= */
+function taxiApi() {
+  return {
+    THREE, $, clamp, lerp, wrapAng, fmtInt, esc, isTouch, LOW, LITE, HIQ, TEST, EXT, prof, store, saveProf, addCredits,
+    scene, camera, renderer, sun, SUN_OFF, hemi, sky, canvasTex, instanceLib, buildSigns, PALETTE_WALL, DSCALE, MRT_SIGNS, noise, surf, addInstanced, PALM, glbLM, LANDMARKS, textTex, signMesh, prim, poleMat, mergeGroup, nightReg, glowSpriteTex, NIGHT_MATS,
+    ASSETS, loadAsset, newCar, makeSpec, dynStep, collidePair, readInput, getPad, padActs, pad, keys, touch, initAudio, audio, updateAudio, blip, crashSound, GEAR_TOP,
+    spawnSmoke, addSkid, clearSkids, clearSmoke, fx(dt) { updateSmoke(dt); if (skidDirty) { skidGeo.attributes.position.needsUpdate = true; skidDirty = false; } },
+    updateCamera, camState, CAMS, attachHeadlights, headSpot, beam, popup, showScreen, renderMenu, hexCss, menuTime: () => menuTime, perf,
+    get state() { return state; }, set state(v) { state = v; }, game, clock,
+    hideDrift() { const keep = new Set([hemi, sun, sun.target, sky, stars, smokePts, skidMesh, headHolder]); const was = []; for (const o of scene.children) if (!keep.has(o) && o.visible) { was.push(o); o.visible = false; } if (player && player.model) player.model.root.visible = false; return was; },
+    showDrift(was) { for (const o of was) o.visible = true; if (player && player.model) { player.model.root.visible = true; attachHeadlights(player.model); } updateDistCull(); },
+  };
+}
 
 /* ======================= Démarrage ======================= */
 const TIPS = ['CHARGEMENT DE NOUAKCHOTT…', 'CONSTRUCTION DE LA TOUR SNIM…', 'PRÉPARATION DES VOITURES…', 'BOUTEILLES DE NITRO SUR LA ROUTE…', 'INSTALLATION DES SUPPORTERS…'];
@@ -3102,9 +3141,11 @@ loadAll(() => {
   try { buildFans(); } catch (e) { console.error('fans', e); }
   try { buildNightLights(); } catch (e) { console.error('night', e && e.stack || e); }
   ensurePlayer(); placeCar(player, idxWrap(-Math.round(12 / SEG)), 0); player.frozen = true;
+  try { if (window.DZTaxi) TAXI = window.DZTaxi(taxiApi()); } catch (e) { console.error('taxi', e && e.stack || e); TAXI = null; }
+  if (!TAXI && mode() === 'taxi') prof.mode = 0;
   $('loading').classList.add('hidden');
   state = 'menu'; showScreen('menu'); renderMenu();
-  if (TEST) window.__dz = { get player2() { return player2; }, wiz, readInput, pollPad, buildCar, CARS, loadAsset, updateDistCull, TAG, EL, MANCHES, audio, ASSETS, carKey, LM_PLACED, showScreen, BR, BOTTLES, nearestBr, applyAmbience, selectCar, placeCar, get bottleCount() { return game.bottles || 0; }, perf, get pixelRatio() { return pixelRatio; }, LOW, scene, renderer, camera, get player() { return player; }, get cars() { return cars; }, game, combo, keys, net, prof, get state() { return state; }, startGame, netUpdate, onlinePeers, physicsStep, aiInput, __setPlay() { state = 'play'; $('lights').classList.add('hidden'); }, standings, K, N, SEG, track: i => [PX[i], PZ[i]], endSession, toMenu,
+  if (TEST) window.__dz = { THREE, get TAXI() { return TAXI; }, get player2() { return player2; }, wiz, readInput, pollPad, buildCar, CARS, loadAsset, updateDistCull, TAG, EL, MANCHES, audio, ASSETS, carKey, LM_PLACED, showScreen, BR, BOTTLES, nearestBr, applyAmbience, selectCar, placeCar, get bottleCount() { return game.bottles || 0; }, perf, get pixelRatio() { return pixelRatio; }, LOW, scene, renderer, camera, get player() { return player; }, get cars() { return cars; }, game, combo, keys, net, prof, get state() { return state; }, startGame, netUpdate, onlinePeers, physicsStep, aiInput, __setPlay() { state = 'play'; $('lights').classList.add('hidden'); }, standings, K, N, SEG, track: i => [PX[i], PZ[i]], endSession, toMenu,
     simulate(sec, ctl) { const dt = 1 / 60, out = []; for (let t = 0; t < sec; t += dt) { const ins = new Map(); ins.set(player, ctl ? ctl(player, t) : AUTO(player)); if (player2) ins.set(player2, AUTO(player2)); for (const c of cars) if (c.isAI) ins.set(c, aiInput(c, cars)); const prevs = new Map(cars.map(c => [c, c.idx])); for (let s = 0; s < 3; s++) for (const c of cars) if (!c.frozen) physicsStep(c, ins.get(c) || NO_INPUT, dt / 3); for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) collidePair(cars[i], cars[j], false); for (const c of cars) if (c.isAI) { const lp = trackLaps(c, prevs.get(c)); if (lp && lp.crossed && c.lap > game.laps && !c.finished) { c.finished = true; c.finishTime = game.raceT; } } if (state === 'play') { gameLogic(dt, prevs.get(player)); bottleLogic(dt); if (player2) duoLogic(dt, prevs.get(player2)); } else { game.raceT += dt; trackLaps(player, prevs.get(player)); } aiLogic(dt); if (state === 'finish') { game.finishWait -= dt; if (game.finishWait <= 0) endSession(); } if (state === 'results') break; } return out; } };
 });
 frame();
