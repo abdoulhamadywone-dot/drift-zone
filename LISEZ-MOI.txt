@@ -44,13 +44,12 @@ NITRO
   Roule sur les bouteilles bleues posées sur la route : boost + recharge.
 
 VOITURES (Garage)
-  Audi RS Q8, Supercar 458, Pick-up 4x4, Taxi, SUV 4x4, Police, Buggy du désert.
+  Audi RS Q8, Nissan Silvia S15, Dodge Challenger Hellcat, Dodge Viper SRT-10,
+  Supercar 458, Specter GT3. Chaque moteur a son propre son (V8 biturbo,
+  4 cylindres turbo, V8 à compresseur, V10, V8 haut régime, son de W16).
 
 CRÉDITS
-  Modèle « Ferrari 458 Italia » : vicent091036 (Sketchfab, CC BY 4.0).
-  Buggy : « Starter Kit Racing » de Kenney (kenney.nl).
-  Ville, véhicules du pack, personnages et Audi : tes fichiers.
-
-À SAVOIR
-  - Le mode « En ligne » (multijoueur) ne marche que dans la version claude.ai.
-  - Progression (crédits, garage, records) enregistrée dans chaque navigateur.
+  « Nissan Silvia Neo Runner » : P. Kotwica (CC BY-NC : usage non commercial uniquement).
+  « Ferrari 458 Italia » : vicent091036 (Sketchfab, CC BY 4.0).
+  Hellcat, Viper SRT-10, Specter GT3, ville, personnages et Audi : tes fichiers.
+  Bâtiments de Nouakchott : modélisés dans Blender pour le jeu.
