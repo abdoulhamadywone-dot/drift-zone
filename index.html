@@ -97,6 +97,13 @@ input:focus{border-color:var(--accent)}
 #onlineBar .peers{font-size:14px;font-weight:600;opacity:.9;margin-top:4px;max-height:96px;overflow:hidden}
 #labels{position:absolute;inset:0;overflow:hidden}
 .tag{position:absolute;transform:translate(-50%,-100%);font-size:14px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.55);white-space:nowrap;border-bottom:2px solid currentColor}
+#nowPlaying{position:absolute;left:50%;bottom:62px;transform:translateX(-50%) translateY(20px);opacity:0;transition:.4s;padding:6px 14px;font-size:14px;font-weight:700;white-space:nowrap;max-width:80vw;overflow:hidden;text-overflow:ellipsis}
+#nowPlaying.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.has-touch #nowPlaying{bottom:auto;top:14px}
+#padHint{display:none}
+body.pad #padHint{display:block}
+body.pad #hint .kb2{display:none}
+input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;background:none}
 #speedFx{position:absolute;inset:0;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,transparent 45%,rgba(56,189,248,.18) 75%,rgba(56,189,248,.35));}
 
 /* ---------- Touch ---------- */
@@ -109,17 +116,19 @@ input:focus{border-color:var(--accent)}
 #tHb{right:122px;bottom:18px;width:76px;height:76px;font-size:11px;background:rgba(255,183,3,.18)}
 #tBrake{right:24px;bottom:122px;width:66px;height:66px;font-size:11px}
 #tNitro{right:104px;bottom:110px;width:62px;height:62px;font-size:11px;background:rgba(56,189,248,.25)}
-.has-touch #speedo{right:auto;bottom:auto;top:12px;left:50%;transform:translateX(-50%);min-width:130px;padding:6px 14px;text-align:center}
-.has-touch #speedo .val{font-size:30px}
-.has-touch #speedo .gear{display:none}
-.has-touch #speedo .unit{font-size:11px}
-.has-touch #hudTimer{top:auto;bottom:118px}
+.has-touch #speedo{right:auto;top:auto;bottom:64px;left:50%;transform:translateX(-50%);min-width:0;padding:3px 12px 5px;text-align:center;display:grid;grid-template-columns:auto auto;column-gap:8px;align-items:end;background:rgba(10,14,24,.45)}
+.has-touch #speedo .val{font-size:22px;line-height:1}
+.has-touch #speedo .gear,.has-touch #speedo #rpm,.has-touch #speedo .nlab{display:none}
+.has-touch #speedo .unit{font-size:10px;letter-spacing:.12em;align-self:center}
+.has-touch #speedo #nitroM{grid-column:1 / span 2;width:110px;height:6px;margin-top:3px}
+.has-touch #hudTimer{top:auto;bottom:108px}
+.has-touch #lights{top:14px}
 .has-touch #lights{top:96px;padding:8px 12px;gap:8px}
 .has-touch #lights i{width:24px;height:24px}
 .has-touch #minimap{left:auto;right:14px;bottom:auto;top:112px;width:110px;height:110px;padding:4px}
 .has-touch #hint{display:none}
 .has-touch #topBtns{top:auto;bottom:16px;right:auto;left:50%;transform:translateX(-50%)}
-.has-touch #onlineBar{top:auto;bottom:66px;right:auto;left:50%;transform:translateX(-50%);padding:6px 10px}
+.has-touch #onlineBar{top:84px;bottom:auto;right:auto;left:50%;transform:translateX(-50%);padding:6px 10px}
 .has-touch #onlineBar .peers{display:none}
 .has-touch #hudScore,.has-touch #hudLap,.has-touch #hudPos{min-width:0;padding:7px 12px}
 .has-touch #hudScore .val{font-size:22px}
@@ -234,7 +243,8 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
   <div id="lights" class="panel hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="countdown" class="disp hidden">3</div>
   <div id="wrong" class="panel disp hidden">⚠ MAUVAIS SENS</div>
-  <div id="hint" class="panel"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> nitro · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra</div>
+  <div id="hint" class="panel"><span class="kb2"><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / flèches · <kbd>Espace</kbd> frein à main · <kbd>Maj</kbd> nitro · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>K</kbd> morceau suivant</span><span id="padHint">🎮 RT/A gaz · LT/B frein · RB/X frein à main · LB/Y nitro · Select replacer · R3 caméra · Start pause</span></div>
+  <div id="nowPlaying" class="panel"></div>
 </div>
 
 <div id="touch" class="hidden">
@@ -311,6 +321,9 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <div class="note" id="verLabel" style="margin-top:14px;opacity:.5"></div>
           <h3>Son</h3>
           <div class="seg" id="segSound"><button data-v="1">Activé</button><button data-v="0">Coupé</button></div>
+          <h3>Musique</h3>
+          <div class="row" style="gap:12px;flex-wrap:nowrap"><input type="range" id="musicVol" min="0" max="100" step="5"><button class="btn small ghost" id="btnNext" style="white-space:nowrap">⏭ Suivant</button></div>
+          <div class="note" id="musicNow" style="margin-top:6px">Lecture aléatoire</div>
           <h3>Caméra</h3>
           <div class="seg" id="segCam"><button data-v="0">Proche</button><button data-v="1">Loin</button><button data-v="2">Drone</button></div>
         </div>
@@ -319,7 +332,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <kbd>Z</kbd>/<kbd>↑</kbd> accélérer · <kbd>S</kbd>/<kbd>↓</kbd> freiner/reculer<br>
           <kbd>Q</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> tourner · <kbd>Espace</kbd> frein à main<br>
           <kbd>Maj</kbd> ou <kbd>N</kbd> nitro · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra · <kbd>Échap</kbd> pause<br>
-          Manette compatible (RT gaz, LT frein, A frein à main, X nitro).<br><br>
+          <b>Manette USB / Xbox / PlayStation</b> : RT ou A gaz · LT ou B frein · RB ou X frein à main · LB ou Y nitro · stick ou croix pour tourner · Select replacer · clic stick droit caméra · Start pause. Dans les menus : croix/stick pour choisir, A valider, B retour, LB/RB changer d'onglet.<br><span id="padStatus" style="color:#ffd166"></span><br>
           Le nitro se recharge quand tu drifts. Les fans t'acclament quand tu passes près d'eux.
         </div>
       </div>
@@ -338,6 +351,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
     <div class="btns">
       <button class="btn" id="btnResume">Reprendre</button>
       <button class="btn ghost" id="btnRestart">Recommencer</button>
+      <button class="btn ghost" id="btnNext2">⏭ Morceau suivant</button>
       <button class="btn ghost" id="btnMenu">Menu principal</button>
     </div>
   </div>
@@ -359,7 +373,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.1.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.2.0';</script>
 <script src="game.js"></script>
 <div id="updBar" class="hidden"><span>🚀 Nouvelle version de Drift Zone disponible</span><button id="updGo">Mettre à jour</button><button id="updX" aria-label="Plus tard">✕</button></div>
 <script>

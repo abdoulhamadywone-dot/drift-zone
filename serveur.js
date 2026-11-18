@@ -12,7 +12,7 @@ const PORT = Number(process.env.PORT) || 8080;
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json',
   '.webmanifest': 'application/manifest+json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-  '.css': 'text/css; charset=utf-8', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8'
+  '.css': 'text/css; charset=utf-8', '.mp3': 'audio/mpeg', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8'
 };
 
 function lanUrls() {

@@ -1,5 +1,5 @@
 // Drift Zone — cache hors-ligne + mises à jour
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const CACHE = 'driftzone-' + VERSION;
 // fichiers indispensables (le modèle Audi haute qualité est mis en cache à la première utilisation)
 const CORE = [
@@ -17,7 +17,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  if (url.pathname.endsWith('/version.json') || url.pathname.includes('/api/')) return; // toujours en direct
+  if (url.pathname.endsWith('/version.json') || url.pathname.includes('/api/') || url.pathname.includes('/music/')) return; // en direct (la musique est lue en streaming)
   // réseau d'abord (tu reçois toujours la dernière version), cache si hors-ligne
   e.respondWith(fetch(e.request).then(r => {
     if (r.ok && r.type === 'basic') { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
