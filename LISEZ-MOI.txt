@@ -51,6 +51,19 @@ NOUAKCHOTT : UNE VILLE CONTINUE EN 3 MANCHES
   photos pour que je colle encore mieux à la réalité.
   Mode nuit : menu Jouer → Ambiance → Nuit.
 
+GÉNÉRIQUE DE DÉMARRAGE (nouveau)
+  Au lancement, la caméra survole Nouakchott : titre, monuments présentés
+  (repères 📍 avec leur nom), crédits musique, puis « PRÊT ? » et le menu.
+  Le mode Taxi a son propre générique (Tour SNIM, Marché Capitale, Grande
+  Mosquée, puis ton taximan qui prend son service).
+  Pour passer : clic / toucher, n'importe quelle touche, ou un bouton de
+  la manette (bouton « Passer ▶ » en haut à droite).
+
+CHOCS
+  Un vrai choc se voit : carrosserie enfoncée à l'endroit de l'impact,
+  tôle rouillée / éraflée, éclats et étincelles, secousse de la caméra.
+  Une nouvelle course (ou un nouveau service) répare la voiture.
+
 MANETTE (USB / PlayStation / Xbox)
   ✕          accélérer (et choisir dans les menus)
   O          NITRO
@@ -80,7 +93,7 @@ MODE 2 JOUEURS (même PC, écran partagé)
   Joueur 2 = manette 2 (ou flèches, Entrée = drift, Ctrl droit = nitro) en bas.
   Ce mode fonctionne hors ligne (pas encore en ligne à deux sur le même PC).
 
-MODE TAXI NOUAKCHOTT (nouveau)
+MODE TAXI NOUAKCHOTT
   Menu Jouer → « Taxi Nouakchott ». Une autre partie du jeu, dans une ville
   en damier aux noms de Nouakchott : avenue Gamal Abdel Nasser, avenue
   Charles de Gaulle, route de l'Espoir, carrefours BMD, Madrid, Bamako,
@@ -101,11 +114,21 @@ MODE TAXI NOUAKCHOTT (nouveau)
     pêcheurs, carrefours Madrid, Bamako, BMD, Cité Smar, PK10…
     Le cercle JAUNE et la flèche au-dessus du taxi montrent le chemin.
   - Arrive à l'heure pour le pourboire. Chaque choc fait perdre des étoiles
-    au client (et donc le pourboire).
+    au client (et donc le pourboire), et le taxi se cabosse.
+  - La ville vit : les passants MARCHENT vraiment (jambes, bras, pas qui
+    suivent la vitesse) et attendent au bord du trottoir ; chèvres en
+    troupeau, ânes, chiens, poules et chats traversent le goudron et s'y
+    arrêtent parfois — les voitures klaxonnent et les contournent.
+    Charrettes tirées par un âne, camions (benne, citerne, plateau), Audi,
+    taxis et Mondeo : le goudron est chargé, surtout aux carrefours à feux.
   - Code de la route : feux rouges à respecter, piétons qui traversent (même
     sans regarder !), animaux, charrettes, camions, bus, ambulance…
-    Feu grillé, excès de vitesse ou piéton renversé devant la police =
-    amende + poursuite (sirène). Sème la police… ou fais-toi arrêter.
+    Feu grillé ou excès de vitesse devant la police = amende + poursuite
+    (sirène). Sème la police… ou fais-toi arrêter.
+  - PIÉTON RENVERSÉ : la personne reste au sol, une AMBULANCE arrive
+    (sirène) pour l'emmener à l'hôpital, et la police est appelée dans
+    tous les cas : grosse amende et poursuite. Un animal renversé se
+    relève après un moment.
   - Klaxon : H (clavier), R1 (manette), bouton 📯 à l'écran. Les piétons sur
     la chaussée se dépêchent, les clients te font signe.
   - Clavier : Z Q S D / flèches, Espace frein à main, Maj turbo, R replacer

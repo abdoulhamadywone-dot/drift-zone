@@ -89,6 +89,26 @@ input:focus{border-color:var(--accent)}
 #wrong{position:absolute;top:45%;left:50%;transform:translateX(-50%);font-size:34px;color:#ff6b6b;padding:8px 22px;animation:pulse2 .5s infinite alternate}
 @keyframes pulse2{to{opacity:.4}}
 #hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:14px;opacity:.8;white-space:nowrap;padding:6px 14px}
+
+/* ---------- Générique ---------- */
+#intro{position:fixed;inset:0;z-index:60;opacity:0;transition:opacity .6s;cursor:pointer;overflow:hidden}
+#intro.on{opacity:1}
+#intro .bar{position:absolute;left:0;right:0;height:11vh;background:#000;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+#intro .bar.t{top:0;transform:translateY(-100%)}#intro .bar.b{bottom:0;transform:translateY(100%)}
+#intro.on .bar{transform:none}
+#introTitle{position:absolute;top:30%;left:0;right:0;text-align:center;white-space:nowrap;font-size:clamp(44px,10vw,124px);letter-spacing:.07em;color:#fff;text-shadow:0 8px 40px rgba(0,0,0,.75);opacity:0;transform:scale(1.1);transition:opacity 1.2s,transform 4s ease-out}
+#introTitle.show{opacity:1;transform:scale(1)}
+#introSub{position:absolute;top:calc(30% + clamp(56px,12vw,150px));left:0;right:0;text-align:center;font-size:clamp(15px,2.4vw,26px);font-weight:700;letter-spacing:.32em;text-transform:uppercase;color:#ffd166;text-shadow:0 2px 12px #000;opacity:0;transition:opacity 1.4s .5s}
+#introSub.show{opacity:1}
+#introCap{position:absolute;left:5vw;bottom:calc(11vh + 26px);display:flex;align-items:center;gap:12px;opacity:0;transform:translateX(-30px);transition:opacity .6s,transform .8s cubic-bezier(.2,.8,.2,1)}
+#introCap.show{opacity:1;transform:none}
+#introCap i{font-style:normal;font-size:26px;width:46px;height:46px;border-radius:50%;background:#00a95c;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px rgba(0,169,92,.35)}
+#introCap span{border-left:4px solid #ffd166;padding:4px 14px;background:rgba(0,0,0,.45)}
+#introCap b{display:block;font-family:"Russo One",sans-serif;font-weight:400;font-size:clamp(20px,3vw,34px);letter-spacing:.04em}
+#introCap small{display:block;font-size:15px;opacity:.85;letter-spacing:.12em;text-transform:uppercase}
+#introCredit{position:absolute;bottom:calc(11vh - 30px);left:0;right:0;text-align:center;font-size:clamp(12px,1.6vw,16px);letter-spacing:.14em;color:#e5e7eb;opacity:0;transition:opacity 1s;z-index:2}
+#introCredit.show{opacity:.92}
+#introSkip{position:absolute;right:18px;top:calc(11vh + 14px);padding:8px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.45);color:#fff;font-weight:700;letter-spacing:.08em;font-size:14px;cursor:pointer}
 /* ---------- Mode Taxi ---------- */
 #taxiHud{display:none}
 body.taxi #taxiHud{display:block}
@@ -287,6 +307,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 <body>
 <div id="game"></div>
 
+<div id="intro" class="hidden"><div class="bar t"></div><div class="bar b"></div><div id="introTitle" class="disp"></div><div id="introSub"></div><div id="introCap"></div><div id="introCredit"></div><button id="introSkip">Passer ▶</button></div>
 <div id="loading">
   <div class="logo disp">DRIFT ZONE</div>
   <div id="loadBar"><i></i></div>
@@ -467,7 +488,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.7.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.8.0';</script>
 <script src="engine-dsp.js"></script>
 <script src="taxi.js"></script>
 <script src="game.js"></script>

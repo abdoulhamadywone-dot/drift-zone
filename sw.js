@@ -1,5 +1,5 @@
 // Drift Zone — cache hors-ligne + mises à jour
-const VERSION = '2.7.0';
+const VERSION = '2.8.0';
 const CACHE = 'driftzone-' + VERSION;
 // fichiers indispensables (le modèle Audi haute qualité est mis en cache à la première utilisation)
 const CORE = [

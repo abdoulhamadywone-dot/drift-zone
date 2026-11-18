@@ -131,10 +131,11 @@ window.DZTaxi = function (A) {
       } else if (d >= r || d < 1e-5) continue; else { dx /= d; dz /= d; }
       const pen = r - d; c.x += dx * pen; c.z += dz * pen;
       const vn = c.vx * dx + c.vz * dz;
-      if (vn < 0) { c.vx -= dx * vn * 1.3; c.vz -= dz * vn * 1.3; c.vx *= 0.85; c.vz *= 0.85; c.w *= 0.6; hit = Math.max(hit, -vn); }
+      if (vn < 0) { c.vx -= dx * vn * 1.3; c.vz -= dz * vn * 1.3; c.vx *= 0.85; c.vz *= 0.85; c.w *= 0.6; hit = Math.max(hit, -vn); if (c === taxi && -vn > lastHit.v) Object.assign(lastHit, { v: -vn, x: qx, z: qz, nx: dx, nz: dz, o: null }); }
     }
     return hit;
   }
+  const lastHit = { v: 0, x: 0, z: 0, nx: 0, nz: 0, o: null, lz: 0 };
   // cercle contre une boîte orientée (véhicules IA)
   function circleOBB(c, ox, oz, r, b) {
     const px = c.x + ox - b.x, pz = c.z + oz - b.z, ca = Math.cos(b.h), sa = Math.sin(b.h);
@@ -146,7 +147,7 @@ window.DZTaxi = function (A) {
     const wx = dx * ca + dz * sa, wz = -dx * sa + dz * ca, pen = r - d; // retour au repère monde
     c.x += wx * pen; c.z += wz * pen;
     const vn = (c.vx - (b.vx || 0)) * wx + (c.vz - (b.vz || 0)) * wz;
-    if (vn < 0) { c.vx -= wx * vn * 1.25; c.vz -= wz * vn * 1.25; c.w += (Math.random() - 0.5) * 0.3; return -vn; }
+    if (vn < 0) { c.vx -= wx * vn * 1.25; c.vz -= wz * vn * 1.25; c.w += (Math.random() - 0.5) * 0.3; if (c === taxi && -vn > lastHit.v) Object.assign(lastHit, { v: -vn, x: b.x + qx * ca + qz * sa, z: b.z - qx * sa + qz * ca, nx: wx, nz: wz, o: b, lz: qz }); return -vn; }
     return 0;
   }
 
@@ -169,7 +170,7 @@ window.DZTaxi = function (A) {
     src.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(src.matrixWorld).invert(), buckets = new Map(), nm = new THREE.Matrix3(), w = new THREE.Vector3();
     src.traverse(o => {
-      if (!o.isMesh) return;
+      if (!o.isMesh || !o.visible || o.geometry.type === 'PlaneGeometry' || o.geometry.type === 'ConeGeometry') return;
       const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld); if (extra) m.premultiply(extra);
       nm.getNormalMatrix(m);
       const geo = o.geometry, P = geo.attributes.position, N = geo.attributes.normal, U = geo.attributes.uv, I = geo.index, n = I ? I.count : P.count;
@@ -458,42 +459,41 @@ window.DZTaxi = function (A) {
   }
 
   /* ======================= Véhicules ======================= */
-  const VT = {
-    civil: { node: 'tx_mondeo_civil', tint: [0xf2f2f2, 0xc9ced6, 0x22252b, 0x8a1c1c, 0x1f3f7a, 0xd9c7a6, 0x6b7076, 0x2d6a4f], w: 6 },
-    taxi2: { node: 'tx_mondeo_taxi', w: 2 }, e7: { node: 'tx_e7', w: 2 },
+  const CAR_TINTS = [0xf2f2f2, 0xc9ced6, 0x22252b, 0x8a1c1c, 0x1f3f7a, 0xd9c7a6, 0x6b7076, 0x2d6a4f, 0xb9a27c, 0x7a2e2e];
+  const VT = { // uniquement des modèles détaillés
+    civil: { node: 'tx_mondeo_civil', tint: CAR_TINTS, w: 5 },
+    suv: { build: 'audi', tint: CAR_TINTS, w: 4 },
+    taxi2: { node: 'tx_mondeo_taxi', w: 2.2 }, e7: { node: 'tx_e7', w: 2.2 },
     police: { node: 'tx_mondeo_police', w: 0, police: true },
-    amb: { node: 'tx_ambulance', w: 0.5, vmax: 13 },
-    box: { node: 'tx_truck_box', w: 0.8, vmax: 10.5 }, cist: { node: 'tx_truck_cistern', w: 0.7, vmax: 10 }, flat: { node: 'tx_truck_flat', w: 0.7, vmax: 10.5 },
-    car1: { city: 'V_Car1', s: 0.72, w: 1.2 }, car2: { city: 'V_Car2', s: 0.72, w: 1.2 }, car3: { city: 'V_Car3', s: 0.72, w: 1 },
-    suv1: { city: 'V_SUV1', s: 0.78, w: 1 }, suv2: { city: 'V_SUV2', s: 0.78, w: 1 }, pick1: { city: 'V_PickupTruck1', s: 0.78, w: 1.2 }, pick2: { city: 'V_PickupTruck2', s: 0.78, w: 0.8 },
-    bus: { city: 'V_Bus1', s: 0.85, w: 0.7, vmax: 10.5 }, bus2: { city: 'V_Bus2', s: 0.85, w: 0.4, vmax: 10.5 },
+    amb: { node: 'tx_ambulance', w: 0.4, vmax: 13 },
+    box: { node: 'tx_truck_box', w: 1.3, vmax: 10.5 }, cist: { node: 'tx_truck_cistern', w: 1.1, vmax: 10 }, flat: { node: 'tx_truck_flat', w: 1.3, vmax: 10.5 },
     cart: { cart: true, w: 0, vmax: 3.6 },
   };
   function buildVehicleTypes() {
     for (const k in VT) {
       const t = VT[k]; let parts = null;
       if (t.node) { const src = lib.getObjectByName(t.node); if (src) parts = bake(src); }
-      else if (t.city) { const src = A.ASSETS.city && A.ASSETS.city.getObjectByName(t.city); if (src) parts = bake(src, new THREE.Matrix4().makeRotationY(Math.PI / 2).multiply(new THREE.Matrix4().makeScale(t.s, t.s, t.s))); }
+      else if (t.build && A.buildCar) { const mdl = A.buildCar(t.build, 'lo', 0xffffff, 0xd8dde3, false, true); parts = bake(mdl.root); t.tintMat = mdl.paint; }
       else if (t.cart) parts = cartParts();
       if (!parts) { delete VT[k]; continue; }
       const bb = new THREE.Box3(); for (const p of parts) bb.union(p.geo.boundingBox);
       t.hl = Math.max(-bb.min.z, bb.max.z); t.hw = Math.max(-bb.min.x, bb.max.x) * 0.92; t.ht = bb.max.y; t.parts = parts;
+      if (t.cart) t.hl = 2.75; // l'âne marche devant la charrette
     }
   }
-  function cartParts() { // charrette tirée par un cheval (très nouakchottois)
-    const horse = lib.getObjectByName('an_horse'); if (!horse) return null;
-    const hp = bake(horse, new THREE.Matrix4().makeTranslation(0, 0, 1.6).multiply(new THREE.Matrix4().makeRotationY(Math.PI)).multiply(new THREE.Matrix4().makeScale(0.85, 0.85, 0.85)));
+  function cartParts() { // charrette (l'âne qui la tire est un animal animé, dessiné à part)
     const wood = A.surf({ color: 0x8a5a2b, roughness: 0.9 }), gs = [];
     const add = (g, x, y, z) => { g = g.toNonIndexed(); g.translate(x, y, z); if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2)); gs.push(g); };
     add(new THREE.BoxGeometry(1.5, 0.12, 2.0), 0, 0.85, -0.9); add(new THREE.BoxGeometry(1.5, 0.35, 0.08), 0, 1.05, -1.9); add(new THREE.BoxGeometry(0.08, 0.35, 2.0), 0.72, 1.05, -0.9); add(new THREE.BoxGeometry(0.08, 0.35, 2.0), -0.72, 1.05, -0.9);
-    for (const s of [-1, 1]) { const w = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 12); w.rotateZ(Math.PI / 2); add(w, s * 0.85, 0.5, -0.9); add(new THREE.BoxGeometry(0.06, 0.06, 1.6), s * 0.5, 0.85, 0.5); }
-    return hp.concat([{ geo: mergeGeos(gs), mat: wood }]);
+    add(new THREE.BoxGeometry(1.2, 0.5, 0.9), 0, 1.15, -1.2); // chargement : sacs, bidons
+    for (const s of [-1, 1]) { const w = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 14); w.rotateZ(Math.PI / 2); add(w, s * 0.85, 0.5, -0.9); add(new THREE.BoxGeometry(0.06, 0.06, 1.6), s * 0.45, 0.85, 0.55); }
+    return [{ geo: mergeGeos(gs), mat: wood }];
   }
   const VIM = {}; // InstancedMesh par type
   function buildVehicleMeshes(counts) {
     for (const k in VT) {
       const t = VT[k], n = counts[k] || 0; if (!n || !t.parts) continue;
-      t.ims = t.parts.map(p => { const m = new THREE.InstancedMesh(p.geo, texFix(lowMat(p.mat)), n); m.frustumCulled = false; m.castShadow = !LITE; m.receiveShadow = false; for (let q = 0; q < n; q++) m.setMatrixAt(q, ZERO); if (t.tint) { for (let q = 0; q < n; q++) m.setColorAt(q, lin(t.tint[q % t.tint.length])); } root.add(m); return m; });
+      t.ims = t.parts.map(p => { const m = new THREE.InstancedMesh(p.geo, texFix(lowMat(p.mat)), n); m.frustumCulled = false; m.castShadow = !LITE; m.receiveShadow = false; for (let q = 0; q < n; q++) m.setMatrixAt(q, ZERO); if (t.tint && (!t.tintMat || p.mat === t.tintMat)) { m.userData.tinted = true; for (let q = 0; q < n; q++) m.setColorAt(q, lin(t.tint[q % t.tint.length])); } root.add(m); return m; });
       t.free = [...Array(n).keys()];
     }
   }
@@ -553,6 +553,7 @@ window.DZTaxi = function (A) {
     for (const p of peds) if (p.on && (p.road || p.st === 'board' || p.st === 'alight')) dynAdd(p);
     if (taxi) dynAdd(taxi);
     for (const pc of chasers) dynAdd(pc.car);
+    if (amb.car) dynAdd(amb.car);
   }
   function obstacleGap(c, fx, fz) { // distance libre devant une voiture IA
     let best = 99; const cx = Math.floor(c.x / DCELL), cz = Math.floor(c.z / DCELL);
@@ -601,14 +602,18 @@ window.DZTaxi = function (A) {
       if (c.bump > 0) want = 0;
       c.v += clamp(want - c.v, -9 * dt, 2.6 * dt); if (c.v < 0) c.v = 0;
       // embouteillage : klaxon, et on finit par passer
-      if (c.v < 0.2 && !stopByLight && c.blocker) { c.stuck += dt; if (c.blocker === taxi && c.honkT <= 0 && c.stuck > 1.8) { honk(c.x, c.z, 1); c.honkT = 2.5 + R() * 2; } if (c.stuck > 6 && c.blocker !== taxi) { c.ghost = 2.5; c.stuck = 0; } } else c.stuck = 0;
+      if (c.v < 0.2 && !stopByLight && c.blocker && c.blocker.kind && c.piece === 'edge' && c.stuck > 2.5 && !c.cart && c.s < c.len - 18) { c.lane = 1 - c.lane; const s0 = c.s; edgePath(c); c.s = s0; chooseNext(c); c.stuck = 0; honk(c.x, c.z, 0.7); } // contourner
+      if (c.v < 0.2 && !stopByLight && c.blocker) { c.stuck += dt; if ((c.blocker === taxi || c.blocker.kind) && c.honkT <= 0 && c.stuck > 1.8) { honk(c.x, c.z, 1); c.honkT = 2.5 + R() * 2; } if (c.stuck > 6 && c.blocker !== taxi) { c.ghost = 2.5; c.stuck = 0; } } else c.stuck = 0;
       c.s += c.v * dt;
       if (c.s >= c.len) {
         const over = c.s - c.len;
         if (c.piece === 'edge') { turnPath(c); c.s = over; c.wait = 0; }
         else { c.i = c.bi; c.j = c.bj; c.d = c.nd; c.lane = c.nl; edgePath(c); chooseNext(c); c.s = over; }
       }
-      const p = pathAt(c, c.s), ph = c.h; c.x = p[0]; c.z = p[1]; c.h = ph + wrapAng(p[2] - ph) * Math.min(1, dt * 10);
+      if (c.pvx || c.pvz || c.spin) { c.ox = (c.ox || 0) + c.pvx * dt; c.oz = (c.oz || 0) + c.pvz * dt; c.oh = (c.oh || 0) + c.spin * dt; const k = Math.exp(-dt * 2.4); c.pvx *= k; c.pvz *= k; c.spin *= Math.exp(-dt * 2); if (Math.abs(c.pvx) + Math.abs(c.pvz) + Math.abs(c.spin) < 0.03) c.pvx = c.pvz = c.spin = 0; }
+      if (c.bump <= 0 && (c.ox || c.oz || c.oh)) { const k = Math.exp(-dt * 1.1); c.ox *= k; c.oz *= k; c.oh *= k; if (Math.abs(c.ox) + Math.abs(c.oz) + Math.abs(c.oh) < 0.02) c.ox = c.oz = c.oh = 0; }
+      if (c.smoke > 0) { c.smoke -= dt; c.smA = (c.smA || 0) + dt * 6; if (c.smA > 1) { c.smA = 0; A.spawnSmoke(c.x + Math.sin(c.h) * c.hl * 0.7, c.z + Math.cos(c.h) * c.hl * 0.7, 0, 0, 0.35, true, 0.9); } }
+      const p = pathAt(c, c.s), ph = c.h; c.x = p[0] + (c.ox || 0); c.z = p[1] + (c.oz || 0); c.h = ph + wrapAng(p[2] + (c.oh || 0) - ph) * Math.min(1, dt * 10);
       c.vx = Math.sin(c.h) * c.v; c.vz = Math.cos(c.h) * c.v;
     }
   }
@@ -620,30 +625,77 @@ window.DZTaxi = function (A) {
       if (Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) > far) continue;
       _m.compose(_v.set(c.x, c.y || 0, c.z), _q.setFromAxisAngle(_Y, c.h), _s.set(1, 1, 1));
       const q = t.n++;
-      for (const m of t.ims) { m.setMatrixAt(q, _m); if (t.tint) m.setColorAt(q, c.col); }
+      for (const m of t.ims) { m.setMatrixAt(q, _m); if (m.userData.tinted) m.setColorAt(q, c.col); }
     }
     for (const k in VT) { const t = VT[k]; if (!t.ims) continue; for (const m of t.ims) { m.count = t.n; m.visible = t.n > 0; m.instanceMatrix.needsUpdate = true; if (t.tint && m.instanceColor) m.instanceColor.needsUpdate = true; } }
   }
   function populateTraffic() {
     for (const c of cars) freeCar(c); cars = [];
-    const n = LOW ? 18 : LITE ? 30 : 44, types = [];
+    const n = LOW ? 22 : LITE ? 38 : 54, types = [];
     for (const k in VT) if (VT[k].ims && !VT[k].police && !VT[k].cart) for (let q = 0; q < Math.round(VT[k].w * 4); q++) types.push(k);
     const tries = { v: 0 };
     const occ = (i, j, d, lane, s) => cars.some(o => o.i === i && o.j === j && o.d === d && o.lane === lane && Math.abs(o.s - s) < 12);
     const place = (type, laneOnly) => { for (let k = 0; k < 40; k++) { const i = Math.floor(R() * NI), j = Math.floor(R() * NJ), d = Math.floor(R() * 4); if (!inGrid(i + DIRS[d][0], j + DIRS[d][1])) continue; const lane = laneOnly !== undefined ? laneOnly : R() < 0.5 ? 0 : 1, s = 4 + R() * (EL - 30); if (occ(i, j, d, lane, s)) continue; if (taxi && Math.hypot(nx(i) - taxi.x, nz(j) - taxi.z) < 30) continue; return spawnCar(type, i, j, d, lane, s); } return null; };
     for (let k = 0; k < (LOW ? 2 : 3); k++) place('police');
-    for (let k = 0; k < (LOW ? 1 : 2); k++) place('cart', 1);
-    const dense = [0.6, 1, 1.4][T.traffic];
+    for (let k = 0; k < (LOW ? 2 : 4); k++) place('cart', 1);
+    const dense = [0.65, 1, 1.35][T.traffic];
     for (let k = 0; k < Math.round(n * dense); k++) place(pick(types));
   }
 
-  /* ======================= Piétons, clients, animaux ======================= */
-  let peds = [], PIM = [], AIM = [];
-  const PED_N = LOW ? 34 : LITE ? 60 : 90, CLIENT_N = 8, ANIM = ['an_dog', 'an_chicken', 'an_kitty', 'an_dog'];
+  /* ======================= Piétons, clients, animaux : vrais cycles de marche (animés sur le GPU) ======================= */
+  let peds = [], WM = {}, walkLib = null;
+  const PED_N = LOW ? 34 : LITE ? 64 : 96, CLIENT_N = 8;
+  const HUMANS = ['wk_ped0', 'wk_ped1', 'wk_ped2', 'wk_ped3', 'wk_ped4', 'wk_ped5', 'wk_ped6', 'wk_ped7', 'wk_ped8', 'wk_ped9', 'wk_ba', 'wk_survie'];
+  const ANI = { wk_goat: { spd: 0.7, hl: 0.55, hw: 0.25, stride: 1.05, tint: [0xf4f1ea, 0x2b2622, 0x8a5a33, 0xd9cbb2] }, wk_donkey: { spd: 0.85, hl: 1.0, hw: 0.32, stride: 1.6 }, wk_dog: { spd: 1.1, hl: 0.45, hw: 0.2, stride: 0.95, tint: [0xd8c3a0, 0x3a2e24, 0xf0f0f0] }, wk_chicken: { spd: 0.5, hl: 0.18, hw: 0.12, stride: 0.34 }, wk_cat: { spd: 0.65, hl: 0.25, hw: 0.1, stride: 0.55 } };
+  const TINTS = [0xc0392b, 0x1f6fb2, 0x2e8b57, 0xf2c14e, 0x8e44ad, 0xf2f2f2, 0x1b1b1b, 0x16a085, 0xd35400, 0x34495e, 0x7f8c8d, 0xe84393];
+  const VAT_OK = A.renderer.capabilities.isWebGL2 || !!A.renderer.extensions.get('OES_texture_float');
+  const VAT_V = 'uniform sampler2D vatTex; uniform vec3 vatInfo; uniform float walkN;\nattribute float vid; attribute vec2 iAnim; attribute vec4 iTint; varying vec4 vTint;\nvec3 vatAt(float f) { float i = f * vatInfo.y * vatInfo.x + vid; float y = floor(i / vatInfo.x); float x = i - y * vatInfo.x; return texture2D(vatTex, vec2((x + 0.5) / vatInfo.x, (y + 0.5) / vatInfo.z)).xyz; }\n';
+  const VAT_B = '#include <begin_vertex>\nvTint = iTint;\n' + (VAT_OK ? 'float ph = fract(iAnim.x) * walkN; float f0 = floor(ph); float f1 = mod(f0 + 1.0, walkN);\ntransformed = mix(vatAt(f0), vatAt(f1), ph - f0);\ntransformed = mix(transformed, vatAt(walkN), clamp(iAnim.y, 0.0, 1.0));\n' : '');
+  const VAT_F = '#include <map_fragment>\n{ vec3 c = diffuseColor.rgb; float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)); float sat = (mx - mn) / (mx + 1e-4);\nfloat skin = step(c.b, c.g) * step(c.g, c.r) * smoothstep(0.12, 0.22, sat) * (1.0 - smoothstep(0.72, 0.85, sat)) * step(0.05, c.r - c.b);\nfloat lum = dot(c, vec3(0.3, 0.55, 0.15)); float cl = (1.0 - skin) * smoothstep(0.03, 0.1, lum);\ndiffuseColor.rgb = mix(c, lum * vTint.rgb * 2.1, cl * vTint.a); }\n';
+  function vatModel(name, cap) {
+    const src = walkLib && walkLib.getObjectByName(name); if (!src) return null;
+    let mesh = null; src.traverse(o => { if (o.isMesh && !mesh) mesh = o; }); if (!mesh) return null;
+    src.updateMatrixWorld(true);
+    const mm = new THREE.Matrix4().multiplyMatrices(new THREE.Matrix4().copy(src.matrixWorld).invert(), mesh.matrixWorld), nm = new THREE.Matrix3().getNormalMatrix(mm);
+    const g0 = mesh.geometry, P = g0.attributes.position, N = g0.attributes.normal, U = g0.attributes.uv, MT = g0.morphAttributes.position || [];
+    const nV = P.count, F = Math.max(1, MT.length), rel = g0.morphTargetsRelative !== false;
+    const W = Math.min(nV, 1024), rows = Math.ceil(nV / W), H = rows * F, data = new Float32Array(W * H * 4), w = new THREE.Vector3(), d = new THREE.Vector3();
+    const getV = (A_, i) => A_.normalized ? w.set(A_.getX(i) / 32767, A_.getY(i) / 32767, A_.getZ(i) / 32767) : w.fromBufferAttribute(A_, i);
+    for (let f = 0; f < F; f++) for (let v = 0; v < nV; v++) {
+      w.fromBufferAttribute(P, v);
+      if (MT[f]) { d.fromBufferAttribute(MT[f], v); if (rel) w.add(d); else w.copy(d); }
+      w.applyMatrix4(mm); const o = (f * rows * W + v) * 4; data[o] = w.x; data[o + 1] = w.y; data[o + 2] = w.z; data[o + 3] = 1;
+    }
+    void getV;
+    const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat, THREE.FloatType); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.needsUpdate = true;
+    const g = new THREE.BufferGeometry(), pos = new Float32Array(nV * 3), nor = new Float32Array(nV * 3), uv = new Float32Array(nV * 2), vid = new Float32Array(nV), idle = F - 1;
+    for (let v = 0; v < nV; v++) {
+      const o = (idle * rows * W + v) * 4; pos[v * 3] = data[o]; pos[v * 3 + 1] = data[o + 1]; pos[v * 3 + 2] = data[o + 2];
+      if (N) { w.fromBufferAttribute(N, v).applyMatrix3(nm).normalize(); nor[v * 3] = w.x; nor[v * 3 + 1] = w.y; nor[v * 3 + 2] = w.z; }
+      if (U) { uv[v * 2] = U.getX(v); uv[v * 2 + 1] = U.getY(v); } vid[v] = v;
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('vid', new THREE.BufferAttribute(vid, 1));
+    if (g0.index) g.setIndex(g0.index); if (!N) g.computeVertexNormals(); g.computeBoundingSphere();
+    const iAnim = new THREE.InstancedBufferAttribute(new Float32Array(cap * 2), 2), iTint = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4);
+    iAnim.setUsage(THREE.DynamicDrawUsage); iTint.setUsage(THREE.DynamicDrawUsage); g.setAttribute('iAnim', iAnim); g.setAttribute('iTint', iTint);
+    const mat = texFix(LOW ? lowMat(mesh.material) : mesh.material.clone());
+    if (!LOW) { mat.roughness = 0.85; mat.metalness = 0; mat.envMapIntensity = 0.35; }
+    mat.morphTargets = false; mat.morphNormals = false; mat.skinning = false; mat.vertexColors = false; // la VAT remplace les morphs (sinon trop d'attributs)
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.vatTex = { value: tex }; sh.uniforms.vatInfo = { value: new THREE.Vector3(W, rows, H) }; sh.uniforms.walkN = { value: F - 1 };
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + VAT_V).replace('#include <begin_vertex>', VAT_B);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vTint;').replace('#include <map_fragment>', VAT_F);
+    };
+    mat.customProgramCacheKey = () => 'dzvat' + (VAT_OK ? 1 : 0);
+    const im = new THREE.InstancedMesh(g, mat, cap); im.frustumCulled = false; im.castShadow = false; im.count = 0; root.add(im);
+    return { im, iAnim, iTint, name, F, n: 0, cap, used: 0, stride: (ANI[name] && ANI[name].stride) || 1.35 };
+  }
   function buildPedMeshes() {
-    PIM = []; AIM = [];
-    for (let k = 0; k < 10; k++) { const src = lib.getObjectByName('ped_' + k); if (!src) continue; const parts = bake(src); PIM.push(parts.map(p => { const m = new THREE.InstancedMesh(p.geo, texFix(lowMat(p.mat)), Math.ceil((PED_N + CLIENT_N) / 10) + 6); m.frustumCulled = false; m.castShadow = HIQ; root.add(m); m.count = 0; return m; })); }
-    for (const a of ['an_dog', 'an_chicken', 'an_kitty']) { const src = lib.getObjectByName(a); if (!src) continue; const parts = bake(src); AIM.push(parts.map(p => { const m = new THREE.InstancedMesh(p.geo, texFix(lowMat(p.mat)), 8); m.frustumCulled = false; root.add(m); m.count = 0; return m; })); }
+    WM = {};
+    const capH = Math.ceil((PED_N + CLIENT_N) / HUMANS.length) + 4;
+    for (const n of HUMANS) { const m = vatModel(n, capH); if (m) WM[n] = m; }
+    const capA = { wk_goat: LOW ? 10 : 24, wk_donkey: 14, wk_dog: 8, wk_chicken: 12, wk_cat: 5 };
+    for (const n in ANI) { const m = vatModel(n, capA[n]); if (m) WM[n] = m; }
   }
   const loopPos = (bi, bj, p, lat) => { // position sur le trottoir (tour de l'îlot)
     const [cx, cz] = blockC(bi, bj), L = 2 * HS, per = 4 * L; p = ((p % per) + per) % per;
@@ -651,24 +703,31 @@ window.DZTaxi = function (A) {
     if (k === 0) return [cx + t, cz - h, 0]; if (k === 1) return [cx + h, cz + t, 1]; if (k === 2) return [cx - t, cz + h, 2]; return [cx - h, cz - t, 3];
   };
   const CORNER = [[-1, -1], [1, -1], [1, 1], [-1, 1]]; // NO, NE, SE, SO
-  function newPed(kind, mi) {
-    const group = kind === 'animal' ? AIM : PIM; if (!group.length) return null;
-    const g = mi === undefined ? Math.floor(R() * group.length) : mi % group.length, ims = group[g];
-    ims.cap = (ims.cap || 0); if (ims.cap >= ims[0].instanceMatrix.count) return null; const slot = ims.cap++;
-    const p = { kind, ims, slot, on: true, st: 'walk', bi: 0, bj: 0, p: 0, dir: R() < 0.5 ? 1 : -1, lat: (R() - 0.5) * 2.2, spd: kind === 'animal' ? 0.5 + R() * 0.7 : 1.05 + R() * 0.45, x: 0, z: 0, h: 0, ph: R() * 6.3, t: 0, road: false, hw: 0.35, hl: 0.35, fall: 0, wait: 0 };
+  const tintOf = (hex, a) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b, a]; };
+  function newPed(kind, model) {
+    const M = WM[model]; if (!M || M.used >= M.cap) return null; M.used++;
+    const an = ANI[model];
+    const p = { kind, M, on: true, st: 'walk', bi: 0, bj: 0, p: 0, dir: R() < 0.5 ? 1 : -1, lat: (R() - 0.5) * 2.2, spd: an ? an.spd * (0.85 + R() * 0.3) : 1.05 + R() * 0.45, x: 0, z: 0, h: 0, ph: R(), t: 0, road: false, hw: an ? an.hw : 0.35, hl: an ? an.hl : 0.35, fall: 0, wait: 0, idle: 0, curV: 0,
+      tint: an ? (an.tint ? tintOf(pick(an.tint), 0.85) : [1, 1, 1, 0]) : (R() < 0.6 ? tintOf(pick(TINTS), 0.78) : [1, 1, 1, 0]) };
     peds.push(p); return p;
   }
-  function placeWalker(p) {
-    for (let k = 0; k < 30; k++) { p.bi = Math.floor(R() * (NI - 1)); p.bj = Math.floor(R() * (NJ - 1)); if (!taxi || Math.hypot(blockC(p.bi, p.bj)[0] - taxi.x, blockC(p.bi, p.bj)[1] - taxi.z) > 40) break; }
-    p.p = R() * 8 * HS; p.st = 'walk'; p.road = false; p.fall = 0;
+  function placeWalker(p, near) {
+    for (let k = 0; k < 30; k++) { p.bi = Math.floor(R() * (NI - 1)); p.bj = Math.floor(R() * (NJ - 1)); const [bx, bz] = blockC(p.bi, p.bj); if (!taxi || (Math.hypot(bx - taxi.x, bz - taxi.z) > 40 && (!near || Math.hypot(bx - taxi.x, bz - taxi.z) < 300))) break; }
+    p.p = R() * 8 * HS; p.st = 'walk'; p.road = false; p.fall = 0; p.down = false; p.leader = null;
     const q = loopPos(p.bi, p.bj, p.p, p.lat); p.x = q[0]; p.z = q[1];
   }
   function populatePeds() {
-    for (const g of PIM.concat(AIM)) g.cap = 0;
+    for (const k in WM) WM[k].used = 0;
     peds = [];
-    for (let k = 0; k < PED_N; k++) { const p = newPed('ped', k); if (p) placeWalker(p); }
-    for (let k = 0; k < (LOW ? 4 : 9); k++) { const p = newPed('animal', k); if (p) { placeWalker(p); p.lat = 1 + R() * 0.6; } }
-    for (let k = 0; k < CLIENT_N; k++) { const p = newPed('ped', k * 3 + 1); if (p) { p.on = false; p.st = 'off'; p.client = true; } }
+    for (let k = 0; k < PED_N; k++) { const p = newPed('ped', HUMANS[k % HUMANS.length]); if (p) placeWalker(p); }
+    // troupeaux de chèvres, ânes, chiens, poules, chats : sur les trottoirs… et sur le goudron
+    const herds = LOW ? 2 : 4;
+    for (let h = 0; h < herds; h++) { const lead = newPed('animal', 'wk_goat'); if (!lead) break; placeWalker(lead); lead.lat = 1.2; const n = 2 + Math.floor(R() * 3); for (let k = 1; k <= n; k++) { const g = newPed('animal', 'wk_goat'); if (!g) break; g.leader = lead; g.hk = k; g.side = (k % 2 ? 1 : -1) * (0.4 + R() * 0.5); g.st = 'walk'; } }
+    for (let k = 0; k < (LOW ? 2 : 4); k++) { const p = newPed('animal', 'wk_donkey'); if (p) { placeWalker(p); p.lat = 1.3; } }
+    for (let k = 0; k < (LOW ? 2 : 5); k++) { const p = newPed('animal', 'wk_dog'); if (p) { placeWalker(p); p.lat = 1 + R(); } }
+    for (let gq = 0; gq < (LOW ? 1 : 2); gq++) { const lead = newPed('animal', 'wk_chicken'); if (!lead) break; placeWalker(lead); lead.lat = 1.4; for (let k = 1; k <= 3; k++) { const c = newPed('animal', 'wk_chicken'); if (!c) break; c.leader = lead; c.hk = k * 0.45; c.side = (R() - 0.5) * 1.2; } }
+    for (let k = 0; k < (LOW ? 1 : 3); k++) { const p = newPed('animal', 'wk_cat'); if (p) { placeWalker(p); p.lat = 1.6; } }
+    for (let k = 0; k < CLIENT_N; k++) { const p = newPed('ped', HUMANS[(k * 5 + 2) % HUMANS.length]); if (p) { p.on = false; p.st = 'off'; p.client = true; } }
   }
   function startCross(p, fromCorner, alongX) { // traverser au passage piéton depuis le coin de l'îlot
     const [sx, sz] = CORNER[fromCorner], [cx, cz] = blockC(p.bi, p.bj);
@@ -678,31 +737,45 @@ window.DZTaxi = function (A) {
     if (!inBlocks(nbi, nbj)) return false;
     const [ncx, ncz] = blockC(nbi, nbj), [tx, tz] = CORNER[tc];
     p.cx0 = ax; p.cz0 = az; p.cx1 = ncx + tx * (HS + 0.3); p.cz1 = ncz + tz * (HS + 0.3);
-    // nœud et axe du feu qui protège ce passage
-    p.ni = Math.round((ax + (p.cx1 - ax) / 2 - X0) / P); p.nj = Math.round((az + (p.cz1 - az) / 2 - Z0) / P);
     p.ni = clamp(Math.round(((ax + p.cx1) / 2 - X0) / P), 0, NI - 1); p.nj = clamp(Math.round(((az + p.cz1) / 2 - Z0) / P), 0, NJ - 1);
     p.axis = alongX ? 1 : 0; // traverser la route N-S (le long de x) = couper l'axe N-S
     p.nbi = nbi; p.nbj = nbj; p.np = tc * 2 * HS; p.st = 'cwait'; p.wait = 0; p.x = ax; p.z = az;
     return true;
   }
-  function startJay(p) { // traverser n'importe où, sans regarder
+  function startJay(p) { // traverser n'importe où, sans regarder (les animaux s'arrêtent parfois au milieu)
     const q = loopPos(p.bi, p.bj, p.p, p.lat), side = q[2], [fx, fz] = [[0, -1], [1, 0], [0, 1], [-1, 0]][side];
     const nbi = p.bi + fx, nbj = p.bj + fz; if (!inBlocks(nbi, nbj)) return false;
-    p.cx0 = q[0]; p.cz0 = q[1]; p.cx1 = q[0] + fx * (RW + 4.4 + 2 * p.lat * 0); p.cz1 = q[1] + fz * (RW + 4.4);
+    p.cx0 = q[0]; p.cz0 = q[1]; p.cx1 = q[0] + fx * (RW + 4.4); p.cz1 = q[1] + fz * (RW + 4.4);
     p.nbi = nbi; p.nbj = nbj;
-    const [ncx, ncz] = blockC(nbi, nbj); // position sur la boucle de l'îlot d'en face
+    const [ncx, ncz] = blockC(nbi, nbj);
     const opp = (side + 2) % 4, along = opp === 0 ? p.cx1 - ncx : opp === 1 ? p.cz1 - ncz : opp === 2 ? -(p.cx1 - ncx) : -(p.cz1 - ncz);
-    p.np = opp * 2 * HS + along + HS; p.st = 'cross'; p.t = 0; p.jay = true; p.spd2 = 1.8 + R() * 0.8;
+    p.np = opp * 2 * HS + along + HS; p.st = 'cross'; p.t = 0; p.jay = true; p.spd2 = p.kind === 'animal' ? p.spd * 1.1 : 1.8 + R() * 0.8;
+    p.pauseAt = p.kind === 'animal' && R() < 0.75 ? 0.25 + R() * 0.5 : 2; p.pauseT = 0;
     return true;
   }
   function updatePeds(dt) {
     for (const p of peds) {
-      if (!p.on) continue;
-      p.ph += dt * (p.kind === 'animal' ? 7 : 6.2) * (p.run ? 1.8 : 1);
-      if (p.fall > 0) { p.fall -= dt; if (p.fall <= 0 && p.st !== 'ride') { p.road = false; if (p.st === 'walk' || p.st === 'cross' || p.st === 'flee') { p.st = 'walk'; placeWalker(p); } } continue; }
+      if (!p.on) { if (p.respawn > 0) { p.respawn -= dt; if (p.respawn <= 0) { p.on = true; p.down = false; if (p.client) { p.on = false; p.st = 'off'; } else placeWalker(p); } } continue; }
+      let v = 0;
+      if (p.down) { // blessé : il reste au sol jusqu'à l'ambulance (un animal finit par se relever)
+        p.downT = (p.downT || 0) + dt; p.idle = 1;
+        if (p.kind === 'animal' && p.downT > 14) { p.down = false; p.fall = 0; p.road = false; placeWalker(p); }
+        continue;
+      }
+      if (p.fall > 0) { p.fall -= dt; continue; }
       if (p.run > 0) p.run -= dt;
+      if (p.leader) { // troupeau : on suit le chef
+        const L = p.leader;
+        if (!L.on || L.down) { p.leader = null; placeWalker(p); continue; }
+        const fx = Math.sin(L.h), fz = Math.cos(L.h), tx = L.x - fx * (0.9 * p.hk) + fz * p.side, tz = L.z - fz * (0.9 * p.hk) - fx * p.side;
+        const dx = tx - p.x, dz = tz - p.z, dd = Math.hypot(dx, dz);
+        if (dd > 25) { p.x = tx; p.z = tz; } else if (dd > 0.08) { const st = Math.min(dd, (L.curV + 0.6 + dd * 0.8) * dt); p.x += dx / dd * st; p.z += dz / dd * st; v = st / dt; p.h = p.h + wrapAng(Math.atan2(dx, dz) - p.h) * Math.min(1, dt * 5); }
+        p.road = L.road; p.curV = v; p.ph += v * dt / p.M.stride; p.idle += ((v > 0.15 ? 0 : 1) - p.idle) * Math.min(1, dt * 6); p.st = L.st === 'cross' || L.st === 'flee' ? 'cross' : 'walk';
+        continue;
+      }
       if (p.st === 'walk') {
-        const sp = p.spd * (p.run > 0 ? 2.4 : 1) * (p.kind === 'animal' && Math.sin(p.ph * 0.07) > 0.6 ? 0 : 1);
+        const pausing = p.kind === 'animal' && Math.sin(p.t2 = (p.t2 || R() * 50) + dt * 0.21) > 0.55;
+        const sp = p.spd * (p.run > 0 ? 2.4 : 1) * (pausing ? 0 : 1); v = sp;
         const before = Math.floor(p.p / (2 * HS));
         p.p += p.dir * sp * dt;
         const after = Math.floor(p.p / (2 * HS));
@@ -710,46 +783,51 @@ window.DZTaxi = function (A) {
         if (before !== after) { // coin atteint
           const corner = ((p.dir > 0 ? after : before) % 4 + 4) % 4;
           if (p.kind === 'ped' && R() < 0.42) startCross(p, corner, R() < 0.5);
-        } else if (R() < dt * (p.kind === 'animal' ? 0.012 : 0.0045) && Math.abs(((p.p % (2 * HS)) + 2 * HS) % (2 * HS) - HS) < HS - 14) startJay(p);
+        } else if (R() < dt * (p.kind === 'animal' ? 0.03 : 0.0045) && Math.abs(((p.p % (2 * HS)) + 2 * HS) % (2 * HS) - HS) < HS - 14) startJay(p);
       } else if (p.st === 'cwait') {
         const L = light(p.ni, p.nj, p.axis); p.wait += dt; p.h = Math.atan2(p.cx1 - p.cx0, p.cz1 - p.cz0);
         if ((L.s === 'R' && L.toG > 8) || p.wait > 40) { p.st = 'cross'; p.t = 0; p.jay = false; p.spd2 = p.spd * 1.1; }
       } else if (p.st === 'cross' || p.st === 'flee') {
         const L = Math.hypot(p.cx1 - p.cx0, p.cz1 - p.cz0) || 1;
-        p.t += (p.st === 'flee' ? 4.2 : p.spd2 * (p.run > 0 ? 2 : 1)) * dt / L;
+        if (p.st === 'cross' && p.pauseAt < 1 && p.t > p.pauseAt && p.pauseT === 0) p.pauseT = 4 + R() * 9; // l'animal se plante sur la route
+        if (p.pauseT > 0 && p.st === 'cross') { p.pauseT -= dt; if (p.pauseT <= 0) { p.pauseT = -1; } }
+        else { v = p.st === 'flee' ? (p.kind === 'animal' ? 2.6 : 4.2) : p.spd2 * (p.run > 0 ? 2 : 1); p.t += v * dt / L; }
         const t = clamp(p.t, 0, 1); p.x = p.cx0 + (p.cx1 - p.cx0) * t; p.z = p.cz0 + (p.cz1 - p.cz0) * t; p.h = Math.atan2(p.cx1 - p.cx0, p.cz1 - p.cz0);
         p.road = t > 0.12 && t < 0.88;
-        if (p.t >= 1) { p.st = 'walk'; p.road = false; p.bi = p.nbi; p.bj = p.nbj; p.p = p.np; p.lat = (R() - 0.5) * 2.2; p.dir = R() < 0.5 ? 1 : -1; }
+        if (p.t >= 1) { p.st = 'walk'; p.road = false; p.bi = p.nbi; p.bj = p.nbj; p.p = p.np; p.lat = p.kind === 'animal' ? 1 + R() * 0.6 : (R() - 0.5) * 2.2; p.dir = R() < 0.5 ? 1 : -1; }
       } else if (p.st === 'wait') { // client à l'arrêt
-        p.h = p.face + Math.sin(p.ph * 0.15) * 0.3;
+        p.h = p.face + Math.sin(p.t2 = (p.t2 || 0) + dt * 0.9) * 0.3;
       } else if (p.st === 'board' || p.st === 'alight') {
         const tx = p.st === 'board' ? taxi.x - Math.cos(taxi.h) * 1.3 : p.cx1, tz = p.st === 'board' ? taxi.z + Math.sin(taxi.h) * 1.3 : p.cz1;
         const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
-        if (d > 0.3) { const s = Math.min(d, 2.3 * dt); p.x += dx / d * s; p.z += dz / d * s; p.h = Math.atan2(dx, dz); }
+        if (d > 0.3) { const st = Math.min(d, 1.4 * dt); p.x += dx / d * st; p.z += dz / d * st; p.h = Math.atan2(dx, dz); v = 1.4; }
         p.t += dt;
-        if (p.st === 'alight' && (d < 0.3 || p.t > 4)) { p.st = 'walk'; p.client = true; releaseClient(p); }
+        if (p.st === 'alight' && (d < 0.3 || p.t > 5)) { p.st = 'walk'; p.client = true; releaseClient(p); }
       }
+      p.curV = v; p.ph += v * dt / p.M.stride; p.idle += ((v > 0.15 ? 0 : 1) - p.idle) * Math.min(1, dt * 6);
     }
   }
   const dirOfSide = (side, dir) => { const v = [[1, 0], [0, 1], [-1, 0], [0, -1]][side]; return [v[0] * dir, v[1] * dir]; };
-  function drawPeds() {
-    const cp = A.camera.position, far = LITE ? 140 : 200;
-    for (const g of PIM.concat(AIM)) g.n = 0;
-    for (const p of peds) {
-      const vis = p.on && p.st !== 'ride' && p.st !== 'off' && Math.abs(p.x - cp.x) + Math.abs(p.z - cp.z) < far;
-      if (!vis) continue;
-      const y0 = (p.road ? 0.02 : 0.15);
-      if (p.fall > 0) { _q.setFromEuler(_e.set(-Math.PI / 2 * Math.min(1, (3.2 - p.fall) * 4), p.h + Math.PI, 0, 'YXZ')); _v.set(p.x, y0 + 0.2, p.z); }
-      else {
-        const moving = p.st === 'walk' || p.st === 'cross' || p.st === 'flee' || p.st === 'board' || p.st === 'alight';
-        const bob = moving ? Math.abs(Math.sin(p.ph)) * (p.kind === 'animal' ? 0.05 : 0.045) : (p.st === 'wait' && p.wave ? Math.abs(Math.sin(p.ph * 2)) * 0.12 : 0);
-        _q.setFromAxisAngle(_Y, p.h + Math.PI + (moving ? Math.sin(p.ph) * 0.05 : 0)); _v.set(p.x, y0 + bob, p.z);
-      }
-      _m.compose(_v, _q, _s.set(1, 1, 1)); const q = p.ims.n++; for (const m of p.ims) m.setMatrixAt(q, _m);
-    }
-    for (const g of PIM.concat(AIM)) for (const m of g) { m.count = g.n; m.visible = g.n > 0; m.instanceMatrix.needsUpdate = true; }
-  }
   const _e = new THREE.Euler();
+  function drawPed(M, x, y, z, q, ph, idle, tint) {
+    if (M.n >= M.cap) return; const k = M.n++;
+    _m.compose(_v.set(x, y, z), q, _s.set(1, 1, 1)); M.im.setMatrixAt(k, _m); M.iAnim.setXY(k, ph, idle); M.iTint.setXYZW(k, tint[0], tint[1], tint[2], tint[3]);
+  }
+  const NO_TINT = [1, 1, 1, 0];
+  function drawPeds(dt) {
+    const cp = (TEST && window.__tcam) ? { x: window.__tcam.p[0], z: window.__tcam.p[2] } : A.camera.position, far = LITE ? 150 : 210;
+    for (const k in WM) WM[k].n = 0;
+    for (const p of peds) {
+      if (!p.on || p.st === 'ride' || p.st === 'off' || Math.abs(p.x - cp.x) + Math.abs(p.z - cp.z) > far) continue;
+      const y0 = p.road ? 0.02 : 0.15;
+      if (p.down || p.fall > 0) { const k = p.down ? 1 : Math.min(1, (1.2 - p.fall) * 4); if (p.kind === 'animal') _q.setFromEuler(_e.set(0, p.h, Math.PI / 2 * k, 'YXZ')); else _q.setFromEuler(_e.set(-Math.PI / 2 * k, p.h, 0, 'YXZ')); drawPed(p.M, p.x, y0 + 0.12 * k, p.z, _q, p.ph, 1, p.tint); }
+      else { _q.setFromAxisAngle(_Y, p.h); drawPed(p.M, p.x, y0, p.z, _q, p.ph, p.idle, p.tint); }
+    }
+    // ânes attelés aux charrettes
+    const D = WM.wk_donkey;
+    if (D) for (const c of cars) if (c.cart && Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) < far) { c.wph = (c.wph || 0) + c.v * dt / D.stride; _q.setFromAxisAngle(_Y, c.h); drawPed(D, c.x + Math.sin(c.h) * 1.85, 0.02, c.z + Math.cos(c.h) * 1.85, _q, c.wph, c.v > 0.2 ? 0 : 1, NO_TINT); }
+    for (const k in WM) { const M = WM[k]; M.im.count = M.n; M.im.visible = M.n > 0; M.im.instanceMatrix.needsUpdate = true; M.iAnim.needsUpdate = true; M.iTint.needsUpdate = true; }
+  }
 
   /* ======================= Le taxi du joueur ======================= */
   const DRIVERS = [
@@ -821,7 +899,7 @@ window.DZTaxi = function (A) {
     for (const o of [1.4, -1.4]) hit = Math.max(hit, collideCircle(c, fx * o, fz * o, 1.0));
     // véhicules IA (boîtes orientées)
     const cx = Math.floor(c.x / DCELL), cz = Math.floor(c.z / DCELL);
-    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = DYN.get((cx + a) * 4096 + cz + b); if (!l) continue; for (const o of l) { if (o === c || o.hl === undefined || o.kind) continue; let h2 = 0; for (const of of [1.4, -1.4]) h2 = Math.max(h2, circleOBB(c, fx * of, fz * of, 1.0, o)); if (h2 > 0.5) { o.bump = Math.max(o.bump || 0, 2.5 + Math.min(2, h2 * 0.3)); if (o.chaser) continue; if (o.police) policeBumped(h2); hit = Math.max(hit, h2); } } }
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = DYN.get((cx + a) * 4096 + cz + b); if (!l) continue; for (const o of l) { if (o === c || o.hl === undefined || o.kind) continue; let h2 = 0; for (const of of [1.4, -1.4]) h2 = Math.max(h2, circleOBB(c, fx * of, fz * of, 1.0, o)); if (h2 > 0.5) { o.bump = Math.max(o.bump || 0, 2.5 + Math.min(2, h2 * 0.3)); if (h2 > 2.5 && o.t) { /* la voiture percutée glisse et part en tête-à-queue */ const k = Math.min(1, h2 / 12); o.pvx = (o.pvx || 0) + c.vx * 0.45 * k; o.pvz = (o.pvz || 0) + c.vz * 0.45 * k; o.spin = (o.spin || 0) + (lastHit.lz > 0 ? 1 : -1) * Math.sign(c.vx * Math.cos(o.h) - c.vz * Math.sin(o.h) || 1) * h2 * 0.12; if (h2 > 6) o.smoke = 8; } if (o.chaser) continue; if (o.police) policeBumped(h2); hit = Math.max(hit, h2); } } }
     c.speed = Math.hypot(c.vx, c.vz);
     // trottoirs : léger dénivelé
     const bi = Math.floor((c.x - X0) / P), bj = Math.floor((c.z - Z0) / P);
@@ -832,6 +910,14 @@ window.DZTaxi = function (A) {
     c.wasWalk = onWalk;
     if (hit > 0) c.crash = Math.max(c.crash || 0, hit);
     return hit;
+  }
+  function crashEffects() { // carrosserie du taxi cabossée, éclats, secousse de la caméra
+    const h = lastHit; if (h.v < 3.5 || !taxiModel) { h.v = 0; return; }
+    A.dentModel(taxiModel, h.x, 0.6, h.z, h.nx, h.nz, h.v);
+    A.crashFx(h.x, 0.6, h.z, h.nx, h.nz, h.v, h.o && h.o.col ? h.o.col.getHex() : undefined);
+    A.shake(Math.min(1.3, h.v / 9));
+    if (h.v > 7) A.blip(90, 0.18, 0.12);
+    h.v = 0;
   }
   function updateTaxiVisual(inp, dt) {
     const m = taxiModel; if (!m) return;
@@ -853,6 +939,7 @@ window.DZTaxi = function (A) {
     for (let w = 0; w < 2; w++) { const s = w ? -1 : 1, wx = taxi.x + sx * 0.8 * s - fx * 1.45, wz = taxi.z + sz * 0.8 * s - fz * 1.45; if (sliding) A.addSkid(taxi, w, wx, wz, sx, sz); else taxi.skidLast[w] = null; }
     if (sliding) { taxi.smokeAcc = (taxi.smokeAcc || 0) + dt * (12 + 30 * intensity); while (taxi.smokeAcc > 1) { taxi.smokeAcc -= 1; const s = R() < 0.5 ? 1 : -1; A.spawnSmoke(taxi.x + sx * 0.8 * s - fx * 1.8, taxi.z + sz * 0.8 * s - fz * 1.8, taxi.vx, taxi.vz, intensity, false, taxi.y); } }
     taxi.screech = intensity;
+    if (m.damage > 0.4) { taxi.dmgSm = (taxi.dmgSm || 0) + dt * (4 + m.damage * 10); while (taxi.dmgSm > 1) { taxi.dmgSm -= 1; A.spawnSmoke(taxi.x + fx * 1.9, taxi.z + fz * 1.9, taxi.vx * 0.6, taxi.vz * 0.6, 0.25 + m.damage * 0.4, true, taxi.y + 0.9); } }
   }
 
   /* ======================= Clients et courses ======================= */
@@ -946,8 +1033,17 @@ window.DZTaxi = function (A) {
     }
   }
   function nearestPolice(maxD) { let best = null, bd = maxD; for (const c of cars) if (c.police && !c.chase) { const d = Math.hypot(c.x - taxi.x, c.z - taxi.z); if (d < bd) { bd = d; best = c; } } for (const pc of chasers) { const d = Math.hypot(pc.car.x - taxi.x, pc.car.z - taxi.z); if (d < bd) { bd = d; best = pc.src; } } return best; }
-  function offence(kind, fine, w, pd) { // pd : distance à laquelle la police voit l'infraction
-    const cop = nearestPolice(pd || 110);
+  function spawnCop() { // renfort : une voiture de police arrive d'un carrefour voisin, hors de vue
+    let best = null;
+    const fx = Math.sin(taxi.h), fz = Math.cos(taxi.h);
+    for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const x = nx(i), z = nz(j), d = Math.hypot(x - taxi.x, z - taxi.z); if (d < 45) continue; const ahead = (x - taxi.x) * fx + (z - taxi.z) * fz, sc = Math.abs(d - 105) + ahead * 0.25 + R() * 20; if (!best || sc < best.a) best = { x, z, a: sc }; } // de préférence derrière, à ~100 m, hors de vue
+    if (!best) return null;
+    const t = VT.police || { hl: 2.35, hw: 0.95 };
+    return { x: best.x, z: best.z, h: Math.atan2(taxi.x - best.x, taxi.z - best.z), vx: 0, vz: 0, hl: t.hl, hw: t.hw, police: true, synthetic: true };
+  }
+  function offence(kind, fine, w, pd, force) { // pd : distance à laquelle la police voit l'infraction ; force : on appelle la police
+    let cop = nearestPolice(pd || 110);
+    if (!cop && force) cop = (chasers[0] && chasers[0].src) || spawnCop();
     const label = { red: 'FEU ROUGE GRILLÉ', speed: 'EXCÈS DE VITESSE', ped: 'PIÉTON RENVERSÉ', crash: 'ACCROCHAGE', cop: 'VOITURE DE POLICE PERCUTÉE' }[kind];
     if (cop) {
       money -= fine; stats.fines += fine; wanted = Math.min(3, wanted + w); wantedT = 0;
@@ -956,6 +1052,7 @@ window.DZTaxi = function (A) {
       return true;
     }
     A.popup(label, kind === 'red' ? 'Heureusement, pas de police…' : '', true);
+    void force;
     return false;
   }
   function checkRedLight() {
@@ -982,12 +1079,74 @@ window.DZTaxi = function (A) {
   }
   function endChase(pc) {
     const c = pc.src; c.chase = false; pc.pm.used = false; pc.pm.g.visible = false;
+    if (c.synthetic) { chasers.splice(chasers.indexOf(pc), 1); if (!chasers.length) sirenOn(false); return; }
     // la voiture reprend une voie du réseau la plus proche
     let best = null, bd = 1e9;
     for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) for (let d = 0; d < 4; d++) { if (!inGrid(i + DIRS[d][0], j + DIRS[d][1])) continue; const mx = nx(i) + DIRS[d][0] * P / 2, mz = nz(j) + DIRS[d][1] * P / 2, dd = Math.hypot(mx - pc.car.x, mz - pc.car.z) + (taxi ? -Math.min(250, Math.hypot(mx - taxi.x, mz - taxi.z)) : 0); if (dd < bd) { bd = dd; best = [i, j, d]; } }
     c.i = best[0]; c.j = best[1]; c.d = best[2]; c.lane = 1; c.s = 10; c.v = 4; edgePath(c); chooseNext(c);
     chasers.splice(chasers.indexOf(pc), 1);
     if (!chasers.length) sirenOn(false);
+  }
+  /* --- ambulance : vient chercher les blessés --- */
+  const amb = { st: 'off', car: null, mdl: null, target: null, t: 0, queue: [], route: null, rt: 0, leaveTo: null };
+  function buildAmbulanceModel() {
+    const src = lib.getObjectByName('tx_ambulance'); if (!src) return;
+    const g = new THREE.Group(), b = src.clone(true); b.position.set(0, 0, 0); b.rotation.set(0, 0, 0); b.traverse(o => { if (o.isMesh) { o.castShadow = !LITE; o.material = texFix(lowMat(o.material)); } }); g.add(b);
+    const box = new THREE.Box3().setFromObject(b), mk = col => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: A.glowSpriteTex, color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); sp.scale.setScalar(1.5); g.add(sp); return sp; };
+    const l1 = mk(0xff2020), l2 = mk(0xffffff); l1.position.set(0.7, box.max.y + 0.05, box.max.z - 0.6); l2.position.set(-0.7, box.max.y + 0.05, box.max.z - 0.6);
+    g.visible = false; root.add(g); amb.mdl = { g, l1, l2, hl: box.max.z, hw: (box.max.x - box.min.x) / 2 };
+  }
+  function dispatchAmbulance(p) {
+    if (!amb.mdl) return;
+    if (amb.st !== 'off') { if (amb.target !== p && !amb.queue.includes(p)) amb.queue.push(p); return; }
+    let best = null;
+    for (let k = 0; k < 60; k++) { const i = Math.floor(R() * NI), j = Math.floor(R() * NJ), x = nx(i), z = nz(j), d = Math.hypot(x - p.x, z - p.z); if (d > 170 && d < 320 && (!best || Math.abs(d - 220) < Math.abs(best.d - 220))) best = { x, z, d }; }
+    if (!best) best = { x: nx(0), z: nz(0) };
+    const spec = A.makeSpec('race', { engine: 0, tires: 0, nitro: 0 }, 'audi');
+    Object.assign(spec, { power: 9, maxSpeed: 24, grip: 8.2, latMax: 13, steer: 2.3, driftGrip: 2.4 });
+    amb.car = A.newCar({ isAI: true, spec, x: best.x, z: best.z, h: Math.atan2(p.x - best.x, p.z - best.z), hl: amb.mdl.hl, hw: amb.mdl.hw * 0.95, chaser: true, ambulance: true, bump: 0 });
+    Object.assign(amb, { st: 'go', target: p, t: 0, route: null, rt: 0 });
+    amb.mdl.g.visible = true; sirenAmb(true);
+    A.popup('🚑 L’AMBULANCE ARRIVE', 'un blessé à ' + (placeName(p.x, p.z).street || placeName(p.x, p.z).district), true);
+  }
+  function unstick(c, dt) { // coincé contre un mur : marche arrière quelques instants
+    if (c.revT > 0) { c.revT -= dt; return true; }
+    c.stuckT = c.speed < 0.8 ? (c.stuckT || 0) + dt : 0;
+    if (c.stuckT > 1.6) { c.stuckT = 0; c.revT = 1.3; return true; }
+    return false;
+  }
+  function driveTo(c, tx, tz, maxV, dt, route) { // conduite simple : itinéraire par les carrefours puis droit sur la cible
+    let ax = tx, az = tz;
+    if (route && route.length) { while (route.length > 1 && Math.hypot(route[0][0] - c.x, route[0][1] - c.z) < 9) route.shift(); ax = route[0][0]; az = route[0][1]; }
+    const want = Math.atan2(ax - c.x, az - c.z), err = wrapAng(want - c.h), steer = clamp(err * 2.2, -1, 1);
+    if (unstick(c, dt)) return { thr: 0, brk: 1, steer: -steer, hb: 0, nitro: 0 };
+    const lim = Math.abs(err) > 0.7 ? Math.min(maxV, 8) : maxV, fast = c.speed > lim;
+    return { thr: fast ? 0 : 1, brk: fast && c.vF > 2 ? 0.8 : 0, steer, hb: 0, nitro: 0 };
+  }
+  function updateAmbulance(dt) {
+    if (amb.st === 'off') return;
+    const c = amb.car, p = amb.target, M = amb.mdl;
+    amb.rt -= dt;
+    let tx, tz, maxV = 22;
+    if (amb.st === 'go' || amb.st === 'load') { tx = p.x; tz = p.z; const d = Math.hypot(tx - c.x, tz - c.z); maxV = d < 45 ? 4 + d * 0.32 : 22; }
+    else { tx = amb.leaveTo[0]; tz = amb.leaveTo[1]; }
+    if (amb.rt <= 0 && amb.st !== 'load') { amb.route = gridRoute(c.x, c.z, tx, tz); amb.rt = 1.5; }
+    if (amb.st === 'load') { c.vx *= Math.exp(-dt * 4); c.vz *= Math.exp(-dt * 4); }
+    else { const inp = driveTo(c, tx, tz, maxV, dt, amb.route); for (let s2 = 0; s2 < 3; s2++) { A.dynStep(c, inp, dt / 3); const fx = Math.sin(c.h), fz = Math.cos(c.h); for (const o of [1.6, -1.6]) collideCircle(c, fx * o, fz * o, 1.1); } }
+    c.speed = Math.hypot(c.vx, c.vz);
+    M.g.position.set(c.x, 0.03, c.z); M.g.rotation.y = c.h;
+    const fl = Math.sin(A.menuTime() * 11) > 0; M.l1.material.opacity = fl ? 1 : 0.15; M.l2.material.opacity = fl ? 0.15 : 1;
+    if (amb.st === 'go') {
+      if (!p.down && !p.on) { amb.st = 'leave'; }
+      else if (Math.hypot(p.x - c.x, p.z - c.z) < 8.5) { amb.st = 'load'; amb.t = 5; A.popup('🚑 LES SECOURS SONT LÀ', 'le blessé est emmené à l’hôpital', false, 'blue'); }
+    } else if (amb.st === 'load') {
+      amb.t -= dt;
+      if (amb.t <= 0) { p.down = false; p.on = false; p.respawn = 30; p.road = false; const far = [[nx(0), nz(0)], [nx(NI - 1), nz(0)], [nx(0), nz(NJ - 1)], [nx(NI - 1), nz(NJ - 1)]].sort((a, b) => Math.hypot(b[0] - c.x, b[1] - c.z) - Math.hypot(a[0] - c.x, a[1] - c.z)); amb.leaveTo = far[1]; amb.st = 'leave'; amb.route = null; amb.rt = 0; }
+    } else if (amb.st === 'leave') {
+      const nxt = amb.queue.find(q => q.down && q.on);
+      if (nxt) { amb.queue = amb.queue.filter(q => q !== nxt); Object.assign(amb, { st: 'go', target: nxt, route: null, rt: 0 }); }
+      else if (Math.hypot(amb.leaveTo[0] - c.x, amb.leaveTo[1] - c.z) < 12 || Math.hypot(taxi.x - c.x, taxi.z - c.z) > 300) { amb.st = 'off'; M.g.visible = false; amb.car = null; sirenAmb(false); }
+    }
   }
   function policeBumped(v) { if (v > 2.5 && !T.bumpCd) { T.bumpCd = 3; offence('cop', 250, 1, 200); } }
   function chaseInput(pc, dt) { // pilote de la police : itinéraire par les carrefours, puis droit sur le taxi
@@ -1001,6 +1160,7 @@ window.DZTaxi = function (A) {
     }
     const want = Math.atan2(tx - c.x, tz - c.z), err = wrapAng(want - c.h);
     const steer = clamp(err * 2.2, -1, 1), sharp = Math.abs(err) > 0.7;
+    if (dist > 9 && unstick(c, dt)) return { thr: 0, brk: 1, steer: -steer, hb: 0, nitro: 0 };
     const fast = c.speed > (sharp ? 9 : 30);
     return { thr: fast ? 0 : 1, brk: fast && c.vF > 3 ? 0.7 : 0, steer, hb: 0, nitro: 0 };
   }
@@ -1010,7 +1170,9 @@ window.DZTaxi = function (A) {
     const horiz = Math.abs(az - nz(aj)) < HW + 2; // déjà sur une rue E-O
     const stepI = () => { while (i !== bi) { i += Math.sign(bi - i); r.push([nx(i), nz(j)]); } }, stepJ = () => { while (j !== bj) { j += Math.sign(bj - j); r.push([nx(i), nz(j)]); } };
     if (horiz) { stepI(); stepJ(); } else { stepJ(); stepI(); }
-    r.push([bx, bz]); return r;
+    r.push([bx, bz]);
+    if (r.length >= 2) { const x0 = r[0][0], z0 = r[0][1], ux = Math.sign(r[1][0] - x0), uz = Math.sign(r[1][1] - z0); if ((ax - x0) * ux + (az - z0) * uz > 0 && Math.abs((ax - x0) * uz - (az - z0) * ux) < HW + 3) r.shift(); } // déjà engagé vers le nœud suivant : ne pas faire demi-tour
+    return r;
   }
   function updatePolice(dt) {
     if (T.bumpCd) T.bumpCd = Math.max(0, T.bumpCd - dt);
@@ -1065,7 +1227,15 @@ window.DZTaxi = function (A) {
     }
     if (snd.siren && !on) snd.siren.g.gain.setTargetAtTime(0, au.ctx.currentTime, 0.1);
   }
+  function sirenAmb(on) {
+    const au = A.audio; if (!au.ctx) return;
+    if (on && !snd.amb) {
+      try { const ctx = au.ctx, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(); o.type = 'square'; o.frequency.value = 860; f.type = 'lowpass'; f.frequency.value = 2400; g.gain.value = 0; lfo.type = 'square'; lfo.frequency.value = 0.9; lg.gain.value = 95; lfo.connect(lg); lg.connect(o.frequency); o.connect(f); f.connect(g); g.connect(au.master); o.start(); lfo.start(); snd.amb = { o, g }; } catch (e) {}
+    }
+    if (snd.amb && !on) snd.amb.g.gain.setTargetAtTime(0, au.ctx.currentTime, 0.1);
+  }
   function updateSiren() {
+    if (snd.amb && A.audio.ctx) { const d = amb.car ? Math.hypot(amb.car.x - taxi.x, amb.car.z - taxi.z) : 1e9; snd.amb.g.gain.setTargetAtTime(amb.st !== 'off' && T.active && A.state === 'play' && !prof.muted ? 0.05 * clamp(1 - d / 300, 0.05, 1) : 0, A.audio.ctx.currentTime, 0.15); }
     if (!snd.siren || !A.audio.ctx) return;
     let d = 1e9; for (const pc of chasers) d = Math.min(d, Math.hypot(pc.car.x - taxi.x, pc.car.z - taxi.z));
     const v = chasers.length && T.active && A.state === 'play' && !prof.muted ? 0.07 * clamp(1 - d / 320, 0.1, 1) : 0;
@@ -1217,17 +1387,18 @@ window.DZTaxi = function (A) {
 
   /* ======================= Construction complète ======================= */
   function build() {
-    lib = A.ASSETS.taxi;
+    lib = A.ASSETS.taxi; walkLib = A.ASSETS.walk || null;
     if (!lib) throw new Error('taxi.glb manquant');
+    if (walkLib) walkLib.updateMatrixWorld(true);
     lib.updateMatrixWorld(true);
     const rnd = seeded(20261118);
     buildRoads(); buildBlocks(); buildBuildings(rnd);
     A.instanceLib(inst, { parent: root, cull: CULL, cell: 400, maxD: (det, small) => det ? (LITE ? 340 : 560) : small ? 300 : (LITE ? 620 : 980) });
     buildSignsAndNames(); buildProps(); buildLights();
     buildVehicleTypes();
-    const counts = {}; for (const k in VT) counts[k] = k === 'police' ? 3 : k === 'cart' ? 2 : 12;
+    const counts = {}; for (const k in VT) counts[k] = k === 'police' ? 3 : k === 'cart' ? 5 : Math.max(4, Math.ceil(VT[k].w * 6));
     buildVehicleMeshes(counts);
-    buildPedMeshes(); buildPoliceModels(); buildMarkers(); buildMapBg(); buildHud();
+    buildPedMeshes(); buildPoliceModels(); buildAmbulanceModel(); buildMarkers(); buildMapBg(); buildHud();
     root.traverse(o => { if (o.isMesh && o.material && o.material.map) texFix(o.material); });
     T.ready = true;
   }
@@ -1241,12 +1412,14 @@ window.DZTaxi = function (A) {
       T.loading = true; A.state = 'loading';
       $('loading').classList.remove('hidden'); $('loadTxt').textContent = 'LA VILLE DES TAXIS SE RÉVEILLE…'; $('loadBar').firstElementChild.style.width = '0%';
       A.showScreen(null);
-      A.loadAsset('taxi', g => {
+      const prog = { taxi: 0, walk: 0 }, bar = () => { $('loadBar').firstElementChild.style.width = ((prog.taxi * 0.45 + prog.walk * 0.55) * 100).toFixed(0) + '%'; };
+      A.loadAsset('walk', () => {}, f => { prog.walk = f; bar(); });
+      A.loadAsset('taxi', g => A.loadAsset('walk', () => {
         T.loading = false;
         if (!g) { $('loading').classList.add('hidden'); A.state = 'menu'; A.showScreen('menu'); A.popup('Impossible de charger la ville des taxis', 'vérifie ta connexion', true); return; }
         try { build(); } catch (e) { console.error('taxi build', e && e.stack || e); $('loading').classList.add('hidden'); A.state = 'menu'; A.showScreen('menu'); return; }
         $('loading').classList.add('hidden'); begin();
-      }, f => { $('loadBar').firstElementChild.style.width = (f * 100).toFixed(0) + '%'; });
+      }), f => { prog.taxi = f; bar(); });
       return;
     }
     begin();
@@ -1266,25 +1439,48 @@ window.DZTaxi = function (A) {
     spawnClients(true);
     A.camState.init = false;
     A.showScreen(null);
-    $('hud').classList.remove('hidden'); $('touch').classList.toggle('hidden', !isTouch);
+    amb.st = 'off'; amb.car = null; amb.queue = []; if (amb.mdl) amb.mdl.g.visible = false; sirenAmb(false);
+    A.crashFx.clear && A.crashFx.clear();
     for (const id of ['countdown', 'lights', 'wrong']) { const e = $(id); if (e) e.classList.add('hidden'); }
-    $('popups').innerHTML = '';
+    $('popups').innerHTML = ''; $('hud').classList.add('hidden'); $('touch').classList.add('hidden');
     const dr = DRIVERS[T.driver];
-    A.popup('SERVICE COMMENCÉ', dr.name + ' · ' + fmtClock(T.timeLeft) + ' pour gagner un max d’ouguiyas', false, 'gold');
-    say(dr.id === 'ba' ? 'Bismillah… Allez, au travail. Les clients attendent aux arrêts verts.' : dr.id === 'moulaye' ? 'Moulaye est dans la place ! Direction les arrêts verts.' : 'C’est parti ! Les clients attendent aux arrêts verts.');
-    A.state = 'play';
-    rebuildDyn(); updateHud(); cullUpdate();
+    const go = () => {
+      A.state = 'play'; A.camState.init = false;
+      $('hud').classList.remove('hidden'); $('touch').classList.toggle('hidden', !isTouch);
+      A.popup('SERVICE COMMENCÉ', dr.name + ' · ' + fmtClock(T.timeLeft) + ' pour gagner un max d’ouguiyas', false, 'gold');
+      say(dr.id === 'ba' ? 'Bismillah… Allez, au travail. Les clients attendent aux arrêts verts.' : dr.id === 'moulaye' ? 'Moulaye est dans la place ! Direction les arrêts verts.' : 'C’est parti ! Les clients attendent aux arrêts verts.');
+      updateHud();
+    };
+    rebuildDyn(); cullUpdate();
+    if (A.introPlay && !(TEST && !/[?&]intro/.test(location.search))) { A.state = 'intro'; A.introPlay(taxiIntroShots(!T.introSeen), go); T.introSeen = true; }
+    else go();
     if (A.applyAmbience) { /* l'ambiance jour/nuit globale reste celle du menu */ }
+  }
+  function taxiIntroShots(full) { // générique : la ville vue du ciel, quelques lieux connus, puis le taxi
+    const V = (x, y, z) => new THREE.Vector3(x, y, z), shots = [], dr = DRIVERS[T.driver], h = taxi.h, fx = Math.sin(h), fz = Math.cos(h);
+    if (full) {
+      shots.push({ dur: 5, p0: V(X0 - 190, 60, 140), p1: V(X0 - 60, 115, 20), t0: V(-40, 0, 0), t1: V(60, 0, -20), fov: 52, title: 'TAXI NOUAKCHOTT', sub: 'Une journée de taximan', credit: '' });
+      const credits = ['Taximen : Moulaye · Taximan Ba · Sidi · Mamadou', 'Feux rouges, piétons, animaux, police : prudence !', 'Clients aux arrêts verts · destinations en jaune'];
+      ['snim', 'marche', 'mosquee'].forEach((id, k) => {
+        const q = PLACES.find(pl => pl.id === id); if (!q) return;
+        // la caméra glisse le long de la rue devant la façade (jamais à l'intérieur d'un immeuble)
+        const [bx, bz] = blockC(q.b[0], q.b[1]), [ffx, ffz] = DIRS[q.face], px = -ffz, pz = ffx, sd = k % 2 ? 1 : -1;
+        const rx = bx + ffx * (P / 2 + HW * 0.55), rz = bz + ffz * (P / 2 + HW * 0.55), tx = bx + ffx * BLK * 0.22, tz = bz + ffz * BLK * 0.22;
+        shots.push({ dur: 3.6, p0: V(rx + px * 46 * sd, 17, rz + pz * 46 * sd), p1: V(rx + px * 16 * sd, 6.5, rz + pz * 16 * sd), t0: V(tx - px * 8 * sd, 12, tz - pz * 8 * sd), t1: V(tx, 8, tz), fov: 58, cap: q.name, capSub: q.ar, title: k === 0 ? '' : undefined, credit: credits[k] });
+      });
+    }
+    shots.push({ dur: full ? 4 : 3, p0: V(taxi.x - fx * 34 + fz * 12, 24, taxi.z - fz * 34 - fx * 12), p1: V(taxi.x - fx * 8.2, 2.9, taxi.z - fz * 8.2), t0: V(taxi.x, 0, taxi.z), t1: V(taxi.x + fx * 2, 1.2, taxi.z + fz * 2), fov: 60, title: dr.name.toUpperCase(), sub: 'prend son service · ' + fmtClock(T.timeLeft), credit: '', cap: '' });
+    return shots;
   }
   T.exit = () => {
     if (!T.active) return;
     T.active = false; root.visible = false; A.scene.remove(root);
     if (driftWas) A.showDrift(driftWas); driftWas = null;
     if (fogWas) { A.scene.fog.near = fogWas[0]; A.scene.fog.far = fogWas[1]; }
-    document.body.classList.remove('taxi'); sirenOn(false);
+    document.body.classList.remove('taxi'); sirenOn(false); sirenAmb(false); amb.st = 'off'; amb.car = null;
     for (const pc of chasers.slice()) endChase(pc);
   };
-  T.pause = () => { sirenOn(false); A.updateAudio(null, { thr: 0 }, 0, false); };
+  T.pause = () => { sirenOn(false); sirenAmb(false); A.updateAudio(null, { thr: 0 }, 0, false); };
   T.reset = () => { if (!taxi || A.state !== 'play') return; resetTaxi(); A.popup('TAXI REPLACÉ', '', false, 'blue'); };
   function endShift() {
     A.state = 'results'; sirenOn(false); A.updateAudio(null, { thr: 0 }, 0, false);
@@ -1312,11 +1508,13 @@ window.DZTaxi = function (A) {
       if (inp.nitro && taxi.nitro < 0.02) inp.nitro = 0;
       rebuildDyn();
       const SUB = Math.max(2, Math.ceil(dt / 0.011)); let hit = 0;
+      lastHit.v = 0;
       for (let s = 0; s < SUB; s++) hit = Math.max(hit, taxiStep(inp, dt / SUB));
+      crashEffects();
       taxi.nitro = Math.min(1, taxi.nitro + dt * 0.01);
       if (hit > 6.5) { stats.crashes++; A.crashSound(hit / 20); loseStar(1, pick(['Doucement ! Tu veux nous tuer ?', 'Aïe ! Fais attention !', 'Wallahi, conduis mieux que ça !'])); if (hit > 9) offence('crash', 150, 1, 60); }
       else if (hit > 3) A.crashSound(hit / 30);
-      updateCars(dt); updatePeds(dt); hitPeds(); updatePolice(dt);
+      updateCars(dt); updatePeds(dt); hitPeds(); updatePolice(dt); updateAmbulance(dt);
       checkRedLight(); jobLogic(dt);
       if (R() < dt * 0.5) spawnClients();
       if (sayT > 0) { sayT -= dt; if (sayT <= 0) { const el = $('txSay'); if (el) el.classList.remove('show'); } }
@@ -1326,12 +1524,14 @@ window.DZTaxi = function (A) {
       hudAcc += dt; if (hudAcc > 1 / 15) { hudAcc = 0; updateHud(); }
       if (T.timeLeft <= 0) { if (job.st === 'ride' && T.timeLeft > -75) { if (!T.overtime) { T.overtime = true; A.popup('FIN DU SERVICE', 'termine ta dernière course !', false, 'gold'); } } else { T.endAt = T.endAt == null ? 2.2 : T.endAt - dt; if (T.endAt <= 0) endShift(); } }
       T.lastInp = inp;
+    } else if (st === 'intro') { // générique : la ville vit pendant que la caméra survole
+      lightT += dt; rebuildDyn(); updateCars(dt); updatePeds(dt); A.introUpdate(dt); updateTaxiVisual({ thr: 0, brk: 0, steer: 0, hb: 0, nitro: 0 }, dt);
     } else if (st === 'results') {
       orbit += dt * 0.25; const r = 11; A.camera.position.set(taxi.x + Math.sin(orbit + taxi.h) * r, 3.4, taxi.z + Math.cos(orbit + taxi.h) * r); A.camera.lookAt(taxi.x, 1, taxi.z);
       updateCars(dt * 0.5); updatePeds(dt);
     }
     if (st !== 'pause') { if (Math.floor(lightT * 5) !== lastLightUpd) { lastLightUpd = Math.floor(lightT * 5); updateLights(); } }
-    drawCars(); drawPeds(); updateMarkers(dt);
+    drawCars(); drawPeds(dt); updateMarkers(dt);
     if ((T.fc = (T.fc || 0) + 1) % 4 === 0) cullUpdate();
     A.sun.position.set(taxi.x + A.SUN_OFF.x, A.SUN_OFF.y, taxi.z + A.SUN_OFF.z); A.sun.target.position.set(taxi.x, 0, taxi.z);
     A.sky.position.set(A.camera.position.x, 0, A.camera.position.z);
@@ -1340,18 +1540,27 @@ window.DZTaxi = function (A) {
     if (TEST && window.__tcam) { const c = window.__tcam; A.camera.position.set(c.p[0], c.p[1], c.p[2]); A.camera.lookAt(c.t[0], c.t[1], c.t[2]); if (c.fov && A.camera.fov !== c.fov) { A.camera.fov = c.fov; A.camera.updateProjectionMatrix(); } }
     if (A.camera.aspect !== window.innerWidth / window.innerHeight) { A.camera.aspect = window.innerWidth / window.innerHeight; A.camera.updateProjectionMatrix(); }
   };
+  const onSidewalk = (x, z) => { const bi = Math.floor((x - X0) / P), bj = Math.floor((z - Z0) / P); if (!inBlocks(bi, bj)) return false; const [bx, bz] = blockC(bi, bj); return Math.abs(x - bx) < BLK / 2 && Math.abs(z - bz) < BLK / 2; };
   function hitPeds() { // le taxi renverse un piéton / un animal
     if (taxi.speed < 1.5) return;
     const fx = Math.sin(taxi.h), fz = Math.cos(taxi.h);
     for (const p of peds) {
-      if (!p.on || p.fall > 0 || p.st === 'ride' || p.st === 'off' || p.st === 'board') continue;
+      if (!p.on || p.down || p.fall > 0 || p.st === 'ride' || p.st === 'off' || p.st === 'board') continue;
       if (Math.abs(p.x - taxi.x) > 4 || Math.abs(p.z - taxi.z) > 4) continue;
       const rx = p.x - taxi.x, rz = p.z - taxi.z, f = rx * fx + rz * fz, l = Math.abs(rx * fz - rz * fx);
       if (Math.abs(f) < 2.5 && l < 1.25) {
-        p.fall = 3.2; p.road = true; p.x += fx * 1.2 + taxi.vx * 0.05; p.z += fz * 1.2 + taxi.vz * 0.05;
-        A.crashSound(0.35); taxi.vx *= 0.8; taxi.vz *= 0.8;
-        if (p.kind === 'animal') { A.popup('ATTENTION AUX ANIMAUX !', '', true); loseStar(0.5); }
-        else { stats.peds++; loseStar(2, 'Tu as renversé quelqu’un ! Mon Dieu…'); offence('ped', 400, 2, 140); if (p.st === 'wait' && p.stop) { p.stop.client = null; releaseClient(p); } }
+        const push = Math.min(4, 0.6 + taxi.speed * 0.18);
+        p.down = true; p.downT = 0; p.fall = 0; p.leader = null; p.x += fx * push; p.z += fz * push; p.h = taxi.h + (R() - 0.5) * 1.5;
+        p.road = !onSidewalk(p.x, p.z); if (p.st === 'cross' || p.st === 'flee' || p.st === 'cwait') p.st = 'walk';
+        A.crashSound(0.4); taxi.vx *= 0.78; taxi.vz *= 0.78; A.shake(0.5);
+        if (taxiModel && taxi.speed > 5) A.dentModel(taxiModel, taxi.x + fx * 2.2, 0.8, taxi.z + fz * 2.2, -fx, -fz, 4 + taxi.speed * 0.3);
+        if (p.kind === 'animal') { A.popup('ATTENTION AUX ANIMAUX !', 'la bête est blessée', true); loseStar(0.5); }
+        else {
+          stats.peds++; loseStar(2, 'Tu as renversé quelqu’un ! Mon Dieu…');
+          if (p.st === 'wait' && p.stop) { p.stop.client = null; p.client = false; }
+          offence('ped', 400, 2, 160, true); // délit de fuite : la police est appelée, quoi qu'il arrive
+          dispatchAmbulance(p);
+        }
       }
     }
   }
@@ -1384,6 +1593,6 @@ window.DZTaxi = function (A) {
   }
   T.renderOpts = renderOpts;
   T.DRIVERS = DRIVERS;
-  if (TEST) T.dbg = { get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
+  if (TEST) T.dbg = { amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
   return T;
 };
