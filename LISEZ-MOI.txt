@@ -29,14 +29,26 @@ QUALITÉ GRAPHIQUE (Options)
   Le jeu ajuste tout seul la résolution pour rester fluide, sans descendre
   sous une image nette.
 
-NOUAKCHOTT
-  Le circuit passe par l'avenue Gamal Abdel Nasser, l'avenue Charles de Gaulle,
-  la route de l'Espoir, les avenues Kennedy, Lumumba et Moktar Ould Daddah,
-  la route de Rosso. Deux raccourcis (panneaux orange) : rue de l'Ambassade
-  du Sénégal et rue Mamadou Konaté.
-  Monuments : tour SNIM, Grande Mosquée, Mosquée Marocaine, palais présidentiel,
-  Musée national, Stade olympique, Mauricenter, Fasq Hôtel, Azalaï Marhaba,
-  Hôtel Tfeila, Hôtel Halima, plage et océan Atlantique.
+NOUAKCHOTT : UNE VILLE CONTINUE EN 3 MANCHES
+  Fini les tours sur le même circuit : la course traverse la ville d'un seul
+  trait (environ 8,5 km), et chaque manche se court dans un quartier différent.
+  Manche 1 · Tevragh Zeina : route de la Plage, avenue Moktar Ould Daddah
+    (Fasq Hôtel, Hôtel Nouakchott face au Palais des Congrès), le giratoire
+    de la Cité Smar (Mauricenter), l'avenue El Quods (Hôtel Iman, Hôtel
+    Tasiast, Sheraton).
+  Manche 2 · Centre-ville · Ksar : avenue Charles de Gaulle, carrefour BMD
+    (immeuble SNIM, immeuble AFARCO, BMD), avenue Gamal Abdel Nasser (Grande
+    Mosquée, Marché Capitale, Musée national), l'autopont du carrefour Madrid
+    (on passe sur le pont, la route passe dessous), avenue du Roi Fayçal,
+    le giratoire du carrefour Bamako.
+  Manche 3 · El Mina · Sebkha · la plage : PK10 et son marché, route de Rosso,
+    El Mina, Sebkha, puis retour par la route du port de pêche, au bord de
+    l'océan.
+  Course : 3 manches (1 traversée) ou 6 manches (2 traversées).
+  Trois raccourcis (bordures vert/jaune) : rue de l'Ambassade du Sénégal,
+  rue Mamadou Konaté, rue des Pêcheurs.
+  Les hôtels et immeubles connus sont modélisés dans Blender ; envoie des
+  photos pour que je colle encore mieux à la réalité.
   Mode nuit : menu Jouer → Ambiance → Nuit.
 
 NITRO
@@ -45,8 +57,11 @@ NITRO
 
 VOITURES (Garage)
   Audi RS Q8, Nissan Silvia S15, Dodge Challenger Hellcat, Dodge Viper SRT-10,
-  Supercar 458, Specter GT3. Chaque moteur a son propre son (V8 biturbo,
-  4 cylindres turbo, V8 à compresseur, V10, V8 haut régime, son de W16).
+  Supercar 458, Specter GT3. Chaque moteur a son propre son, synthétisé
+  harmonique par harmonique : V8 biturbo feutré (Audi), 4 cylindres turbo
+  rageur avec soupape « pschhh tu-tu-tu » (S15), gros V8 à compresseur qui
+  glougloute (Hellcat), V10 rauque (Viper), V8 qui crie jusqu'à 9000 tr/min
+  (458), son de W16 profond et lisse façon Bugatti (Specter).
 
 CRÉDITS
   « Nissan Silvia Neo Runner » : P. Kotwica (CC BY-NC : usage non commercial uniquement).

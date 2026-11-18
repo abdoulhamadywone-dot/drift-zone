@@ -1,11 +1,11 @@
 // Drift Zone — cache hors-ligne + mises à jour
-const VERSION = '2.4.0';
+const VERSION = '2.5.0';
 const CACHE = 'driftzone-' + VERSION;
 // fichiers indispensables (le modèle Audi haute qualité est mis en cache à la première utilisation)
 const CORE = [
   './', './index.html', './game.js', './manifest.webmanifest',
   './lib/three.min.js', './lib/GLTFLoader.js',
-  './engine-dsp.js', './assets/audi_lo.glb', './assets/audi_xlo.glb', './assets/city.glb', './assets/mrt.glb', './assets/fans_lo.glb', './assets/ferrari_lo.glb',
+  './engine-dsp.js', './assets/audi_lo.glb', './assets/audi_xlo.glb', './assets/city.glb', './assets/mrt.glb', './assets/lm.glb', './assets/fans_lo.glb', './assets/ferrari_lo.glb',
   './assets/s15_lo.glb', './assets/hellcat_lo.glb', './assets/viper_lo.glb', './assets/specter_lo.glb',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
