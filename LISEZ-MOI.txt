@@ -117,9 +117,22 @@ MODE 2 JOUEURS (même PC, écran partagé)
 
 MODE TAXI NOUAKCHOTT
   Menu Jouer → « Taxi Nouakchott ». Une autre partie du jeu, dans une ville
-  en damier aux noms de Nouakchott : avenue Gamal Abdel Nasser, avenue
-  Charles de Gaulle, route de l'Espoir, carrefours BMD, Madrid, Bamako,
-  Cité Smar, PK10…
+  en damier construite d'après la VRAIE carte de Nouakchott (El Minassa et
+  OpenStreetMap, voir data/LISEZ-MOI-DONNEES.txt) : la ville est resserrée,
+  mais chaque rue, carrefour, quartier et lieu est à sa place relative.
+  - Rues réelles, d'ouest en est : route de la Plage, route de Nouadhibou,
+    avenue Charles de Gaulle et avenue de l'Indépendance, route de Rosso,
+    avenue Bourguiba, route d'Akjoujt… et du nord au sud : avenue Moktar
+    Ould Daddah, avenue Al Quds, avenue du Roi Fayçal, avenue Gamal Abdel
+    Nasser, route de l'Espoir, avenue Kennedy, route de la Base Marine…
+  - 21 vrais carrefours, avec panneaux en français et en arabe : Madrid,
+    BMD, Polyclinique, Place de Tunis, Al Quds, Emira, Sabah, Bana Blanc,
+    Ould Mah, Aéroport, Touré, Nansi, Yero Sarr, Tensweylem, Carrefour 24…
+    et la sortie PK10.
+  - Quartiers : Tevragh Zeina, Las Palmas, E-Nord, F-Nord, Zone des
+    ambassades, Capitale, Ilot K, Médina 3, Socogim, Ksar, Madrid, Sebkha,
+    El Mina, Arafat, Carrefour, Ten Soueilem, Zaatar, ancien aéroport…
+    (nom affiché en bas à gauche avec la rue, et sur la carte).
   Choisis ton taximan :
     Moulaye     taxi jaune (Audi RS Q8), rapide (moteur nerveux)
     Taximan Ba  le vétéran : ses clients sont plus patients (+25 % de temps)
@@ -130,10 +143,15 @@ MODE TAXI NOUAKCHOTT
   - Les clients attendent aux arrêts (cercles et colonnes de lumière VERTS,
     visibles de loin et sur la carte). Arrête-toi dans le cercle : le client
     monte et annonce sa destination.
-  - Destinations : Tour SNIM, AFARCO, BMD, Marché Capitale, Grande Mosquée,
-    hôtels Fasq, Iman, Tasiast, Nouakchott, Sheraton, Mauricenter, Palais des
-    Congrès, Musée national, Stade olympique, Gare routière, Plage des
-    pêcheurs, carrefours Madrid, Bamako, BMD, Cité Smar, PK10…
+  - Destinations : plus de 160 lieux réels. Les monuments (Tour SNIM,
+    AFARCO, BMD, Marché Capitale, Grande Mosquée, Sheraton, Fasq, Iman,
+    Mauricenter, Palais des Congrès, Musée national, Stade olympique, Gare
+    routière, Plage des pêcheurs…) et 129 lieux de la ville : hôpitaux
+    (CHN, Cheikh Zayed, Amitié, Mère et Enfant…), marchés (Marocain, El
+    Mina, Sebkha, Arafat, poissons, bétail…), mosquées, hôtels, ministères,
+    Présidence, Assemblée, banques, université, ISCAE, malls, garages de
+    Rosso, de Kiffa, de Tidjikja… Chaque client dit pourquoi il y va
+    (rendez-vous, prière, courses, examen, car pour Kiffa ou Atar…).
     Le cercle JAUNE et la flèche au-dessus du taxi montrent le chemin.
   - Arrive à l'heure pour le pourboire. Chaque choc fait perdre des étoiles
     au client (et donc le pourboire), et le taxi se cabosse.
@@ -199,3 +217,5 @@ CRÉDITS
   animaux, Moulaye, Taximan Ba et le passager : tes dossiers d'assets
   (allégés et retexturés dans Blender pour le jeu).
   Bâtiments de Nouakchott : modélisés dans Blender pour le jeu.
+  Carte de Nouakchott : moughataas et zones relevées sur elminassa.com ;
+  rues, carrefours, lieux et villes © contributeurs OpenStreetMap (ODbL).

@@ -29,21 +29,29 @@ window.DZTaxi = function (A) {
   const AV_NS = ['Route de la Plage', 'Rue des Pêcheurs', 'Av. Moktar Ould Daddah', 'Av. de l’Indépendance', 'Av. Charles de Gaulle', 'Av. Kennedy', 'Av. du Roi Fayçal', 'Rue de la Mosquée Marocaine', 'Route de l’Espoir'];
   const AV_EW = ['Route de Nouadhibou', 'Av. El Quds', 'Rue de Tevragh Zeina', 'Av. Gamal Abdel Nasser', 'Av. de la Résistance', 'Rue du Ksar', 'Av. de la Sebkha', 'Route de Rosso'];
   const DISTRICT_N = { tz: 'Tevragh Zeina', cap: 'Capitale', ksar: 'Ksar', smar: 'Cité Smar', sebkha: 'Sebkha', mina: 'El Mina', arafat: 'Arafat' };
-  function district(bi, bj) {
+  // géographie réelle (data/geo.js : El Minassa + OpenStreetMap) ; repli sur l'ancien découpage si absente
+  const GEO = window.DZ_GEO || null;
+  function district(bi, bj) { // style des immeubles de l'îlot
+    if (GEO) return GEO.style[clamp(bj, 0, NJ - 2)][clamp(bi, 0, NI - 2)];
     if (bj <= 2 && bi <= 3) return 'tz';
     if (bj <= 1 && bi >= 5) return 'ksar';
     if (bi >= 6 && bj <= 4) return 'smar';
     if (bj >= 5) return bi <= 2 ? 'mina' : bi <= 4 ? 'sebkha' : 'arafat';
     return 'cap';
   }
+  const quartier = (bi, bj) => GEO ? GEO.quart[clamp(bj, 0, NJ - 2)][clamp(bi, 0, NI - 2)] : DISTRICT_N[district(bi, bj)];
+  const segName = (segs, t) => { if (segs) for (const s of segs) if (t >= s[0] - 0.03 && t <= s[1] + 0.03) return s[2]; return ''; };
+  const nsName = (i, z) => GEO ? segName(GEO.ns[i], clamp((z - Z0) / P, 0, NJ - 1)) : AV_NS[i];
+  const ewName = (j, x) => GEO ? segName(GEO.ew[j], clamp((x - X0) / P, 0, NI - 1)) : AV_EW[j];
   const placeName = (x, z) => {
     const bi = clamp(Math.floor((x - X0) / P), 0, NI - 2), bj = clamp(Math.floor((z - Z0) / P), 0, NJ - 2);
-    const fi = Math.round((x - X0) / P), fj = Math.round((z - Z0) / P);
-    const onNS = Math.abs(x - nx(clamp(fi, 0, NI - 1))) < HW + 2, onEW = Math.abs(z - nz(clamp(fj, 0, NJ - 1))) < HW + 2;
-    const street = onNS && !onEW ? AV_NS[clamp(fi, 0, NI - 1)] : onEW && !onNS ? AV_EW[clamp(fj, 0, NJ - 1)] : onNS && onEW ? (CARREF[fi + ',' + fj] || 'Carrefour') : '';
-    return { street, district: DISTRICT_N[district(bi, bj)] };
+    const fi = clamp(Math.round((x - X0) / P), 0, NI - 1), fj = clamp(Math.round((z - Z0) / P), 0, NJ - 1);
+    const onNS = Math.abs(x - nx(fi)) < HW + 2, onEW = Math.abs(z - nz(fj)) < HW + 2;
+    const street = onNS && !onEW ? nsName(fi, z) : onEW && !onNS ? ewName(fj, x) : onNS && onEW ? (CARREF[fi + ',' + fj] || [nsName(fi, z), ewName(fj, x)].filter(Boolean).join(' × ') || 'Carrefour') : '';
+    const q = quartier(bi, bj);
+    return { street, district: q, moug: GEO ? GEO.moug[q] || '' : '' };
   };
-  const CARREF = { '5,3': 'Carrefour BMD', '6,5': 'Carrefour Madrid', '7,6': 'Carrefour Bamako', '7,2': 'Carrefour Cité Smar', '4,4': 'Carrefour Capitale', '2,2': 'Carrefour Tevragh Zeina', '8,5': 'Sortie PK10' };
+  const CARREF = GEO ? GEO.carref : { '5,3': 'Carrefour BMD', '6,5': 'Carrefour Madrid', '7,6': 'Carrefour Bamako', '7,2': 'Carrefour Cité Smar', '4,4': 'Carrefour Capitale', '2,2': 'Carrefour Tevragh Zeina', '8,5': 'Sortie PK10' };
 
   // lieux connus : monuments (îlot + façade) et carrefours ; face 0 E, 1 S, 2 O, 3 N
   const PLACES = [
@@ -69,6 +77,19 @@ window.DZTaxi = function (A) {
     { id: 'smar', name: 'Cité Smar', ar: 'حي سمار', node: [7, 2], dir: 3 },
     { id: 'bmdx', name: 'Carrefour BMD', ar: 'ملتقى البنك', node: [5, 3], dir: 0 },
   ];
+  if (GEO) { // monuments à leur vraie place, carrefours réels et lieux de la ville (OSM / El Minassa)
+    for (const pl of PLACES) { const g = GEO.lm[pl.id]; if (g) { pl.b = [g[0], g[1]]; pl.face = g[2]; } }
+    const pg = PLACES.find(p => p.id === 'plage'); if (pg) { pg.j = clamp(Math.floor(GEO.beachJ), 0, NJ - 2); pg.name = 'Plage des Pêcheurs · Port de pêche'; }
+    for (let k = PLACES.length - 1; k >= 0; k--) if (PLACES[k].node && PLACES[k].id !== 'pk10') PLACES.splice(k, 1);
+    let n = 0;
+    for (const key in GEO.carref) {
+      if (key === '8,5') continue;
+      const [i, j] = key.split(',').map(Number); let dir = n++ % 4;
+      for (let t = 0; t < 4 && !inGrid(i + DIRS[dir][0], j + DIRS[dir][1]); t++) dir = (dir + 1) % 4;
+      PLACES.push({ id: 'car' + key, name: GEO.carref[key], ar: GEO.carAr[key] || '', node: [i, j], dir, cat: 'carrefour' });
+    }
+    GEO.dest.forEach((d, k) => PLACES.push({ id: 'poi' + k, name: d[0], ar: d[1], cat: d[2], pb: [d[3], d[4]], face: d[5], f: d[6] }));
+  }
   // un point le long d'une rue : nœud a (i,j), direction d, côté sd (+1 = à droite de d), distance t depuis le carrefour
   function streetPoint(i, j, d, sd, t) {
     const [dx, dz] = DIRS[d], [rx, rz] = RIGHT[d];
@@ -88,6 +109,7 @@ window.DZTaxi = function (A) {
   for (const pl of PLACES) {
     let sp;
     if (pl.b) { const [i, j, d, sd] = faceSpot(pl.b[0], pl.b[1], pl.face); sp = streetPoint(i, j, d, sd, P / 2); }
+    else if (pl.pb) { const [i, j, d, sd] = faceSpot(pl.pb[0], pl.pb[1], pl.face); sp = streetPoint(i, j, d, sd, clamp(pl.f * P, HW + 12, P - HW - 12)); }
     else if (pl.node) { const [i, j] = pl.node, d = pl.dir; const [ri] = [0]; sp = streetPoint(i, j, d, inGrid(i + DIRS[d][0], j + DIRS[d][1]) ? 1 : -1, inGrid(i + DIRS[d][0], j + DIRS[d][1]) ? 24 : -24); }
     else if (pl.beach) sp = { mx: X0 - HW - 4, mz: nz(pl.j) + 30, zx: X0 - LANE[1], zz: nz(pl.j) + 30, look: Math.PI / 2 };
     Object.assign(pl, sp);
@@ -451,7 +473,9 @@ window.DZTaxi = function (A) {
       const [i, j] = k.split(',').map(Number), x = nx(i) - HW - 2.4, z = nz(j) - HW - 2.4;
       const sg = new THREE.Group(); sg.position.set(x, 0, z); sg.rotation.y = Math.PI / 4;
       A.prim(sg, new THREE.CylinderGeometry(0.1, 0.1, 5.6, 8), A.poleMat, 0, 2.8, 0);
-      A.signMesh(sg, A.textTex([{ t: CARREF[k].toUpperCase(), y: 0.5, size: 120 }], { bg: '#0b6b3a', fg: '#ffffff', border: '#ffffff', w: 1024, h: 200 }), 5, 1, 0, 5, 0.12, 0.9);
+      const arT = GEO && GEO.carAr[k]; // panneaux bilingues comme en ville
+      if (arT) A.signMesh(sg, A.textTex([{ t: CARREF[k].toUpperCase(), y: 0.32, size: 92 }, { t: arT, y: 0.74, size: 84, font: '700 SZpx Arial, Tahoma, sans-serif' }], { bg: '#0b6b3a', fg: '#ffffff', border: '#ffffff', w: 768, h: 230 }), 5, 1.5, 0, 4.9, 0.12, 0.9);
+      else A.signMesh(sg, A.textTex([{ t: CARREF[k].toUpperCase(), y: 0.5, size: 120 }], { bg: '#0b6b3a', fg: '#ffffff', border: '#ffffff', w: 1024, h: 200 }), 5, 1, 0, 5, 0.12, 0.9);
       g.add(sg); addCol({ x, z, r: 0.3 });
     }
     root.add(g); A.mergeGroup(g);
@@ -967,6 +991,36 @@ window.DZTaxi = function (A) {
   const job = { st: 'free', client: null, dest: null, t: 0, timer: 0, fare: 0, stars: 5, board: 0, dist: 0 };
   const stats = { courses: 0, fares: 0, tips: 0, fines: 0, peds: 0, reds: 0, crashes: 0, starSum: 0, arrests: 0, thefts: 0, hits: 0 };
   let money = 0;
+  // phrase du client selon le lieu (et la ville de départ pour les gares routières)
+  const CITY_OF = { 'Garage Rosso': 'Rosso', 'Garage de Kiffa': 'Kiffa', 'Garage de Tidjikja': 'Tidjikja', "Garage d'Atar": 'Atar' };
+  const BIG_CITIES = ['Nouadhibou', 'Rosso', 'Kiffa', 'Atar', 'Kaédi', 'Aleg', 'Boutilimit', 'Néma', 'Zouérate', 'Sélibabi', 'Aïoun El Atrouss', 'Boghé', 'Akjoujt', 'Tidjikja', 'Chinguetti'];
+  const ART = [[/^Le /, 'au '], [/^(Hôpital|Hôtel|Université|Institut|École|Assemblée|Immeuble|ISCAE|Atlantic|Ilot)/, 'à l’'],
+    [/^(Place|Banque|Mosquée|Maternité|Clinique|Mairie|Grande|Galerie|Cour |Caisse|Direction|Primature|Sûreté|Communauté|Wilaya|Police|Zone|Gare|Plage|Route|Tour|Polyclinique|Centrale|BCI)/, 'à la '],
+    [/^(Marché|Centre|Palais|Ministère|Stade|Port|Garage|Carrefour|Sénat|Château|Parc|Lycée|Musée|Commissariat|Conseil|Tribunal|Supermarché|Ksar|Big|Mall |Sheraton|Mauricenter|PK)/, 'au ']];
+  const aLieu = n => { for (const [re, a] of ART) if (re.test(n)) return a + (/^Le /.test(n) ? n.slice(3) : n); return 'à ' + n; };
+  function tripLine(d) {
+    const to = 'Emmène-moi ' + aLieu(d.name);
+    if (d.id === 'station' || d.cat === 'gare') {
+      const c = CITY_OF[d.name] || pick(GEO ? BIG_CITIES.filter(n => GEO.villes.some(v => v[0] === n)) : BIG_CITIES);
+      return d.name === "Garage d'autobus" ? to + ', je prends le bus.' : 'Je pars à ' + c + ' ce soir. ' + to + ', vite !';
+    }
+    const L = {
+      sante: [to + ', mon frère est malade.', to + ', j’ai rendez-vous chez le médecin.', 'Vite, ' + d.name + ', s’il te plaît !'],
+      marche: [to + ', je dois faire les courses.', 'On va ' + aLieu(d.name) + ', il paraît que les prix ont baissé.', to + ', ma tante y a sa boutique.'],
+      mosquee: [to + ' avant la prière.', to + ', on m’attend pour la prière.'],
+      hotel: [to + ', j’ai une réunion là-bas.', to + ', j’arrive de l’aéroport, je suis fatigué.'],
+      etat: [to + ', j’ai un dossier à déposer.', to + ', mon rendez-vous est dans dix minutes !', to + ', je travaille là-bas.'],
+      police: [to + ', je viens chercher un papier.', to + ', on m’a volé mon téléphone…'],
+      banque: [to + ', je dois retirer de l’argent.', to + ', avant la fermeture !'],
+      etudes: [to + ', j’ai cours ce matin.', to + ', j’ai un examen !', to + ', je suis en retard pour les inscriptions.'],
+      loisir: [to + ', on se retrouve là-bas entre amis.', to + ', il y a du monde aujourd’hui.'],
+      commerce: [to + ', je dois acheter un cadeau.', to + ', j’ai des achats à faire.'],
+      port: [to + ', je veux du poisson frais !', to + ', les pirogues rentrent bientôt.'],
+      quartier: [to + ', c’est chez moi.', 'Je rentre à la maison : ' + d.name + '.'],
+      carrefour: [to + ', je te guiderai après.', to + ', c’est tout près de chez moi.'],
+    }[d.cat];
+    return (L ? pick(L) : to + ', s’il te plaît.');
+  }
   function manhattan(ax, az, bx, bz) { return Math.abs(ax - bx) + Math.abs(az - bz); }
   function spawnClients(force) {
     const waiting = STOPS.filter(s => s.client).length, want = 5;
@@ -980,7 +1034,10 @@ window.DZTaxi = function (A) {
       const fem = R() < 0.5; p.name = pick(fem ? NAMES_F : NAMES_M); p.stop = s; s.client = p; p.wave = false;
       // destination : un lieu connu assez loin
       const far = PLACES.filter(pl => pl.mx !== undefined && manhattan(pl.mx, pl.mz, s.mx, s.mz) > 260);
-      p.dest = pick(far.length ? far : PLACES.filter(pl => pl.mx !== undefined));
+      // un tiers des courses vers les monuments et carrefours, le reste vers les lieux de la ville
+      const big = far.filter(pl => !pl.pb), poi = far.filter(pl => pl.pb);
+      p.dest = pick(poi.length && (!big.length || R() > 0.35) ? poi : big.length ? big : PLACES.filter(pl => pl.mx !== undefined));
+      p.trip = tripLine(p.dest);
     }
   }
   function releaseClient(p) { p.on = false; p.st = 'off'; }
@@ -1006,7 +1063,7 @@ window.DZTaxi = function (A) {
         job.timer = Math.round((job.dist / 8.6 + 22) * (dr.st.time || 1)); job.t = job.timer;
         job.fare = Math.round((90 + job.dist * 0.42) * (dr.st.fare || 1) / 10) * 10;
         A.popup(p.name.toUpperCase() + ' MONTE', '→ ' + job.dest.name + ' · ' + fmtInt(job.fare) + ' MRU', false, 'gold');
-        say(pick(['Salam alaykoum ! ', 'Bonjour chauffeur ! ', 'Assalamou alaykoum… ']) + 'Emmène-moi à ' + job.dest.name + ', s’il te plaît.');
+        say(pick(['Salam alaykoum ! ', 'Bonjour chauffeur ! ', 'Assalamou alaykoum… ']) + (p.trip || 'Emmène-moi à ' + job.dest.name + ', s’il te plaît.'));
       }
     } else if (job.st === 'ride') {
       job.t -= dt;
@@ -1510,7 +1567,15 @@ window.DZTaxi = function (A) {
     c.fillStyle = '#5b6066'; for (let i = 0; i < NI; i++) c.fillRect(mx(nx(i) - HW), mz(Z0 - HW), RW * MAP_K, (Z1 - Z0 + RW) * MAP_K); for (let j = 0; j < NJ; j++) c.fillRect(mx(X0 - HW), mz(nz(j) - HW), (X1 - X0 + RW) * MAP_K, RW * MAP_K);
     c.fillStyle = '#9c8f7a'; for (const pl of PLACES) if (pl.b) { const [x, z] = blockC(pl.b[0], pl.b[1]); c.fillRect(mx(x - 30), mz(z - 30), 60 * MAP_K, 60 * MAP_K); }
     c.font = 'bold 13px Rajdhani, Arial'; c.textAlign = 'center'; c.fillStyle = '#2b2620';
-    for (const pl of PLACES) if (pl.b) { const [x, z] = blockC(pl.b[0], pl.b[1]); c.fillText(pl.name.replace('Hôtel ', ''), mx(x), mz(z) + 4); }
+    const SHORT = { snim: 'SNIM', afarco: 'AFARCO', bmd: 'BMD', marche: 'Marché', mosquee: 'Mosquée', palais: 'Congrès', musee: 'Musée', mauricenter: 'Mauric.', stade: 'Stade', station: 'Gare', nkc: 'H. NKC' };
+    for (const pl of PLACES) if (pl.b) { const [x, z] = blockC(pl.b[0], pl.b[1]); c.fillText(SHORT[pl.id] || pl.name.replace('Hôtel ', ''), mx(x), mz(z) + 4); }
+    if (GEO) { // noms des quartiers (au centre de leurs îlots)
+      const acc = {};
+      for (let bj = 0; bj < NJ - 1; bj++) for (let bi = 0; bi < NI - 1; bi++) { const q = GEO.quart[bj][bi], [x, z] = blockC(bi, bj), a = acc[q] || (acc[q] = [0, 0, 0]); a[0] += x; a[1] += z; a[2]++; }
+      c.font = 'italic 600 11px Rajdhani, Arial'; c.fillStyle = 'rgba(40,34,28,0.6)';
+      const QS = { 'Zone des ambassades': 'Ambassades', 'Zone administrative': 'Zone admin.', 'Nouakchott Ouest': 'NKC Ouest', 'Ancien aéroport': 'Anc. aéroport', 'Arafat Secteur 1': 'Arafat S1', 'Quartier Carrefour': 'Carrefour', 'Centrale chinoise': 'Centrale ch.' };
+      for (const q in acc) { const a = acc[q]; c.fillText(QS[q] || q, mx(a[0] / a[2]), mz(a[1] / a[2]) + 18); }
+    }
     mapBg.mx = mx; mapBg.mz = mz;
   }
   function drawMap() {
@@ -1559,7 +1624,7 @@ window.DZTaxi = function (A) {
     const rb = $('rpmBar'); if (rb) rb.style.width = (clamp(taxi.rpm, 0, 1) * 100).toFixed(0) + '%';
     const nb = $('nitroBtn'); if (nb) { nb.style.setProperty('--n', clamp(taxi.nitro, 0, 1).toFixed(3)); nb.classList.toggle('on', taxi.nitroOn); nb.classList.toggle('ready', taxi.nitro > 0.5 && !taxi.nitroOn); nb.classList.toggle('empty', taxi.nitro < 0.05); }
     const tn = $('tNitro'); if (tn) tn.style.setProperty('--n', clamp(taxi.nitro, 0, 1).toFixed(3));
-    const pn = placeName(me.x, me.z), st = $('txStreet'); const label = pn.street ? pn.street + ' · ' + pn.district : pn.district; if (st.textContent !== label) st.textContent = label;
+    const pn = placeName(me.x, me.z), st = $('txStreet'); const label = pn.street ? pn.street + ' · ' + pn.district : pn.district + (pn.moug && pn.moug !== pn.district ? ' · ' + pn.moug : ''); if (st.textContent !== label) st.textContent = label;
     $('mapName').textContent = pn.district;
     drawMap();
   }
@@ -1828,6 +1893,6 @@ window.DZTaxi = function (A) {
   }
   T.renderOpts = renderOpts;
   T.DRIVERS = DRIVERS;
-  if (TEST) T.dbg = { get SFX() { return SFX; }, foot, parked, get homeTaxi() { return homeTaxi; }, get me() { return me; }, get chaseT() { return chaseT; }, set wanted(v) { wanted = v; }, amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
+  if (TEST) T.dbg = { get mapBg() { return mapBg; }, placeName, get SFX() { return SFX; }, foot, parked, get homeTaxi() { return homeTaxi; }, get me() { return me; }, get chaseT() { return chaseT; }, set wanted(v) { wanted = v; }, amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
   return T;
 };

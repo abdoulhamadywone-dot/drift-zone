@@ -1,0 +1,922 @@
+{
+"source": "OpenStreetMap (© contributeurs OpenStreetMap, ODbL) — lieux de Nouakchott retenus pour le jeu (+ centres de zones relevés sur elminassa.com, catégorie « quartier »)",
+"champs": [
+"nom",
+"arabe",
+"categorie",
+"lat",
+"lon"
+],
+"lieux": [
+[
+"Centre Hospitalier National",
+"المستشفى الوطني",
+"sante",
+18.0881,
+-15.9879
+],
+[
+"Hôpital Cheikh Zayed",
+"مستشفى الشيخ زايد",
+"sante",
+18.075,
+-15.9358
+],
+[
+"Hôpital de l'Amitié",
+"مستشفى الصداقة",
+"sante",
+18.0633,
+-15.9577
+],
+[
+"Hôpital Mère et Enfant",
+"مستشفى الأم والطفل",
+"sante",
+18.0976,
+-15.9584
+],
+[
+"Hôpital Militaire",
+"المستشفى العسكري",
+"sante",
+18.1097,
+-15.953
+],
+[
+"Centre Hospitalier des Spécialités",
+"مركز الاستطباب التخصصي",
+"sante",
+18.0832,
+-15.9992
+],
+[
+"Polyclinique de Nouakchott",
+"مستوصف نواكشوط",
+"sante",
+18.0817,
+-15.981
+],
+[
+"Hôpital d'oncologie",
+"مستشفى الأورام",
+"sante",
+18.0915,
+-15.9801
+],
+[
+"Centre de cardiologie",
+"مركز أمراض القلب",
+"sante",
+18.0864,
+-15.9907
+],
+[
+"Maternité de Sebkha",
+"أمومة السبخة",
+"sante",
+18.0744,
+-15.9911
+],
+[
+"Clinique Ibn Sina",
+"عيادة ابن سينا",
+"sante",
+18.0996,
+-15.9944
+],
+[
+"Clinique Chiva",
+"مصحة الشفاء",
+"sante",
+18.1006,
+-15.9846
+],
+[
+"Clinique Kissi",
+"عيادة كيسي",
+"sante",
+18.0986,
+-15.9818
+],
+[
+"Clinique Socogim",
+"عيادة سوكوجيم",
+"sante",
+18.0745,
+-15.9733
+],
+[
+"Maternité Suisse",
+"الأمومة السويسرية",
+"sante",
+18.0531,
+-15.9973
+],
+[
+"Hôpital ophtalmologique",
+"مستشفى العيون",
+"sante",
+18.105,
+-15.962
+],
+[
+"Marché Marocain",
+"سوق المغربية",
+"marche",
+18.0768,
+-15.9793
+],
+[
+"Marché aux Légumes",
+"سوق الخضار",
+"marche",
+18.0752,
+-15.9799
+],
+[
+"Marché d'El Mina",
+"سوق الميناء",
+"marche",
+18.0714,
+-15.9882
+],
+[
+"Marché de Sebkha",
+"سوق السبخة",
+"marche",
+18.073,
+-15.9901
+],
+[
+"Marché d'Arafat",
+"سوق عرفات",
+"marche",
+18.0485,
+-15.9704
+],
+[
+"Marché aux poissons",
+"سوق السمك",
+"marche",
+18.1033,
+-16.026
+],
+[
+"Marché Nasr",
+"سوق النصر",
+"marche",
+18.108,
+-15.9982
+],
+[
+"Marché au bétail",
+"سوق المواشي",
+"marche",
+18.055,
+-15.9844
+],
+[
+"Marché du Bois",
+"سوق الخشب",
+"marche",
+18.0654,
+-15.9809
+],
+[
+"Marché du Charbon",
+"سوق الفحم",
+"marche",
+18.0693,
+-15.9762
+],
+[
+"Marché Salah al-Din",
+"سوق صلاح الدين",
+"marche",
+18.0624,
+-15.9897
+],
+[
+"Marché Clinique",
+"سوق اكلينيك",
+"marche",
+18.0822,
+-15.9814
+],
+[
+"Marché Poto 11",
+"سوق بوتو 11",
+"marche",
+18.0564,
+-15.9609
+],
+[
+"Marché Mecca",
+"سوق مكة",
+"marche",
+18.0733,
+-15.963
+],
+[
+"Mosquée Marocaine",
+"المسجد المغربي",
+"mosquee",
+18.0777,
+-15.9814
+],
+[
+"Mosquée Qatar",
+"مسجد قطر",
+"mosquee",
+18.0682,
+-15.9868
+],
+[
+"Grande Mosquée d'Arafat",
+"المسجد الكبير بعرفات",
+"mosquee",
+18.0672,
+-15.9597
+],
+[
+"Mosquée Ball",
+"مسجد بل",
+"mosquee",
+18.0807,
+-15.9912
+],
+[
+"Mosquée Ash-Shurafa",
+"مسجد الشرفاء",
+"mosquee",
+18.0964,
+-15.9951
+],
+[
+"Mosquée Omar Ibn Al-Khattab",
+"مسجد عمر بن الخطاب",
+"mosquee",
+18.1019,
+-16.0186
+],
+[
+"Mosquée Al-Rahma",
+"مسجد الرحمة",
+"mosquee",
+18.1045,
+-15.9741
+],
+[
+"Mosquée Imam Malick",
+"مسجد الإمام مالك",
+"mosquee",
+18.092,
+-16.0154
+],
+[
+"Mosquée El Farouk",
+"مسجد الفاروق",
+"mosquee",
+18.0786,
+-15.9721
+],
+[
+"Mosquée An-Nour",
+"مسجد النور",
+"mosquee",
+18.0753,
+-15.959
+],
+[
+"Mosquée Jaafar Tayar",
+"مسجد جعفر الطيار",
+"mosquee",
+18.0736,
+-15.946
+],
+[
+"Hôtel Marhaba",
+"فندق مرحبا",
+"hotel",
+18.0867,
+-15.9734
+],
+[
+"Hôtel Semiramis",
+"فندق سميراميس",
+"hotel",
+18.0992,
+-15.971
+],
+[
+"Hôtel Tfeila",
+"فندق تفيلة",
+"hotel",
+18.1006,
+-15.975
+],
+[
+"Atlantic Hôtel",
+"فندق الأطلسي",
+"hotel",
+18.1035,
+-15.9811
+],
+[
+"Le Royal Nouakchott",
+"فندق رويال",
+"hotel",
+18.1051,
+-15.9802
+],
+[
+"Monotel",
+"مونوتيل",
+"hotel",
+18.0971,
+-15.9849
+],
+[
+"Chinguity Hôtel",
+"فندق شنقيط",
+"hotel",
+18.0884,
+-15.9769
+],
+[
+"Hôtel Adrar",
+"فندق أدرار",
+"hotel",
+18.0844,
+-15.9774
+],
+[
+"Sunset Hotel",
+"فندق الغروب",
+"hotel",
+18.1074,
+-15.9868
+],
+[
+"Hôtel Al Ahmadi",
+"فندق الأحمدي",
+"hotel",
+18.0631,
+-16.0231
+],
+[
+"Hôtel Sabah",
+"فندق الصباح",
+"hotel",
+18.1101,
+-16.0249
+],
+[
+"Hôtel Wissal",
+"فندق وصال",
+"hotel",
+18.1022,
+-15.9737
+],
+[
+"Hôtel Emira",
+"فندق الإمارة",
+"hotel",
+18.1039,
+-15.9986
+],
+[
+"Hôtel Raha Dune",
+"فندق راحة",
+"hotel",
+18.1091,
+-15.9742
+],
+[
+"Palais présidentiel",
+"القصر الرئاسي",
+"etat",
+18.0948,
+-15.9707
+],
+[
+"Primature",
+"الوزارة الأولى",
+"etat",
+18.089,
+-15.9644
+],
+[
+"Assemblée nationale",
+"الجمعية الوطنية",
+"etat",
+18.0855,
+-15.9737
+],
+[
+"Sénat",
+"مجلس الشيوخ",
+"etat",
+18.0916,
+-15.9723
+],
+[
+"Palais de justice",
+"قصر العدالة",
+"etat",
+18.0874,
+-15.9657
+],
+[
+"Cour suprême",
+"المحكمة العليا",
+"etat",
+18.0923,
+-15.9636
+],
+[
+"Ministère de l'Intérieur",
+"وزارة الداخلية",
+"etat",
+18.0893,
+-15.9705
+],
+[
+"Ministère de la Justice",
+"وزارة العدل",
+"etat",
+18.0881,
+-15.9711
+],
+[
+"Ministère des Affaires étrangères",
+"وزارة الخارجية",
+"etat",
+18.1122,
+-15.989
+],
+[
+"Ministère des Affaires économiques",
+"وزارة الشؤون الاقتصادية",
+"etat",
+18.1124,
+-15.9898
+],
+[
+"Ministère du Pétrole et des Mines",
+"وزارة النفط والطاقة والمناجم",
+"etat",
+18.0841,
+-15.9916
+],
+[
+"Ministère des Transports",
+"وزارة النقل",
+"etat",
+18.0834,
+-15.9909
+],
+[
+"Ministère des Pêches",
+"وزارة الصيد",
+"etat",
+18.0899,
+-15.9697
+],
+[
+"Ministère de la Santé",
+"وزارة الصحة",
+"etat",
+18.0888,
+-15.9743
+],
+[
+"Ministère de l'Éducation nationale",
+"وزارة التهذيب الوطني",
+"etat",
+18.0879,
+-15.9743
+],
+[
+"Ministère du Commerce",
+"وزارة التجارة",
+"etat",
+18.0874,
+-15.9771
+],
+[
+"Communauté urbaine de Nouakchott",
+"المجموعة الحضرية لنواكشوط",
+"etat",
+18.0852,
+-15.9726
+],
+[
+"Direction générale des Douanes",
+"الإدارة العامة للجمارك",
+"etat",
+18.0855,
+-15.9628
+],
+[
+"Conseil constitutionnel",
+"المجلس الدستوري",
+"etat",
+18.0885,
+-15.971
+],
+[
+"Cour des comptes",
+"محكمة الحسابات",
+"etat",
+18.0857,
+-15.9682
+],
+[
+"Caisse nationale de sécurité sociale",
+"الصندوق الوطني للضمان الاجتماعي",
+"etat",
+18.0883,
+-15.9703
+],
+[
+"Wilaya de Nouakchott-Sud",
+"ولاية نواكشوط الجنوبية",
+"etat",
+18.0617,
+-15.9723
+],
+[
+"Mairie du Ksar",
+"بلدية لكصر",
+"etat",
+18.1003,
+-15.9622
+],
+[
+"Mairie de Sebkha",
+"بلدية السبخة",
+"etat",
+18.0629,
+-15.9905
+],
+[
+"Tribunal de Nouakchott-Sud",
+"محكمة نواكشوط الجنوبية",
+"etat",
+18.0702,
+-15.9515
+],
+[
+"Sûreté nationale (DGSN)",
+"الإدارة العامة للأمن الوطني",
+"police",
+18.0836,
+-15.9708
+],
+[
+"Police routière",
+"شرطة المرور",
+"police",
+18.088,
+-15.9615
+],
+[
+"Commissariat de Sebkha",
+"مفوضية السبخة",
+"police",
+18.0626,
+-15.9903
+],
+[
+"Commissariat Ksar II",
+"مفوضية لكصر 2",
+"police",
+18.0762,
+-15.9721
+],
+[
+"Banque nationale de Mauritanie",
+"البنك الوطني الموريتاني",
+"banque",
+18.0882,
+-15.9792
+],
+[
+"Banque El Amana",
+"مصرف الأمانة",
+"banque",
+18.0886,
+-15.9764
+],
+[
+"BCI",
+"بنك الائتمان والاستثمار",
+"banque",
+18.0881,
+-15.977
+],
+[
+"Bamis",
+"باميس",
+"banque",
+18.0896,
+-15.9635
+],
+[
+"Banque populaire",
+"البنك الشعبي",
+"banque",
+18.0989,
+-15.9761
+],
+[
+"Banque islamique de Mauritanie",
+"البنك الإسلامي الموريتاني",
+"banque",
+18.0949,
+-15.9602
+],
+[
+"Université de Nouakchott",
+"جامعة نواكشوط",
+"etudes",
+18.0893,
+-15.9676
+],
+[
+"ISCAE",
+"المعهد العالي للمحاسبة",
+"etudes",
+18.0975,
+-15.9821
+],
+[
+"École normale supérieure",
+"المدرسة العليا للأساتذة",
+"etudes",
+18.0999,
+-15.9605
+],
+[
+"Université Chinguitti",
+"جامعة شنقيط العصرية",
+"etudes",
+18.1033,
+-15.9839
+],
+[
+"Université libanaise internationale",
+"الجامعة اللبنانية الدولية",
+"etudes",
+18.091,
+-15.9667
+],
+[
+"Lycée technique",
+"الثانوية الفنية",
+"etudes",
+18.084,
+-15.969
+],
+[
+"École d'ingénieurs",
+"كلية الهندسة",
+"etudes",
+18.0828,
+-15.9936
+],
+[
+"Institut islamique",
+"المعهد الإسلامي",
+"etudes",
+18.065,
+-15.9533
+],
+[
+"Garage Rosso",
+"كراج روصو",
+"gare",
+18.0602,
+-15.974
+],
+[
+"Garage de Kiffa",
+"عربات إلى كيفة",
+"gare",
+18.0775,
+-15.9763
+],
+[
+"Garage de Tidjikja",
+"حافلات تجكجة",
+"gare",
+18.0768,
+-15.9658
+],
+[
+"Garage d'Atar",
+"حافلات أطار",
+"gare",
+18.1305,
+-15.9277
+],
+[
+"Garage d'autobus",
+"مرأب الحافلات",
+"gare",
+18.0895,
+-15.9937
+],
+[
+"Stade de la Capitale",
+"ملعب العاصمة",
+"loisir",
+18.0819,
+-15.9706
+],
+[
+"Stade Cheikha Ould Boïdiya",
+"ملعب الشيخة ولد بويدية",
+"loisir",
+18.0824,
+-15.9716
+],
+[
+"Place de la Liberté",
+"ساحة الحرية",
+"loisir",
+18.0891,
+-15.9719
+],
+[
+"Parc des Cinéastes",
+"حديقة السينمائيين",
+"loisir",
+18.0846,
+-15.9746
+],
+[
+"Château d'eau",
+"برج المياه",
+"loisir",
+18.0983,
+-15.9651
+],
+[
+"Parc Swesra",
+"حديقة سويسرا",
+"loisir",
+18.0533,
+-15.9969
+],
+[
+"Musée Turkya Daddah",
+"متحف تركيا داداه",
+"loisir",
+18.0948,
+-15.9774
+],
+[
+"Galerie Zein",
+"رواق زين",
+"loisir",
+18.1011,
+-15.9726
+],
+[
+"Mall Nouakchott",
+"مول نواكشوط",
+"commerce",
+18.0972,
+-15.9763
+],
+[
+"Citi Mall",
+"سيتي مول",
+"commerce",
+18.1034,
+-15.9804
+],
+[
+"Mall Emira",
+"مول الإمارة",
+"commerce",
+18.1033,
+-15.9768
+],
+[
+"Mall Nassim",
+"مول النسيم",
+"commerce",
+18.1032,
+-15.9788
+],
+[
+"Mariem Mall",
+"مريم مول",
+"commerce",
+18.1044,
+-15.9957
+],
+[
+"Bana Blanc",
+"بانا بلان",
+"commerce",
+18.1024,
+-15.975
+],
+[
+"Supermarché chinois",
+"السوبرماركت الصيني",
+"commerce",
+18.1079,
+-15.9756
+],
+[
+"Big Market",
+"بيغ ماركت",
+"commerce",
+18.1076,
+-15.9992
+],
+[
+"Port de pêche",
+"ميناء الصيد",
+"port",
+18.1034,
+-16.0259
+],
+[
+"Zone des ambassades",
+"حي السفارات",
+"quartier",
+18.098695,
+-15.987663
+],
+[
+"Zone Université",
+"منطقة الجامعة",
+"quartier",
+18.11701,
+-15.996494
+],
+[
+"Ilot K",
+"الحي K",
+"quartier",
+18.090342,
+-15.986614
+],
+[
+"Médina 3",
+"المدينة 3",
+"quartier",
+18.081716,
+-15.983498
+],
+[
+"Socogim PS",
+"سوكوجيم PS",
+"quartier",
+18.07516,
+-15.973947
+],
+[
+"F-Nord",
+"شمال F",
+"quartier",
+18.112526,
+-15.967149
+],
+[
+"Ksar ancien",
+"لكصر القديم",
+"quartier",
+18.102325,
+-15.956751
+],
+[
+"Centrale chinoise",
+"المحطة الصينية",
+"quartier",
+18.070954,
+-15.971792
+],
+[
+"Socogim Ksar",
+"سوكوجيم لكصر",
+"quartier",
+18.094911,
+-15.961481
+],
+[
+"Zone entrepôts et commerces",
+"منطقة المخازن والتجارة",
+"quartier",
+18.092212,
+-15.960168
+]
+]
+}

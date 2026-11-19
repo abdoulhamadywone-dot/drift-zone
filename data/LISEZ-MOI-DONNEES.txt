@@ -1,0 +1,43 @@
+DONNÉES GÉOGRAPHIQUES DU MODE TAXI NOUAKCHOTT
+=============================================
+
+Ce dossier contient les données réelles qui servent à « référencer » la ville du jeu.
+
+Sources
+-------
+- elminassa.com/map : les 9 moughataas de Nouakchott (Tevragh Zeina, Ksar, El Mina,
+  Sebkha, Teyarett, Riyad, Arafat, Toujounine, Dar Naim), leurs 425 zones et
+  lotissements tels que la recherche du site les affiche, et la position de 29 zones
+  de Tevragh Zeina et du Ksar (centre de la carte après la recherche).
+  Les parcelles du cadastre ne sont pas reprises : le site les transmet chiffrées.
+- OpenStreetMap, © contributeurs OpenStreetMap, licence ODbL
+  (https://www.openstreetmap.org/copyright) : villes de Mauritanie, grandes rues et
+  routes nationales, carrefours, quartiers et lieux de Nouakchott (hôpitaux, marchés,
+  mosquées, hôtels, ministères, gares routières, écoles, banques, stades…).
+
+Fichiers
+--------
+  geo.js                            données utilisées par le jeu (chargé par index.html)
+  elminassa_moughataas_zones.json   moughataas et zones (El Minassa)
+  elminassa_positions.json          positions des zones repérées (El Minassa)
+  mauritanie_villes.json            64 villes + les routes nationales RN1, RN2, RN3
+  nouakchott_rues.json              53 rues et routes (orientation, étendue)
+  nouakchott_carrefours_quartiers.json   35 carrefours et 21 quartiers
+  nouakchott_lieux.json             lieux retenus comme destinations
+
+Comment la ville du jeu est construite
+--------------------------------------
+Le damier du jeu (9 avenues nord-sud × 8 avenues est-ouest) est une version resserrée
+de Nouakchott, de la plage (ouest) au Carrefour 24 (est) et de Tevragh Zeina (nord) à
+El Mina / Arafat (sud). Chaque avenue du jeu correspond à une vraie rue :
+
+  nord-sud  0 route de la Plage · 2 route de Nouadhibou · 4 av. Charles de Gaulle /
+            av. de l'Indépendance · 5 rue Ahmed Ould Bouceif / route de Rosso ·
+            6 av. Bourguiba · 7 route d'Akjoujt · 8 route du Carrefour 24
+  est-ouest 1 av. Moktar Ould Daddah · 2 av. Al Quds · 3 av. du Roi Fayçal ·
+            4 av. Gamal Abdel Nasser · 5 route de l'Espoir / av. Kennedy ·
+            7 route de la Base Marine
+
+Les vraies coordonnées sont projetées sur ces avenues ; les carrefours, quartiers,
+monuments et lieux tombent donc là où ils sont dans la réalité, les uns par rapport
+aux autres. Le centre (Capitale, BMD, Grande Mosquée) est agrandi pour la conduite.
