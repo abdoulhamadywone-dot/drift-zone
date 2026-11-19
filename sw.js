@@ -1,10 +1,10 @@
 // Drift Zone — cache hors-ligne + mises à jour
-const VERSION = '3.0.0';
+const VERSION = '3.1.0';
 const CACHE = 'driftzone-' + VERSION;
 const MUSIC = 'dzmusic-1'; // musique : gardée d'une version à l'autre (chaque morceau écouté reste disponible sans Internet)
 // fichiers indispensables (le modèle Audi haute qualité est mis en cache à la première utilisation)
 const CORE = [
-  './', './index.html', './game.js', './taxi.js', './data/geo.js', './data/nkc_real.js', './manifest.webmanifest',
+  './', './index.html', './game.js', './taxi.js', './data/geo.js', './data/circuit_nkc.js', './data/nkc_real.js', './manifest.webmanifest',
   './lib/three.min.js', './lib/GLTFLoader.js', './music/playlist.json',
   './engine-dsp.js', './assets/audi_lo.glb', './assets/audi_xlo.glb', './assets/city.glb', './assets/mrt.glb', './assets/lm.glb', './assets/fans_lo.glb', './assets/ferrari_lo.glb',
   './assets/s15_lo.glb', './assets/hellcat_lo.glb', './assets/viper_lo.glb', './assets/specter_lo.glb',

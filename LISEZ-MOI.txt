@@ -51,7 +51,45 @@ QUALITÉ GRAPHIQUE (Options)
   Le jeu ajuste tout seul la résolution pour rester fluide, sans descendre
   sous une image nette.
 
-NOUAKCHOTT : UNE VILLE CONTINUE EN 3 MANCHES
+COURSES DANS LA VRAIE NOUAKCHOTT (nouveau, 3.1.0)
+  Tous les modes de course (Course contre l'IA, Drift libre, Défi drift 90 s,
+  Contre-la-montre, 2 joueurs, En ligne) se courent maintenant dans la vraie
+  ville, sur les vraies avenues, au milieu des vrais bâtiments, avec les
+  rues fermées par des glissières rouges et blanches comme un vrai circuit
+  en ville. Boucle de 7,2 km :
+  Manche 1 · Centre-ville · Route de Nouadhibou : départ sur l'avenue Gamal
+    Abdel Nasser (devant la BMD et le Marché Capitale), carrefour Sabah,
+    route de Nouadhibou jusqu'au rond-point Al Quds.
+  Manche 2 · Tevragh Zeina · Avenue Al Quds : toute l'avenue Al Quds jusqu'au
+    carrefour Bana Blanc.
+  Manche 3 · Capitale · Avenue du Général de Gaulle : descente vers l'avenue
+    Gamal Abdel Nasser et l'arrivée.
+  Deux raccourcis par de vraies rues (bordures vert/jaune, panneaux
+  « RACCOURCI ») : la rue Mohamed Ould Haroun (en sable, coupe le virage du
+  rond-point Al Quds) et la rue Aboubekr Seddigh (par la place de Tunis,
+  évite le carrefour Bana Blanc).
+  Menu Jouer → « Circuit » : « Nouakchott réelle » (par défaut) ou
+  « Classique » (l'ancien circuit ci-dessous). Le jeu se recharge pour
+  changer de circuit. Records du meilleur tour et fantôme gardés pour
+  chaque circuit. En ligne, tu ne croises que les pilotes du même circuit.
+
+LA VILLE ENTIÈRE ET SES FAÇADES (nouveau, 3.1.0)
+  La carte réelle couvre maintenant tout Nouakchott (environ 17 × 25 km) :
+  Tevragh Zeina, Ksar, Capitale, Sebkha, El Mina, Arafat, Dar Naïm,
+  Teyarett, Toujounine, Riyad, Ain Ettalh, PK… 248 000 bâtiments,
+  4 600 km de rues, 3 000 km de murs de clôture, 589 destinations (pharmacies,
+  stations, banques, écoles, restaurants, marchés, mosquées…), 360 arrêts de
+  taxi répartis dans tous les quartiers. Les quartiers autour de toi se
+  chargent au fur et à mesure pour que le jeu reste fluide.
+  Fini les cubes aux fenêtres noires : chaque bâtiment a des façades peintes
+  comme à Nouakchott (maisons sable aux menuiseries vertes, maisons blanches
+  aux volets bleus, ocre et bois, villas de Tevragh Zeina à arcades,
+  commerces à rideaux métalliques et enseignes, immeubles à balcons et
+  climatiseurs, béton brut en construction, maisons pastel), portes,
+  fenêtres à grilles, acrotères, cages d'escalier et citernes sur les toits,
+  et les murs de clôture des concessions avec leurs portails colorés.
+
+NOUAKCHOTT : LE CIRCUIT CLASSIQUE EN 3 MANCHES
   Fini les tours sur le même circuit : la course traverse la ville d'un seul
   trait (environ 8,5 km), et chaque manche se court dans un quartier différent.
   Manche 1 · Tevragh Zeina : route de la Plage, avenue Moktar Ould Daddah

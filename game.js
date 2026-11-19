@@ -31,6 +31,9 @@ const prof = {
 // 0 = Basse, 1 = Haute mobile (par défaut sur téléphone), 2 = Ultra (par défaut sur PC)
 const LOW = prof.qual === 0, HIQ = prof.qual === 2, LITE = !HIQ;
 const EXT = window.DZ_ASSET_EXT || 'gltf.json';
+// circuit : la vraie Nouakchott (data/circuit_nkc.js, rues OpenStreetMap) ou l'ancien circuit dessiné à la main
+const TRACK = window.DZ_CIRCUIT && store.get('track', 1) === 1 ? 1 : 0, RT = TRACK ? window.DZ_CIRCUIT : null;
+const TKS = RT ? '_' + RT.id : ''; // records et fantôme propres à chaque circuit
 function saveProf() { for (const k of ['name', 'credits', 'paint', 'rim', 'upg', 'mode', 'diff', 'muted', 'cam', 'night', 'car']) store.set(k, prof[k]); }
 function addCredits(n) { n = Math.max(0, Math.round(n)); prof.credits += n; store.set('credits', prof.credits); return n; }
 
@@ -194,10 +197,10 @@ function noise(ctx, w, h, base, amp, n) {
 
 /* ======================= Circuit ======================= */
 function surf(o) { if (!LOW) return new THREE.MeshStandardMaterial(o); const l = { map: o.map, color: o.color, side: o.side }; for (const k of ['color', 'map', 'side']) if (l[k] === undefined) delete l[k]; return new THREE.MeshLambertMaterial(l); }
-const ROAD_W = 40, HALF = ROAD_W / 2, CURB_W = 1.6, WALL = HALF + 7;
+const ROAD_W = RT ? 22 : 40, HALF = ROAD_W / 2, CURB_W = RT ? 1.2 : 1.6, WALL = HALF + (RT ? 2.6 : 7);
 // Grande boucle continue à travers Nouakchott (x = est, z = sud) : 3 manches, 3 quartiers.
 // Les carrefours giratoires (rb) ont des bras radiaux, des congés et une circulation anti-horaire.
-const WAYPOINTS = [
+const WAYPOINTS = RT ? RT.ctrl : [
   [-1000, -150, 'start'], [-1004, -320], [-985, -480], [-950, -610], [-890, -700], [-800, -755, 'moktar'], [-640, -768, 'nkc'], [-480, -752, 'fasq'], [-360, -760],
   { rb: [-150, -760, 72, 180, -90, 44], tag: 'citesmar' },
   [-150, -1000], [-110, -1060], [-20, -1085, 'elquods'], [120, -1080, 'iman'], [280, -1058, 'tasiast'], [420, -1080, 'sheraton'], [540, -1050], [625, -975], [660, -860, 'm2'],
@@ -243,7 +246,7 @@ const idxWrap = i => ((i % N) + N) % N;
 const TAG = {};
 CTRL.forEach(([x, z], k) => { const t = CTRL_TAG[k]; if (!t) return; let best = 0, bd = Infinity; for (let i = 0; i < N; i++) { const d = (PX[i] - x) ** 2 + (PZ[i] - z) ** 2; if (d < bd) { bd = d; best = i; } } TAG[t] = best; });
 // manches : chaque manche traverse un quartier différent de la ville
-const MANCHES = [
+const MANCHES = RT ? RT.manches.map(m => ({ from: m.frm === 'start' ? 0 : TAG[m.frm], name: m.name, ar: m.ar })) : [
   { from: 0, name: 'Tevragh Zeina', ar: 'تفرغ زينة' },
   { from: TAG.m2, name: 'Centre-ville · Ksar', ar: 'وسط المدينة · لكصر' },
   { from: TAG.m3, name: 'El Mina · Sebkha · la plage', ar: 'الميناء · السبخة · الشاطئ' },
@@ -251,7 +254,7 @@ const MANCHES = [
 const mancheAt = i => (i >= MANCHES[2].from ? 2 : i >= MANCHES[1].from ? 1 : 0);
 // relief : l'autopont du carrefour Madrid (rampe, tablier, rampe)
 const EL = new Float32Array(N), WI = new Float32Array(N).fill(WALL), BRIDGE_H = 7.2;
-const BRIDGE = { a: TAG.bridgeA, b: TAG.bridgeB, ramp: Math.round(125 / SEG) };
+const BRIDGE = TAG.bridgeA !== undefined ? { a: TAG.bridgeA, b: TAG.bridgeB, ramp: Math.round(125 / SEG) } : { a: -1, b: -2, ramp: 1 };
 for (let i = BRIDGE.a; i <= BRIDGE.b; i++) {
   const u = Math.min(1, (i - BRIDGE.a) / BRIDGE.ramp, (BRIDGE.b - i) / BRIDGE.ramp), sm = u * u * (3 - 2 * u);
   EL[i] = BRIDGE_H * sm; if (EL[i] > 0.6) WI[i] = HALF + 3.2;
@@ -283,8 +286,8 @@ function insideLoop(x, z) {
 const OUT_SIGN = insideLoop(PX[0] + NX[0] * 40, PZ[0] + NZ[0] * 40) ? -1 : 1; // multiplie N pour aller vers l'extérieur
 
 /* --- Raccourcis : routes qui coupent à travers la ville --- */
-const BHALF = 10, BW = BHALF + 5.5;
-const BRANCH_DEF = [
+const BHALF = RT ? 4.8 : 10, BW = BHALF + (RT ? 2.2 : 5.5);
+const BRANCH_DEF = RT ? RT.br.map(b => ({ a: TAG[b.a], b: TAG[b.b], name: b.name, ar: b.ar, pts: b.pts, sand: b.sand })) : [
   { a: TAG.start + 95, b: TAG.moktar + 45, name: "Rue de l'Ambassade du Sénégal", ar: 'شارع سفارة السنغال', bend: 0.06 },
   { a: TAG.bmd - 6, b: TAG.mosquee - 20, name: 'Rue Mamadou Konaté', ar: 'شارع مامادو كوناتي', bend: -0.06 },
   { a: TAG.sebkha + 380, b: idxWrap(TAG.plage + 150), name: 'Rue des Pêcheurs', ar: 'شارع الصيادين', bend: 0.05 },
@@ -296,7 +299,7 @@ const BR = BRANCH_DEF.map((d, bi) => {
   const off = (i, s, l) => { i = idxWrap(i); return new THREE.Vector3(PX[i] + NX[i] * s * l, 0, PZ[i] + NZ[i] * s * l); };
   const q1 = off(d.a + 14, sa, 13), q2 = off(d.b - 14, sb, 13);
   const ch = q2.clone().sub(q1), perp = new THREE.Vector3(-ch.z, 0, ch.x).normalize().multiplyScalar(ch.length() * d.bend);
-  const pts = [P(d.a - 30), P(d.a - 10), off(d.a + 4, sa, 4), q1,
+  const pts = d.pts ? [P(d.a - Math.round(30 / SEG)), P(d.a - Math.round(12 / SEG)), ...d.pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), P(d.b + Math.round(12 / SEG)), P(d.b + Math.round(30 / SEG))] : [P(d.a - 30), P(d.a - 10), off(d.a + 4, sa, 4), q1,
     q1.clone().lerp(q2, 0.33).add(perp), q1.clone().lerp(q2, 0.66).add(perp.clone().multiplyScalar(-0.6)),
     q2, off(d.b - 4, sb, 4), P(d.b + 10), P(d.b + 30)];
   const cv = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
@@ -396,23 +399,26 @@ const runMat = surf({ map: runoffTex, roughness: 1, envMapIntensity: 0.3 });
 const onDeck = (x, z) => { const q = nearest(x, z, -1); return EL[q.i] > 0.6; };
 ribbon(HALF + CURB_W, WALL + 0.8, -0.02, runMat, 14, 1, onDeck); ribbon(-WALL - 0.8, -HALF - CURB_W, -0.02, runMat, 14, 1, onDeck);
 const walkMat = surf({ map: walkTex, roughness: 0.95, envMapIntensity: 0.3 });
-ribbon(WALL + 0.8, WALL + 7, 0.06, walkMat, 7, 1, skipWalk); ribbon(-WALL - 7, -WALL - 0.8, 0.06, walkMat, 7, 1, skipWalk);
+if (!RT) { ribbon(WALL + 0.8, WALL + 7, 0.06, walkMat, 7, 1, skipWalk); ribbon(-WALL - 7, -WALL - 0.8, 0.06, walkMat, 7, 1, skipWalk); }
 { // raccourcis : asphalte, bordures vert/jaune, bas-côtés, trottoirs
   const bRoad = surf({ map: asphaltTex, roughness: 0.9, envMapIntensity: 0.4 }); bRoad.polygonOffset = true; bRoad.polygonOffsetFactor = 1; bRoad.polygonOffsetUnits = 2;
   const bCurb = surf({ map: curbTexG, roughness: 0.7, envMapIntensity: 0.4 });
+  const sandTex = canvasTex(256, 256, (c, w, h) => { noise(c, w, h, '#c7a26c', 0.2, 14000); for (const x0 of [0.3, 0.72]) { const g = c.createLinearGradient((x0 - 0.1) * w, 0, (x0 + 0.1) * w, 0); g.addColorStop(0, 'rgba(120,85,45,0)'); g.addColorStop(0.5, 'rgba(120,85,45,0.32)'); g.addColorStop(1, 'rgba(120,85,45,0)'); c.fillStyle = g; c.fillRect((x0 - 0.1) * w, 0, 0.2 * w, h); } }, true);
+  sandTex.wrapS = THREE.MirroredRepeatWrapping;
+  const bSand = surf({ map: sandTex, roughness: 1, envMapIntensity: 0.25 }); bSand.polygonOffset = true; bSand.polygonOffsetFactor = 1; bSand.polygonOffsetUnits = 2; // rue en sable (raccourci)
   for (const br of BR) {
-    ribbonPath(br, -BHALF, BHALF, 0.05, bRoad, BHALF, 2);
+    ribbonPath(br, -BHALF, BHALF, 0.05, br.sand ? bSand : bRoad, BHALF, 2);
     const sc = (x, z) => latMain(x, z) < HALF + CURB_W + 0.4, sr = (x, z) => latMain(x, z) < WALL + 1.2, sw = (x, z) => latMain(x, z) < WALL + 7.5;
     ribbonPath(br, BHALF, BHALF + CURB_W, 0.07, bCurb, 6, 1, sc); ribbonPath(br, -BHALF - CURB_W, -BHALF, 0.07, bCurb, 6, 1, sc);
     ribbonPath(br, BHALF + CURB_W, BW + 0.8, -0.02, runMat, 14, 1, sr); ribbonPath(br, -BW - 0.8, -BHALF - CURB_W, -0.02, runMat, 14, 1, sr);
-    ribbonPath(br, BW + 0.8, BW + 6, 0.06, walkMat, 7, 1, sw); ribbonPath(br, -BW - 6, -BW - 0.8, 0.06, walkMat, 7, 1, sw);
+    if (!RT) { ribbonPath(br, BW + 0.8, BW + 6, 0.06, walkMat, 7, 1, sw); ribbonPath(br, -BW - 6, -BW - 0.8, 0.06, walkMat, 7, 1, sw); }
   }
 }
 const BBOX = (() => { let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity; for (let i = 0; i < N; i++) { a = Math.min(a, PX[i]); b = Math.max(b, PX[i]); c = Math.min(c, PZ[i]); d = Math.max(d, PZ[i]); } return [a, b, c, d]; })();
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(6400, 5200), surf({ map: groundTex, roughness: 1, envMapIntensity: 0.25 }));
 ground.rotation.x = -Math.PI / 2; ground.position.set((BBOX[0] + BBOX[1]) / 2, -0.05, (BBOX[2] + BBOX[3]) / 2); ground.receiveShadow = true; ground.renderOrder = -1; ground.material.depthWrite = false; scene.add(ground); // dessiné en premier, n'écrit pas la profondeur : jamais de sable qui traverse la route
 // Océan Atlantique et plage à l'ouest de la ville
-const OCEAN_X = BBOX[0] - 130;
+const OCEAN_X = RT ? -2990 : BBOX[0] - 130;
 const oceanTex = canvasTex(256, 256, (c, w, h) => { noise(c, w, h, '#1f5f7a', 0.12, 9000); c.strokeStyle = 'rgba(255,255,255,0.10)'; c.lineWidth = 2; for (let i = 0; i < 40; i++) { const y = Math.random() * h, x = Math.random() * w; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 12, y - 4, x + 26, y); c.stroke(); } }, true);
 oceanTex.repeat.set(60, 120);
 const ocean = new THREE.Mesh(new THREE.PlaneGeometry(3000, 6000), surf({ map: oceanTex, color: 0xffffff, roughness: 0.18, metalness: 0.25, envMapIntensity: 1.1 }));
@@ -457,7 +463,7 @@ function addInstanced(geo, mat, mats, colors, opt) {
         const x = P.X[i] + P.NX[i] * off * side, z = P.Z[i] + P.NZ[i] * off * side;
         if (lx !== null) acc += Math.hypot(x - lx, z - lz);
         lx = x; lz = z;
-        if (acc >= 1.25) { acc = 0; if (!skip(x, z) && !(P === MAIN && EL[i] > 0.6)) list.push([x, z, n, P === MAIN ? EL[i] : 0]); n++; }
+        if (acc >= (RT ? 1.3 : 1.25)) { acc = 0; if (!skip(x, z) && !(P === MAIN && EL[i] > 0.6)) list.push([x, z, n, P === MAIN ? EL[i] : 0, Math.atan2(-P.NZ[i], P.NX[i])]); n++; }
       }
     }
   };
@@ -465,6 +471,11 @@ function addInstanced(geo, mat, mats, colors, opt) {
   for (const br of BR) walk(br, BW, (x, z) => latMain(x, z) < WALL + 0.6 || BR.some(o => o !== br && (nearestBr(o, x, z) || { d: 99 }).d < BW + 0.6));
   const geo = LOW ? new THREE.CylinderGeometry(0.62, 0.62, 1, 7, 1, true) : LITE ? new THREE.CylinderGeometry(0.62, 0.62, 0.5, 8, 1, true) : new THREE.CylinderGeometry(0.62, 0.62, 0.5, 12);
   const mats = [], cols = [];
+  if (RT) { // rues fermées par des glissières rouges et blanches, comme un vrai circuit en ville
+    const bg = new THREE.BoxGeometry(0.62, 0.95, 1.26), q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
+    list.forEach(([x, z, k, e, rot]) => { mats.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.475 + e, z), q.setFromAxisAngle(Y, rot), one)); cols.push(new THREE.Color(Math.floor(k / 2) % 2 ? 0xd62828 : 0xf2f2f2)); });
+    addInstanced(bg, surf({ roughness: 0.7, envMapIntensity: 0.3 }), mats, cols, { cast: !LITE, receive: !LOW, cell: 140, name: 'tires', maxD: 320 * DSCALE });
+  } else
   list.forEach(([x, z, k, e]) => {
     const levels = LOW ? 1 : 2;
     for (let l = 0; l < levels; l++) {
@@ -472,10 +483,10 @@ function addInstanced(geo, mat, mats, colors, opt) {
       cols.push(new THREE.Color(Math.floor(k / 3) % 2 === 0 ? (l ? 0xf2f2f2 : 0x1a1a1a) : (l ? 0x1a1a1a : 0xd62828)));
     }
   });
-  addInstanced(geo, surf({ roughness: 0.85, envMapIntensity: 0.3, side: THREE.DoubleSide }), mats, cols, { cast: !LITE, receive: !LOW, cell: 140, name: 'tires', maxD: 300 * DSCALE });
+  if (!RT) addInstanced(geo, surf({ roughness: 0.85, envMapIntensity: 0.3, side: THREE.DoubleSide }), mats, cols, { cast: !LITE, receive: !LOW, cell: 140, name: 'tires', maxD: 300 * DSCALE });
 }
 // Quartiers / avenues de Nouakchott (sections nommées du circuit)
-const STREETS = [
+const STREETS = (RT ? RT.streets.map(st => ({ from: st.frm, name: st.name, ar: st.ar })) : [
   { from: 'start', name: 'Route de la Plage', ar: 'طريق الشاطئ' },
   { from: 'moktar', name: 'Avenue Moktar Ould Daddah', ar: 'شارع المختار ولد داداه' },
   { from: 'citesmar', d: -60, name: 'Carrefour Cité Smar', ar: 'ملتقى سيتي سمار' },
@@ -491,13 +502,13 @@ const STREETS = [
   { from: 'elmina', d: -80, name: 'El Mina', ar: 'الميناء' },
   { from: 'sebkha', d: -80, name: 'Sebkha', ar: 'السبخة' },
   { from: 'plage', d: -60, name: 'Route du Port de Pêche', ar: 'طريق ميناء الصيد' },
-].map(st => Object.assign(st, { from: idxWrap(TAG[st.from] + (st.d || 0)) }));
+]).map(st => Object.assign(st, { from: idxWrap(TAG[st.from] + (st.d || 0)) }));
 STREETS.forEach((st, k) => { st.to = STREETS[(k + 1) % STREETS.length].from; });
 function streetAt(i) { for (const s of STREETS) { if (s.from < s.to ? (i >= s.from && i < s.to) : (i >= s.from || i < s.to)) return s; } return STREETS[0]; }
 // Bouteilles de nitro posées sur la route
 const BOTTLES = [];
 {
-  const pat = [-11, 4, 12, -4, 0, -13, 9];
+  const pat = [-11, 4, 12, -4, 0, -13, 9].map(v => Math.round(v * HALF / 20));
   for (let i = 95, k = 0; i < N - 60; i += 128, k++) if (EL[i] === 0 && EL[idxWrap(i + 30)] === 0) BOTTLES.push({ x: 0, z: 0, i, lat: pat[k % pat.length] });
   for (const b of BOTTLES) { b.x = PX[b.i] + NX[b.i] * b.lat; b.z = PZ[b.i] + NZ[b.i] * b.lat; }
   for (const br of BR) for (const f of [0.42, 0.62]) { const k = Math.round(br.M * f); BOTTLES.push({ x: br.X[k], z: br.Z[k], br: true }); }
@@ -1170,12 +1181,12 @@ const PALETTE_WALL = [0xf2e3c6, 0xe8cfa0, 0xf6f2ea, 0xc5dde9, 0x9fd6cd, 0xd4e6bd
 
 /* ======================= Ville ======================= */
 const fansData = [];
-let fanMeshes = null;
+let fanMeshes = null, RT_OCC = [];
 function buildCity() {
   const city = ASSETS.city;
   const rnd = (() => { let s = 20261118; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
   const pick = arr => arr[Math.floor(rnd() * arr.length)];
-  const occ = [];
+  const occ = RT_OCC;
   const free = (x, z, r, minTrack) => {
     if (x - r < OCEAN_X + 70 || onDecoRoad(x, z, r)) return false;
     for (const o of occ) if (Math.hypot(x - o.x, z - o.z) < r + o.r) return false;
@@ -1216,7 +1227,7 @@ function buildCity() {
   }
   if (!city) return;
   // 2) Stade Olympique le long de la ligne droite de départ
-  if (has('B_Stadium')) {
+  if (!RT && has('B_Stadium')) {
     const i = idxWrap(-70), s = sizes.B_Stadium, side = OUT_SIGN;
     const off = (WALL + 9 + s.w / 2) * side;
     const x = PX[i] + NX[i] * off, z = PZ[i] + NZ[i] * off;
@@ -1239,11 +1250,12 @@ function buildCity() {
   };
   const placeAt = (lm, x, z, rot) => { lm.g.position.set(x, 0, z); lm.g.rotation.y = rot; scene.add(lm.g); mergeGroup(lm.g); occ.push({ x, z, r: lm.r }); LM_PLACED.push({ name: lm.name, x, z, rot, r: lm.r }); };
   const deco = new THREE.Group(); scene.add(deco); // panneaux, poteaux, portiques : fusionnés à la fin
-  buildJunctions(deco);
+  if (!RT) buildJunctions(deco);
   const L = LANDMARKS, O = OUT_SIGN, I = -OUT_SIGN;
   const B = (key, fallback) => glbLM(key) || (fallback ? fallback() : null);
   const pl = (lm, i, side, extra) => { if (lm) placeLM(lm, i, side, extra); };
   const H = (n, a, o) => () => L.hotel(n, a, o);
+  if (!RT) {
   // Tevragh Zeina : avenue Moktar Ould Daddah, Cité Smar, avenue El Quods
   pl(B('lm_fasq', H('FASQ HÔTEL', 'فندق فاسك', { w: 26, h: 31, d: 20, wall: '#f2f2f2', win: '#1d2a38', style: 'glass', band: '#ffffff', signBg: '#111111', signFg: '#e9c46a' })), TAG.fasq, O);
   pl(B('lm_nkc', H('HÔTEL NOUAKCHOTT', 'فندق نواكشوط', { w: 44, h: 18, d: 20, wall: '#f4efe4', balcony: '#c9c0ad', signBg: '#0b3d2e', signFg: '#ffd27a' })), TAG.nkc, O);
@@ -1264,6 +1276,7 @@ function buildCity() {
   pl(L.museum(), TAG.marche + 25, O);
   pl(L.mosqueMaroc(), TAG.bridgeA - 10, I);
   pl(L.hotel('HÔTEL HALIMA', 'فندق حليمة', { w: 26, h: 13, d: 16, wall: '#f1e7d6', balcony: '#a9927a', signBg: '#5b2a86', signFg: '#fff' }), TAG.faycal - 40, O);
+  }
   // 2c) Panneaux des avenues (français + arabe) et des raccourcis
   const plate = (i, side, lines, bg, fg, pw) => {
     const off = (WALL + 3) * side, x = PX[i] + NX[i] * off, z = PZ[i] + NZ[i] * off;
@@ -1318,6 +1331,7 @@ function buildCity() {
     const side = K[ci] > 0 ? 1 : -1;
     for (let k = -3; k <= 3; k++) { const i = idxWrap(ci + Math.round(k * 4 / SEG)); const off = (HALF + CURB_W + 0.8) * side; put('P_Trafficcone', PX[i] + NX[i] * off, PZ[i] + NZ[i] * off, rnd() * 6, 1); }
   });
+  if (RT) { instanceLib(inst, {}); buildSigns(inst, rnd); return; }
   // 4) Bâtiments : 1er rang (boutiques), 2e rang (immeubles), horizon (gratte-ciel)
   // bâtiments de Nouakchott modélisés dans Blender (boutiques, immeubles, villas, mosquées, marché…)
   const SHOPS = ['mrt_shop1A', 'mrt_shop1B', 'mrt_shop2A', 'mrt_shop2B', 'mrt_shop1A', 'mrt_shop2B', 'mrt_kioskA', 'mrt_kioskB', 'mrt_market', 'mrt_immA', 'mrt_shop1B', 'mrt_station'].filter(has);
@@ -1383,6 +1397,17 @@ function buildCity() {
   buildSigns(inst, rnd);
 }
 // création des InstancedMesh (un appel de rendu par type d'objet) : aussi utilisé par le mode Taxi
+function raceMask() { // emprise du circuit : la vraie ville n'y pose ni bâtiment, ni mur, ni lampadaire
+  const C = 2, x0 = BBOX[0] - 300, z0 = BBOX[2] - 300, W = Math.ceil((BBOX[1] - BBOX[0] + 600) / C), H = Math.ceil((BBOX[3] - BBOX[2] + 600) / C), g = new Uint8Array(W * H);
+  const disc = (x, z, r) => {
+    const a0 = Math.max(0, Math.floor((x - r - x0) / C)), a1 = Math.min(W - 1, Math.floor((x + r - x0) / C)), b0 = Math.max(0, Math.floor((z - r - z0) / C)), b1 = Math.min(H - 1, Math.floor((z + r - z0) / C)), r2 = (r + C * 0.7) ** 2;
+    for (let b = b0; b <= b1; b++) { const dz = z0 + (b + 0.5) * C - z; for (let a = a0; a <= a1; a++) { const dx = x0 + (a + 0.5) * C - x; if (dx * dx + dz * dz <= r2) g[b * W + a] = 1; } }
+  };
+  for (let i = 0; i < N; i += 2) disc(PX[i], PZ[i], WALL + 3.2);
+  for (const br of BR) for (let k = 0; k < br.M; k += 2) disc(br.X[k], br.Z[k], BW + 2.4);
+  for (const o of RT_OCC) disc(o.x, o.z, o.r + 1);
+  return (x, z) => { const a = Math.floor((x - x0) / C), b = Math.floor((z - z0) / C); return a >= 0 && b >= 0 && a < W && b < H && g[b * W + a] === 1; };
+}
 function instanceLib(inst, O) {
   const city = ASSETS.city;
   const q = new THREE.Quaternion(), p = new THREE.Vector3(), s3 = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
@@ -2297,7 +2322,7 @@ function startGame() {
     placeCar(player, idxWrap(-Math.round(12 / SEG)), 0);
   }
   if (m === 'time') {
-    const gs = store.get('ghost3', null);
+    const gs = store.get('ghost3' + TKS, null);
     game.ghost = gs && gs.p && gs.p.length > 10 ? gs : null;
     game.bestLapT = game.ghost ? game.ghost.t : Infinity;
     buildGhostIndex();
@@ -2493,13 +2518,13 @@ function gameLogic(dt, prevIdx) {
       if (pc.lap <= game.laps) hudMsg(0, 'MANCHE ' + ((pc.lap - 1) * 3 + 1) + ' / ' + game.laps * 3, MANCHES[0].name.toUpperCase() + (lp.t ? ' · TOUR ' + fmtTime(lp.t) : ''), false, pc.lap === game.laps && pc.lap > 1 ? 'gold' : 'blue');
       if (pc.lap > game.laps && !pc.finished) { pc.finished = true; pc.finishTime = game.raceT; onPlayerFinish(); }
     } else if (lp.t) {
-      const best = store.get('lap_best3', Infinity) || Infinity;
+      const best = store.get('lap_best3' + TKS, Infinity) || Infinity;
       const isBest = lp.t < best;
-      if (isBest) store.set('lap_best3', lp.t);
+      if (isBest) store.set('lap_best3' + TKS, lp.t);
       if (m === 'time') {
         const cr = addCredits(150 + (lp.t < game.bestLapT ? 600 : 0)); game.earned += cr;
         if (lp.t < game.bestLapT) {
-          game.bestLapT = lp.t; game.ghost = { t: lp.t, p: game.ghostRec.slice() }; store.set('ghost3', game.ghost); buildGhostIndex();
+          game.bestLapT = lp.t; game.ghost = { t: lp.t, p: game.ghostRec.slice() }; store.set('ghost3' + TKS, game.ghost); buildGhostIndex();
           popup('NOUVEAU RECORD · ' + fmtTime(lp.t), '+' + cr + ' crédits', false, 'gold');
         } else popup('TOUR ' + fmtTime(lp.t), '+' + cr + ' crédits');
       } else popup('TOUR ' + fmtTime(lp.t), isBest ? 'MEILLEUR TOUR !' : '');
@@ -2681,7 +2706,7 @@ async function initNet() {
     room.presence({ on: 0, nm: prof.name }).catch(() => {});
   } catch (e) { net.status = 'off'; renderNet(); }
 }
-function onlinePeers() { return (net.peers || []).filter(p => !p.sameTab && p.kind === 'viewer' && p.presence && p.presence.on === 1); }
+function onlinePeers() { return (net.peers || []).filter(p => !p.sameTab && p.kind === 'viewer' && p.presence && p.presence.on === 1 && (p.presence.tk || 0) === TRACK); }
 function peerName(p) { const n = p.presence && typeof p.presence.nm === 'string' ? p.presence.nm : ''; return n.slice(0, 16) || 'Pilote'; }
 function peerColor(p) { const c = p.presence && p.presence.pc; return typeof c === 'number' && c >= 0 && c <= 0xffffff ? c : 0x999999; }
 function sendPresence(force) {
@@ -2691,7 +2716,7 @@ function sendPresence(force) {
   net.lastSend = now;
   const pc = player;
   const data = net.active && pc ? {
-    on: 1, nm: prof.name, pc: PAINTS[prof.paint], cr: prof.car,
+    on: 1, nm: prof.name, pc: PAINTS[prof.paint], cr: prof.car, tk: TRACK,
     x: +pc.x.toFixed(2), z: +pc.z.toFixed(2), h: +pc.h.toFixed(3), vx: +pc.vx.toFixed(2), vz: +pc.vz.toFixed(2),
     sl: +pc.slip.toFixed(2), n: pc.nitroOn ? 1 : 0, d: pc.drifting ? 1 : 0,
     rid: net.rid, rat: net.rat, l: pc.lap, i: pc.idx, f: net.raceState !== 'free' && pc.finished ? Math.round(pc.finishTime * 1000) : 0, sc: Math.round(game.score)
@@ -2831,23 +2856,24 @@ const mapCv = $('mapCv'), mapCtx = mapCv.getContext('2d');
 const MAP_PX = 0.55, MAP_WIN = 1300, MAP_PAD = 160;
 const mapBg = document.createElement('canvas');
 let mapT, mapView = { x0: 0, z0: 0, k: 320 / MAP_WIN };
-{
+function drawMapBg(cityFn) {
   const minX = BBOX[0] - MAP_PAD, minZ = BBOX[2] - MAP_PAD;
   mapBg.width = Math.ceil((BBOX[1] - BBOX[0] + MAP_PAD * 2) * MAP_PX); mapBg.height = Math.ceil((BBOX[3] - BBOX[2] + MAP_PAD * 2) * MAP_PX);
   const T = (x, z) => [(x - minX) * MAP_PX, (z - minZ) * MAP_PX];
   mapBg.T = T; mapBg.minX = minX; mapBg.minZ = minZ;
   const c = mapBg.getContext('2d'); c.lineJoin = c.lineCap = 'round';
   c.fillStyle = 'rgba(31,95,122,0.55)'; c.fillRect(0, 0, Math.max(0, (OCEAN_X + 30 - minX) * MAP_PX), mapBg.height);
+  if (cityFn) { c.save(); c.globalAlpha = 0.55; try { cityFn(c, minX, minZ, MAP_PX, mapBg.width, mapBg.height); } catch (e) { console.error('map', e); } c.restore(); c.lineJoin = c.lineCap = 'round'; }
   c.strokeStyle = 'rgba(255,255,255,0.18)'; c.lineWidth = 7;
   for (const d of DECO_ROADS) { const [a, b] = T(d[0], d[1]), [e, f] = T(d[2], d[3]); c.beginPath(); c.moveTo(a, b); c.lineTo(e, f); c.stroke(); }
   const path = () => { c.beginPath(); for (let i = 0; i <= N; i += 3) { const [a, b] = T(PX[i % N], PZ[i % N]); i ? c.lineTo(a, b) : c.moveTo(a, b); } c.closePath(); };
   const bpath = br => { c.beginPath(); for (let k = 0; k < br.M; k += 3) { const [a, b] = T(br.X[k], br.Z[k]); k ? c.lineTo(a, b) : c.moveTo(a, b); } };
-  for (const br of BR) { bpath(br); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 16; c.stroke(); }
-  path(); c.strokeStyle = 'rgba(0,0,0,0.55)'; c.lineWidth = 26; c.stroke();
-  for (const br of BR) { bpath(br); c.strokeStyle = '#f59e0b'; c.lineWidth = 8; c.setLineDash([14, 9]); c.stroke(); c.setLineDash([]); }
+  for (const br of BR) { bpath(br); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = RT ? 9 : 16; c.stroke(); }
+  path(); c.strokeStyle = 'rgba(0,0,0,0.55)'; c.lineWidth = RT ? 17 : 26; c.stroke();
+  for (const br of BR) { bpath(br); c.strokeStyle = '#f59e0b'; c.lineWidth = RT ? 5 : 8; c.setLineDash(RT ? [9, 6] : [14, 9]); c.stroke(); c.setLineDash([]); }
   // chaque manche a sa couleur
   const MC = ['#e8e8e8', '#ffd27a', '#9fe3c5'];
-  for (let mI = 0; mI < 3; mI++) { const a0 = MANCHES[mI].from, a1 = mI < 2 ? MANCHES[mI + 1].from : N; c.beginPath(); for (let i = a0; i <= a1; i += 3) { const [a, b] = T(PX[i % N], PZ[i % N]); i === a0 ? c.moveTo(a, b) : c.lineTo(a, b); } c.strokeStyle = MC[mI]; c.lineWidth = 13; c.stroke(); }
+  for (let mI = 0; mI < 3; mI++) { const a0 = MANCHES[mI].from, a1 = mI < 2 ? MANCHES[mI + 1].from : N; c.beginPath(); for (let i = a0; i <= a1; i += 3) { const [a, b] = T(PX[i % N], PZ[i % N]); i === a0 ? c.moveTo(a, b) : c.lineTo(a, b); } c.strokeStyle = MC[mI]; c.lineWidth = RT ? 8 : 13; c.stroke(); }
   for (const rb of ROUNDABOUTS) { const [a, b] = T(rb.x, rb.z); c.fillStyle = '#7fbf5a'; c.beginPath(); c.arc(a, b, (rb.R - WALL) * MAP_PX, 0, 6.29); c.fill(); }
   for (const b of BOTTLES) { const [a, bb] = T(b.x, b.z); c.fillStyle = '#38bdf8'; c.beginPath(); c.arc(a, bb, 5, 0, 6.29); c.fill(); }
   c.font = '700 22px Arial, sans-serif'; c.textAlign = 'center';
@@ -2855,6 +2881,7 @@ let mapT, mapView = { x0: 0, z0: 0, k: 320 / MAP_WIN };
   const [sx, sz] = T(PX[0], PZ[0]); c.fillStyle = '#ff3d5a'; c.fillRect(sx - 9, sz - 9, 18, 18);
   mapT = (x, z) => [(x - mapView.x0) * mapView.k, (z - mapView.z0) * mapView.k];
 }
+drawMapBg(null);
 const hexCss = h => '#' + (h >>> 0).toString(16).padStart(6, '0');
 function drawMap() {
   mapCtx.clearRect(0, 0, 320, 320);
@@ -2891,7 +2918,7 @@ function updateHud() {
   const racing = raceLike(m) || (m === 'online' && net.raceState !== 'free');
   { const mi = pc.lap >= 1 ? mancheAt(pc.idx) : 0, lapC = Math.max(pc.lap, 1); $('lapN').textContent = racing ? Math.min((Math.min(lapC, game.laps) - 1) * 3 + mi + 1, game.laps * 3) + ' / ' + game.laps * 3 : (mi + 1) + ' / 3'; }
   $('lapTime').textContent = fmtTime(state === 'countdown' || pc.frozen ? 0.0001 : (racing ? game.raceT : game.raceT - pc.lapStart)).replace('--', '0:00.00');
-  const bl = m === 'time' ? game.bestLapT : (racing ? pc.bestLap : store.get('lap_best3', Infinity));
+  const bl = m === 'time' ? game.bestLapT : (racing ? pc.bestLap : store.get('lap_best3' + TKS, Infinity));
   $('lapBest').textContent = (racing ? 'Meilleur tour : ' : 'Meilleur : ') + fmtTime(bl);
   if (m === 'chrono') { const t = Math.ceil(game.timeLeft); $('hudTimer').textContent = Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); $('hudTimer').classList.toggle('warn', game.timeLeft < 10); }
   if (m === 'race') {
@@ -3038,7 +3065,7 @@ function renderMenu() {
     let rec = '';
     if (m.id === 'drift') rec = 'Record : ' + fmtInt(store.get('best_drift', 0));
     if (m.id === 'chrono') rec = 'Record : ' + fmtInt(store.get('best_chrono', 0));
-    if (m.id === 'time') { const g = store.get('ghost3', null); rec = 'Meilleur tour : ' + (g ? fmtTime(g.t) : '--'); }
+    if (m.id === 'time') { const g = store.get('ghost3' + TKS, null); rec = 'Meilleur tour : ' + (g ? fmtTime(g.t) : '--'); }
     if (m.id === 'race') { const b = store.get('best_race_pos', 0); rec = b ? 'Meilleure place : ' + b + (b === 1 ? 'er' : 'e') : ''; }
     if (m.id === 'taxi') { const b = store.get('best_taxi', 0); rec = b ? 'Meilleur service : ' + fmtInt(b) + ' MRU' : ''; }
     if (m.id === 'online') rec = net.status === 'ok' ? '🟢 ' + ((net.peers || []).filter(p => p.kind === 'viewer').length) + ' en ligne' : '';
@@ -3049,6 +3076,7 @@ function renderMenu() {
   $('raceOpts').classList.toggle('hidden', !raceLike(mode())); renderDuo();
   if (TAXI) TAXI.renderOpts(mode() === 'taxi');
   setSeg('segDiff', prof.diff); setSeg('segLaps', prof.laps);
+  { const to = $('trackOpt'); if (to) { to.classList.toggle('hidden', !window.DZ_CIRCUIT || mode() === 'taxi'); setSeg('segTrack', TRACK); } }
   $('modeTip').textContent = { race: 'Astuce : freine avant les virages serrés, garde le nitro pour les lignes droites.', drift: 'Astuce : frein à main pour lancer la glisse, puis contre-braque en gardant les gaz.', chrono: 'Astuce : les longs drifts près du bord rapportent plus.', time: 'Astuce : le fantôme bleu rejoue ton meilleur tour.', taxi: 'Astuce : arrête-toi dans le cercle vert, le client monte. Klaxon : H, R1 ou 📯. Poursuivi ? F pour descendre et voler une autre voiture.', online: 'Astuce : partage le jeu à tes amis pour rouler ensemble.' }[mode()] || '';
   $('btnPlay').textContent = mode() === 'online' ? 'REJOINDRE ▶' : 'JOUER ▶';
   renderGarage(); renderOptions(); renderNet();
@@ -3096,6 +3124,7 @@ function showTab(t) {
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => { showTab(b.dataset.tab); if (b.dataset.tab === 'online') { prof.mode = 4; store.set('mode', 4); renderMenu(); showTab('online'); } });
 $('segDiff').onclick = e => { const v = e.target.dataset.v; if (v === undefined) return; prof.diff = +v; store.set('diff', prof.diff); setSeg('segDiff', v); };
 $('segDuoAI').onclick = e => { const v = e.target.closest('button'); if (!v) return; prof.duoAI = +v.dataset.v; store.set('duoAI', prof.duoAI); setSeg('segDuoAI', prof.duoAI); };
+if ($('segTrack')) $('segTrack').onclick = e => { const b = e.target.closest('button'); if (!b) return; const v = +b.dataset.v; if (v === TRACK) return; store.set('track', v); setSeg('segTrack', v); $('loading').classList.remove('hidden'); $('loadTxt').textContent = v ? 'DIRECTION LA VRAIE NOUAKCHOTT…' : 'RETOUR AU CIRCUIT CLASSIQUE…'; setTimeout(() => location.reload(), 120); };
 $('segLaps').onclick = e => { const v = e.target.dataset.v; if (v === undefined) return; prof.laps = +v; store.set('laps2', prof.laps); setSeg('segLaps', v); };
 $('segNight').onclick = e => { const b = e.target.closest('button'); if (!b) return; prof.night = b.dataset.v === '1'; store.set('night', prof.night); setSeg('segNight', prof.night ? 1 : 0); applyAmbience(); };
 $('segQual').onclick = e => { const v = e.target.dataset.v; if (v === undefined || +v === prof.qual) return; prof.qual = +v; store.set('qual3', prof.qual); renderOptions(); { const qn = $('qualNote'); if (qn) qn.textContent = 'Redémarrage pour appliquer…'; } setTimeout(() => location.reload(), 600); };
@@ -3174,6 +3203,7 @@ function frame() {
   menuTime += dt;
   if (TAXI && TAXI.active) { pollPad(dt); updateMusic(dt); inPlayUi(); TAXI.frame(dt); perfAdapt(raw, state === 'play' || state === 'countdown'); renderer.render(scene, camera); return; }
   if ((frameN = (frameN + 1) % 4) === 0) updateDistCull();
+  if (RT && TAXI && TAXI.race && TAXI.race.on) TAXI.race.tick(camera.position, player2 ? camera2.position : null, 1);
   pollPad(dt); updateMusic(dt); inPlayUi();
   let inp = NO_INPUT;
   if (!player) { renderer.render(scene, camera); return; }
@@ -3301,9 +3331,16 @@ function mainIntroShots() {
   const cx = (BBOX[0] + BBOX[1]) / 2, cz = (BBOX[2] + BBOX[3]) / 2, shots = [];
   const artists = [...new Set((music.list || []).map(t => (t.artist || '').split(/ ft\.| feat\.|,/)[0].trim()).filter(Boolean))].slice(0, 5);
   const credits = ['Musique : ' + (artists.length ? artists.join(' · ') : 'artistes de Mauritanie'), 'Voitures, ville et personnages modélisés pour le jeu', 'Nouveau : le mode Taxi Nouakchott'];
+  if (RT) {
+    const i0 = idxWrap(-Math.round(520 / SEG)), i1 = idxWrap(-Math.round(90 / SEG));
+    shots.push({ dur: 5.5, p0: V3(PX[i0] - TX[i0] * 160 + NX[i0] * 70, 75, PZ[i0] - TZ[i0] * 160 + NZ[i0] * 70), p1: V3(PX[i0] + NX[i0] * 26, 34, PZ[i0] + NZ[i0] * 26), t0: V3(PX[i1], 0, PZ[i1]), t1: V3(PX[0], 2, PZ[0]), fov: 55, title: 'DRIFT ZONE', sub: 'Nouakchott réelle · Mauritanie', credit: '' });
+    const pref = ['bmd', 'snim', 'mosquee', 'marche', 'afarco', 'sheraton', 'musee', 'palais', 'nkc', 'iman', 'fasq', 'mauricenter'], rank = l => { const r = pref.indexOf(l.id); return r < 0 ? 99 : r; };
+    const lmR = TAXI && TAXI.race && TAXI.race.on ? TAXI.race.landmarks().filter(l => nearest(l.x, l.z, -1).d < 380).sort((a, b) => rank(a) - rank(b)).slice(0, 3) : [];
+    lmR.forEach((l, k) => { const a = l.face + 0.55, b = l.face + 0.2, R = 48; shots.push({ dur: 3.6, p0: V3(l.x + Math.sin(a) * R, 19, l.z + Math.cos(a) * R), p1: V3(l.x + Math.sin(b) * (R - 9), 13, l.z + Math.cos(b) * (R - 9)), t0: V3(l.x, 14, l.z), t1: V3(l.x, 11, l.z), cap: l.name, capSub: l.ar || 'Nouakchott', title: k === 0 ? '' : undefined, credit: credits[k] }); });
+  } else
   shots.push({ dur: 5.5, p0: V3(OCEAN_X - 140, 50, cz + 300), p1: V3(OCEAN_X + 40, 105, cz + 60), t0: V3(cx, 8, cz), t1: V3(cx, 0, cz - 60), fov: 50, title: 'DRIFT ZONE', sub: 'Nouakchott · Mauritanie', credit: '' });
   const pref = ['SNIM', 'FASQ HÔTEL', 'Grande Mosquée', 'MARCHÉ CAPITALE', 'MAURICENTER', 'SHERATON NOUAKCHOTT', 'HÔTEL NOUAKCHOTT'];
-  const lms = pref.map(n => LM_PLACED.find(l => l.name === n)).filter(Boolean).concat(LM_PLACED).filter((l, k, a) => a.indexOf(l) === k).slice(0, 3);
+  const lms = RT ? [] : pref.map(n => LM_PLACED.find(l => l.name === n)).filter(Boolean).concat(LM_PLACED).filter((l, k, a) => a.indexOf(l) === k).slice(0, 3);
   lms.forEach((l, k) => { const a = l.rot + 0.95, b = l.rot + 0.35, R = (l.r || 30) + 34; shots.push({ dur: 3.6, p0: V3(l.x + Math.sin(a) * R, 11, l.z + Math.cos(a) * R), p1: V3(l.x + Math.sin(b) * (R - 8), 7, l.z + Math.cos(b) * (R - 8)), t0: V3(l.x, 17, l.z), t1: V3(l.x, 13, l.z), cap: l.name === l.name.toUpperCase() ? l.name.split(' ').map(w => w.length <= 4 ? w : w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : l.name, capSub: 'Nouakchott', title: k === 0 ? '' : undefined, credit: credits[k] }); });
   const i0 = idxWrap(-Math.round(150 / SEG)), i1 = idxWrap(-Math.round(30 / SEG));
   shots.push({ dur: 4, p0: V3(PX[i0] + NX[i0] * 8, 7, PZ[i0] + NZ[i0] * 8), p1: V3(player.x + Math.sin(0.6 + player.h) * 9.5, 2.4, player.z + Math.cos(0.6 + player.h) * 9.5), t0: V3(PX[i1], 1, PZ[i1]), t1: V3(player.x, 0.9, player.z), title: 'PRÊT ?', sub: 'Course · Drift · Taxi Nouakchott', credit: '' });
@@ -3336,9 +3373,20 @@ loadAll(() => {
   ensurePlayer(); placeCar(player, idxWrap(-Math.round(12 / SEG)), 0); player.frozen = true;
   try { if (window.DZTaxi) TAXI = window.DZTaxi(taxiApi()); } catch (e) { console.error('taxi', e && e.stack || e); TAXI = null; }
   if (!TAXI && mode() === 'taxi') prof.mode = 0;
-  $('loading').classList.add('hidden');
-  const toMenuNow = () => { state = 'menu'; showScreen('menu'); renderMenu(); orbitAng = 0.6; camera.fov = 42; camera.updateProjectionMatrix(); };
-  if (!TEST || /[?&]intro/.test(location.search)) { state = 'intro'; showScreen(null); introPlay(mainIntroShots(), toMenuNow); } else toMenuNow();
+  const startUi = () => {
+    $('loading').classList.add('hidden');
+    const toMenuNow = () => { state = 'menu'; showScreen('menu'); renderMenu(); orbitAng = 0.6; camera.fov = 42; camera.updateProjectionMatrix(); };
+    if (!TEST || /[?&]intro/.test(location.search)) { state = 'intro'; showScreen(null); introPlay(mainIntroShots(), toMenuNow); } else toMenuNow();
+  };
+  if (RT && TAXI && TAXI.race) { // circuit dans la vraie Nouakchott : rues, bâtiments et monuments réels autour de la piste
+    $('loadTxt').textContent = 'NOUAKCHOTT SE DESSINE : RUES ET BÂTIMENTS…';
+    const bar = $('loadBar').firstElementChild; bar.style.width = '90%';
+    let mask = null; try { mask = raceMask(); } catch (e) { console.error('mask', e); }
+    if (mask) TAXI.race.prepare({ mask, hide: [ground, ocean, beach], prog: f => { bar.style.width = (90 + f * 8).toFixed(0) + '%'; } }, ok => {
+      if (ok) { try { drawMapBg(TAXI.race.drawMap); } catch (e) { console.error('map', e); } TAXI.race.tick(new THREE.Vector3(PX[0], 0, PZ[0]), null, 9999); }
+      startUi();
+    }); else startUi();
+  } else startUi();
   if (!TEST) initAudio(); // si le navigateur l'autorise (appli installée, lanceur du PC), la musique démarre tout de suite ; sinon au premier clic / à la première touche
   if (TEST) window.__dz = { THREE, music, initAudio, intro, introUpdate, get TAXI() { return TAXI; }, get player2() { return player2; }, wiz, readInput, pollPad, buildCar, CARS, loadAsset, updateDistCull, TAG, EL, MANCHES, audio, ASSETS, carKey, LM_PLACED, showScreen, BR, BOTTLES, nearestBr, applyAmbience, selectCar, placeCar, get bottleCount() { return game.bottles || 0; }, perf, get pixelRatio() { return pixelRatio; }, LOW, scene, renderer, camera, get player() { return player; }, get cars() { return cars; }, game, combo, keys, net, prof, get state() { return state; }, startGame, netUpdate, onlinePeers, physicsStep, aiInput, __setPlay() { state = 'play'; $('lights').classList.add('hidden'); }, standings, K, N, SEG, track: i => [PX[i], PZ[i]], endSession, toMenu,
     simulate(sec, ctl) { const dt = 1 / 60, out = []; for (let t = 0; t < sec; t += dt) { const ins = new Map(); ins.set(player, ctl ? ctl(player, t) : AUTO(player)); if (player2) ins.set(player2, AUTO(player2)); for (const c of cars) if (c.isAI) ins.set(c, aiInput(c, cars)); const prevs = new Map(cars.map(c => [c, c.idx])); for (let s = 0; s < 3; s++) for (const c of cars) if (!c.frozen) physicsStep(c, ins.get(c) || NO_INPUT, dt / 3); for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) collidePair(cars[i], cars[j], false); for (const c of cars) if (c.isAI) { const lp = trackLaps(c, prevs.get(c)); if (lp && lp.crossed && c.lap > game.laps && !c.finished) { c.finished = true; c.finishTime = game.raceT; } } if (state === 'play') { gameLogic(dt, prevs.get(player)); bottleLogic(dt); if (player2) duoLogic(dt, prevs.get(player2)); } else { game.raceT += dt; trackLaps(player, prevs.get(player)); } aiLogic(dt); if (state === 'finish') { game.finishWait -= dt; if (game.finishWait <= 0) endSession(); } if (state === 'results') break; } return out; } };

@@ -1029,9 +1029,9 @@ window.DZTaxi = function (A) {
   // phrase du client selon le lieu (et la ville de départ pour les gares routières)
   const CITY_OF = { 'Garage Rosso': 'Rosso', 'Garage de Kiffa': 'Kiffa', 'Garage de Tidjikja': 'Tidjikja', "Garage d'Atar": 'Atar' };
   const BIG_CITIES = ['Nouadhibou', 'Rosso', 'Kiffa', 'Atar', 'Kaédi', 'Aleg', 'Boutilimit', 'Néma', 'Zouérate', 'Sélibabi', 'Aïoun El Atrouss', 'Boghé', 'Akjoujt', 'Tidjikja', 'Chinguetti'];
-  const ART = [[/^Le /, 'au '], [/^(Hôpital|Hôtel|Université|Institut|École|Assemblée|Immeuble|ISCAE|Atlantic|Ilot)/, 'à l’'],
-    [/^(Place|Banque|Mosquée|Maternité|Clinique|Mairie|Grande|Galerie|Cour |Caisse|Direction|Primature|Sûreté|Communauté|Wilaya|Police|Zone|Gare|Plage|Route|Tour|Polyclinique|Centrale|BCI)/, 'à la '],
-    [/^(Marché|Centre|Palais|Ministère|Stade|Port|Garage|Carrefour|Sénat|Château|Parc|Lycée|Musée|Commissariat|Conseil|Tribunal|Supermarché|Ksar|Big|Mall |Sheraton|Mauricenter|PK)/, 'au ']];
+  const ART = [[/^Le /, 'au '], [/^(Hôpital|Hôtel|Université|Institut|École|Ecole|Assemblée|Immeuble|ISCAE|Atlantic|Ilot|Auberge|Épicerie|Epicerie)/, 'à l’'],
+    [/^(Place|Banque|Mosquée|Maternité|Clinique|Mairie|Grande|Galerie|Cour |Caisse|Direction|Primature|Sûreté|Communauté|Wilaya|Police|Zone|Gare|Plage|Route|Tour|Polyclinique|Centrale|BCI|Pharmacie|Station|Boulangerie|Boutique|Quincaillerie|Pâtisserie|Agence|Société)/, 'à la '],
+    [/^(Marché|Centre|Palais|Ministère|Stade|Port|Garage|Carrefour|Sénat|Château|Parc|Lycée|Musée|Commissariat|Conseil|Tribunal|Supermarché|Ksar|Big|Mall |Sheraton|Mauricenter|PK|Restaurant|Garage|Complexe|Lycée|Collège|Dispensaire|Cabinet|Salon)/, 'au ']];
   const aLieu = n => { for (const [re, a] of ART) if (re.test(n)) return a + (/^Le /.test(n) ? n.slice(3) : n); return 'à ' + n; };
   function tripLine(d) {
     const to = 'Emmène-moi ' + aLieu(d.name);
@@ -1053,6 +1053,8 @@ window.DZTaxi = function (A) {
       port: [to + ', je veux du poisson frais !', to + ', les pirogues rentrent bientôt.'],
       quartier: [to + ', c’est chez moi.', 'Je rentre à la maison : ' + d.name + '.'],
       carrefour: [to + ', je te guiderai après.', to + ', c’est tout près de chez moi.'],
+      carburant: [to + ', je travaille à la station.', to + ', mon cousin y vend des cartes de recharge.'],
+      resto: [to + ', j’ai faim !', to + ', on m’attend pour le déjeuner.', to + ', c’est le meilleur thiéboudiène du quartier.'],
     }[d.cat];
     return (L ? pick(L) : to + ', s’il te plaît.');
   }
@@ -1581,6 +1583,9 @@ window.DZTaxi = function (A) {
   /* ======================= Nouakchott réelle (rues et bâtiments d'OpenStreetMap) ======================= */
   // Carte à l'échelle 1 : x vers l'est, z vers le sud, en mètres (origine 18.088 N, 15.993 O). Données : data/nkc_real.js
   let REAL = false, RD = null, rReady = false, gridStatic = [], rLampIM = null, rLampGlow = null;
+  let rBase = false, rStaticT = null, rStaticR = null, RM = null, rRaceGlow = null, rTgt = null; // RM : emprise du circuit de course (bâtiments retirés)
+  const RCULL_R = [];
+  const rAdd = c => { if (!rTgt || !rTgt.race) addCol(c); };
   const realG = new THREE.Group(); realG.name = 'realCity'; realG.visible = false;
   const RCULL = [], RSTOPS = [], RPLACES = [], RHEADS = [];
   const RW_W = [16, 14, 12, 10, 7, 5, 4], RW_V = [16, 14.5, 13, 11.5, 8.6, 6, 4.5], R_CELL = 64;
@@ -1592,14 +1597,15 @@ window.DZTaxi = function (A) {
   }
   function rDecode(D) {
     const nd = rDec(D.nodes, Int16Array), NN = nd.length / 2, NX = new Float32Array(NN), NZ = new Float32Array(NN);
-    for (let i = 0; i < NN; i++) { NX[i] = nd[2 * i] * 0.25; NZ[i] = nd[2 * i + 1] * 0.25; }
+    const QN = D.v >= 2 ? 0.5 : 0.25; // pas de quantification des nœuds et des routes
+    for (let i = 0; i < NN; i++) { NX[i] = nd[2 * i] * QN; NZ[i] = nd[2 * i + 1] * QN; }
     const ea = rDec(D.ea, Uint16Array), ec = rDec(D.ec, Uint8Array), en = rDec(D.en, Uint16Array), ecnt = rDec(D.ecnt, Uint16Array), ep = rDec(D.ep, Int16Array);
     const E = [], inc = Array.from({ length: NN }, () => []);
     let po = 0;
     for (let k = 0; k < ec.length; k++) {
       const a = ea[2 * k], b = ea[2 * k + 1], cnt = ecnt[k], pts = new Float32Array((cnt + 2) * 2);
       pts[0] = NX[a]; pts[1] = NZ[a];
-      for (let i = 0; i < cnt; i++) { pts[2 + 2 * i] = ep[(po + i) * 2] * 0.25; pts[3 + 2 * i] = ep[(po + i) * 2 + 1] * 0.25; }
+      for (let i = 0; i < cnt; i++) { pts[2 + 2 * i] = ep[(po + i) * 2] * QN; pts[3 + 2 * i] = ep[(po + i) * 2 + 1] * QN; }
       po += cnt; pts[2 * cnt + 2] = NX[b]; pts[2 * cnt + 3] = NZ[b];
       const cum = new Float32Array(cnt + 2); for (let i = 1; i < cnt + 2; i++) cum[i] = cum[i - 1] + Math.hypot(pts[2 * i] - pts[2 * i - 2], pts[2 * i + 1] - pts[2 * i - 1]);
       const cl = ec[k] & 7, link = !!(ec[k] & 8), pv = (ec[k] >> 4) & 3, ow = !!(ec[k] & 64);
@@ -1632,9 +1638,19 @@ window.DZTaxi = function (A) {
     }
     for (let n = 0; n < NN; n++) { const kk = rKey(Math.floor(NX[n] / R_CELL), Math.floor(NZ[n] / R_CELL)); let l = nidx.get(kk); if (!l) nidx.set(kk, l = []); l.push(n); }
     // bâtiments
-    const bn = rDec(D.bn, Uint8Array), bh = rDec(D.bh, Uint8Array), bt = rDec(D.bt, Uint8Array), bp = rDec(D.bp, Int16Array), boff = new Uint32Array(bn.length + 1);
+    const bn = rDec(D.bn, Uint8Array), bh = rDec(D.bh, Uint8Array), bt = rDec(D.bt, Uint8Array), boff = new Uint32Array(bn.length + 1);
     for (let i = 0; i < bn.length; i++) boff[i + 1] = boff[i] + bn[i];
-    return { NN, NX, NZ, E, inc, rn, sig, ofs, axis, busy, carN, idx, nidx, bld: { n: bn, h: bh, t: bt, p: bp, off: boff }, box: D.box, coast: D.coast, lm: D.lm, dest: D.dest, stops: D.stops, quart: D.quart };
+    const pts = (raw, n, off) => { // coordonnées en mètres (v2 : 1er point à 0,5 m puis écarts à 0,25 m)
+      const out = new Float32Array(raw.length);
+      if (D.v < 2) { for (let i = 0; i < raw.length; i++) out[i] = raw[i] * 0.25; return out; }
+      for (let i = 0; i < n.length; i++) { let o = off[i] * 2, x = raw[o] * 0.5, z = raw[o + 1] * 0.5; out[o] = x; out[o + 1] = z; for (let k = 1; k < n[i]; k++) { o += 2; x += raw[o] * 0.25; z += raw[o + 1] * 0.25; out[o] = x; out[o + 1] = z; } }
+      return out;
+    };
+    const bp = pts(rDec(D.bp, Int16Array), bn, boff);
+    const wn = D.wn ? rDec(D.wn, Uint8Array) : new Uint8Array(0), woff = new Uint32Array(wn.length + 1);
+    for (let i = 0; i < wn.length; i++) woff[i + 1] = woff[i] + wn[i];
+    const wp = D.wp ? pts(rDec(D.wp, Int16Array), wn, woff) : new Float32Array(0);
+    return { NN, NX, NZ, E, inc, rn, sig, ofs, axis, busy, carN, idx, nidx, bld: { n: bn, h: bh, t: bt, p: bp, off: boff }, walls: { n: wn, p: wp, off: woff }, box: D.box, coast: D.coast, lm: D.lm, dest: D.dest, stops: D.stops, quart: D.quart };
   }
   // point et tangente sur une arête (s depuis a)
   function rAt(e, s) {
@@ -1682,7 +1698,7 @@ window.DZTaxi = function (A) {
     const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
     mark[n0] = stamp; g[n0] = 0; from[n0] = -1; fe[n0] = -1; push(n0, Math.hypot(X[n0] - tx, Z[n0] - tz));
     let it = 0;
-    while (heap.length && it++ < 30000) {
+    while (heap.length && it++ < 250000) {
       const [, n] = pop(); if (n === n1) break;
       for (const k of RD.inc[n]) {
         const e = RD.E[k]; if (e.cl >= 6) continue; if (oneway && e.ow && e.a !== n) continue;
@@ -1730,7 +1746,7 @@ window.DZTaxi = function (A) {
   }
 
   /* --- construction : sol, mer, routes, bâtiments, monuments, mobilier --- */
-  function rBuild() {
+  function rBuildBase() {
     const D = window.DZ_REAL; RD = rDecode(D);
     const keepGrid = grid; grid = colMaps.real; // collisions de la carte réelle
     const [XA, ZA, XB, ZB] = RD.box;
@@ -1753,131 +1769,280 @@ window.DZTaxi = function (A) {
     realG.add(new THREE.Mesh(bg, A.surf({ map: btx, roughness: 1, side: THREE.DoubleSide })));
     for (let i = 1; i < co.length; i++) { const [x0, z0] = co[i - 1], [x1, z1] = co[i]; addCol({ box: [Math.min(x0, x1) - 600, Math.min(z0, z1), Math.max(x0, x1) - 6, Math.max(z0, z1) + 1] }); }
     addCol({ box: [XA - 700, ZA - 900, XB + 900, ZA - 60] }); addCol({ box: [XA - 700, ZB + 60, XB + 900, ZB + 900] }); addCol({ box: [XB + 60, ZA - 900, XB + 900, ZB + 900] });
-    rBuildRoads(); rBuildBuildings(); rBuildLandmarks(); rBuildProps(); rBuildLights(); rBuildSigns(); rBuildStops();
+    rIndexChunks();
     grid = keepGrid;
-    root.add(realG);
-    rReady = true;
+    if (!realG.parent) root.add(realG);
+    rBase = true;
   }
+  function rBuild() { if (!rBase) rBuildBase(); if (!rStaticT) rStaticT = rBuildStatic(false); rReady = true; }
+  function rBuildStatic(race) { // décor fixe : monuments, lampadaires, palmiers, panneaux (+ feux et arrêts pour le taxi)
+    const g = new THREE.Group(); g.name = race ? 'realRaceDeco' : 'realTaxiDeco'; realG.add(g); g.visible = !race; g.userData.lms = [];
+    const keepGrid = grid; grid = colMaps.real; rTgt = { g, cull: race ? RCULL_R : RCULL, race, lms: g.userData.lms }; rinst = {};
+    rBuildLandmarks(); rBuildProps(); if (!race) { rBuildLights(); rBuildStops(); } rBuildSigns();
+    rTgt = null; grid = keepGrid; return g;
+  }
+  function rBldMasked(i) { const Bd = RD.bld, n = Bd.n[i], o = Bd.off[i]; for (let k = 0; k < n; k++) { const k2 = (k + 1) % n, ax = Bd.p[2 * (o + k)], az = Bd.p[2 * (o + k) + 1], bx = Bd.p[2 * (o + k2)], bz = Bd.p[2 * (o + k2) + 1]; if (RM(ax, az) || RM((ax + bx) / 2, (az + bz) / 2)) return true; } return false; }
   function rChunkKey(x, z) { return Math.floor(x / 256) + ',' + Math.floor(z / 256); }
   function rAddChunkMesh(geo, mat, opt) {
     geo.computeBoundingSphere(); const m = new THREE.Mesh(geo, mat); m.receiveShadow = !LOW; m.castShadow = !!(opt && opt.cast); if (opt && opt.order !== undefined) m.renderOrder = opt.order;
-    realG.add(m); RCULL.push({ m, c: geo.boundingSphere.center.clone(), r: geo.boundingSphere.radius, d: (opt && opt.maxD) || (LITE ? 700 : 1300) }); return m;
+    realG.add(m); if (!opt || !opt.noCull) RCULL.push({ m, c: geo.boundingSphere.center.clone(), r: geo.boundingSphere.radius, d: (opt && opt.maxD) || (LITE ? 700 : 1300) }); return m;
   }
-  function rBuildRoads() {
-    const asT = A.canvasTex(256, 256, (c, w, h) => { A.noise(c, w, h, '#45474a', 0.14, 26000); c.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < 10; k++) { c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, 30, 10, Math.random() * 3, 0, 6.3); c.fill(); } }, true);
+  /* --- façades de Nouakchott : atlas peint (portes, fenêtres à grilles, volets, boutiques, balcons, acrotères, portails) --- */
+  const R_STY = [
+    { walls: [0xd8c09a, 0xcdb08a, 0xe2cfae, 0xd6b994], frame: '#2f7d4f', door: '#2e6f47', shut: '#3b8a5a', glass: '#2b3a44' }, // 0 maison sable, menuiseries vertes
+    { walls: [0xf1eee6, 0xe9e6de, 0xf4f0e6, 0xe6e2d8], frame: '#2a6db5', door: '#1f5fa8', shut: '#2f78c2', glass: '#24323d' }, // 1 maison blanche, menuiseries bleues
+    { walls: [0xd2a35f, 0xc99a5a, 0xddb070, 0xcf9e64], frame: '#6b4426', door: '#5a3a22', shut: '#7a4f2c', glass: '#2c3238' }, // 2 maison ocre, bois
+    { walls: [0xe6dcc8, 0xd8c7a6, 0xc9d3c0, 0xe7d9b8], frame: '#d9d9d9', door: '#8f969c', shut: '#9aa3aa', glass: '#2a3a46' }, // 3 commerces (rideaux métalliques, enseignes)
+    { walls: [0xe8e0d0, 0xd9cfbd, 0xc8c0b0, 0xe2d4bd], frame: '#c8c8c8', door: '#3a4048', shut: '#bcc3c9', glass: '#3d5566' }, // 4 immeuble (balcons, climatiseurs)
+    { walls: [0xf3ede2, 0xefe2cc, 0xf0d9c2, 0xf5efe6], frame: '#efe9dd', door: '#7a5230', shut: '#c9b38f', glass: '#2e4a5a' }, // 5 villa de Tevragh Zeina (arcs)
+    { walls: [0xa9a49b, 0xb5afa4, 0x9f998f, 0xb9b2a6], frame: '#6b6b6b', door: '#5c6166', shut: '#777777', glass: '#1e2328' }, // 6 béton brut, en construction
+    { walls: [0xe8c4b4, 0xcfdcc0, 0xe9dba4, 0xbcd2dd], frame: '#f2f2f2', door: '#2f7d4f', shut: '#f2f2f2', glass: '#28343c' }, // 7 maison pastel
+  ];
+  const R_GATE = ['#2e6f47', '#1f5fa8', '#c0392b', '#d4a017', '#2f7d4f', '#5c6166', '#1f8a8a', '#7a5230'];
+  const R_SIGN = [['#f2c200', '#1b1b1b'], ['#0a8f3c', '#ffffff'], ['#c0392b', '#ffffff'], ['#1f5fa8', '#ffffff'], ['#ffffff', '#c0392b'], ['#ff7a00', '#ffffff']];
+  function rAtlas() {
+    const S = LOW ? 64 : 128, W = S * 8;
+    return A.canvasTex(W, W, (c) => {
+      c.clearRect(0, 0, W, W);
+      let rs = 12345; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+      for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+        const st = R_STY[row], x0 = col * S, y0 = row * S, kx = S / 3.6, ky = S / 3.2;
+        const X = xm => x0 + xm * kx, Y = ym => y0 + S - ym * ky;
+        const rect = (xa, ya, xb, yb, f) => { c.fillStyle = f; c.fillRect(X(xa), Y(yb), (xb - xa) * kx, (yb - ya) * ky); };
+        c.save(); c.beginPath(); c.rect(x0, y0, S, S); c.clip();
+        // salissures légères (sable, pluie rare)
+        for (let k = 0; k < 3; k++) { const g = c.createRadialGradient(X(rnd() * 3.6), Y(rnd() * 3.2), 1, X(rnd() * 3.6), Y(rnd() * 3.2), S * 0.4); g.addColorStop(0, 'rgba(90,70,45,0.07)'); g.addColorStop(1, 'rgba(90,70,45,0)'); c.fillStyle = g; c.fillRect(x0, y0, S, S); }
+        const glass = (xa, ya, xb, yb) => { const g = c.createLinearGradient(X(xa), Y(yb), X(xb), Y(ya)); g.addColorStop(0, '#5f7a8a'); g.addColorStop(0.45, st.glass); g.addColorStop(1, '#151b20'); c.fillStyle = g; c.fillRect(X(xa), Y(yb), (xb - xa) * kx, (yb - ya) * ky); };
+        const window_ = (xc, w, yb, h, o) => {
+          o = o || {};
+          rect(xc - w / 2 - 0.1, yb - 0.12, xc + w / 2 + 0.1, yb, 'rgba(235,228,214,1)'); // appui
+          rect(xc - w / 2 - 0.08, yb + h, xc + w / 2 + 0.08, yb + h + 0.1, 'rgba(200,190,172,1)'); // linteau
+          if (o.arch) { c.fillStyle = st.frame; c.beginPath(); c.moveTo(X(xc - w / 2 - 0.06), Y(yb)); c.lineTo(X(xc - w / 2 - 0.06), Y(yb + h - w / 2)); c.arc(X(xc), Y(yb + h - w / 2), (w / 2 + 0.06) * kx, Math.PI, 0); c.lineTo(X(xc + w / 2 + 0.06), Y(yb)); c.fill(); c.save(); c.beginPath(); c.moveTo(X(xc - w / 2), Y(yb)); c.lineTo(X(xc - w / 2), Y(yb + h - w / 2)); c.arc(X(xc), Y(yb + h - w / 2), w / 2 * kx, Math.PI, 0); c.lineTo(X(xc + w / 2), Y(yb)); c.clip(); glass(xc - w / 2, yb, xc + w / 2, yb + h); c.restore(); }
+          else { rect(xc - w / 2 - 0.06, yb, xc + w / 2 + 0.06, yb + h, st.frame); glass(xc - w / 2, yb + 0.05, xc + w / 2, yb + h - 0.05); }
+          c.strokeStyle = st.frame; c.lineWidth = Math.max(1, kx * 0.05); c.beginPath(); c.moveTo(X(xc), Y(yb)); c.lineTo(X(xc), Y(yb + h)); c.stroke();
+          if (o.grille) { c.strokeStyle = 'rgba(25,30,34,0.9)'; c.lineWidth = Math.max(1, kx * 0.035); for (let k = 1; k < 6; k++) { const xx = xc - w / 2 + w * k / 6; c.beginPath(); c.moveTo(X(xx), Y(yb)); c.lineTo(X(xx), Y(yb + h - (o.arch ? w / 2 : 0))); c.stroke(); } c.beginPath(); c.moveTo(X(xc - w / 2), Y(yb + h * 0.5)); c.lineTo(X(xc + w / 2), Y(yb + h * 0.5)); c.stroke(); }
+          if (o.shutters) { for (const sd of [-1, 1]) { rect(sd < 0 ? xc - w / 2 - 0.42 : xc + w / 2, yb, sd < 0 ? xc - w / 2 : xc + w / 2 + 0.42, yb + h, st.shut); c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 1; for (let k = 1; k < 8; k++) { const yy = yb + h * k / 8; c.beginPath(); c.moveTo(X(sd < 0 ? xc - w / 2 - 0.42 : xc + w / 2), Y(yy)); c.lineTo(X(sd < 0 ? xc - w / 2 : xc + w / 2 + 0.42), Y(yy)); c.stroke(); } } }
+          if (o.ac) { rect(xc + w / 2 - 0.75, yb - 0.75, xc + w / 2 - 0.05, yb - 0.2, '#e6e6e2'); c.fillStyle = '#9a9a96'; for (let k = 0; k < 4; k++) c.fillRect(X(xc + w / 2 - 0.7), Y(yb - 0.3 - k * 0.11), 0.6 * kx, Math.max(1, ky * 0.03)); }
+          if (o.balcony) { rect(xc - w / 2 - 0.35, yb - 0.05, xc + w / 2 + 0.35, yb + 0.05, 'rgba(210,205,195,1)'); c.strokeStyle = o.balcony; c.lineWidth = Math.max(1, kx * 0.04); c.strokeRect(X(xc - w / 2 - 0.3), Y(yb + 1.0), (w + 0.6) * kx, 1.0 * ky); for (let k = 0; k <= 10; k++) { const xx = xc - w / 2 - 0.3 + (w + 0.6) * k / 10; c.beginPath(); c.moveTo(X(xx), Y(yb)); c.lineTo(X(xx), Y(yb + 1.0)); c.stroke(); } }
+        };
+        const door = (xc, w, h, col_, o) => {
+          o = o || {};
+          rect(xc - w / 2 - 0.1, 0, xc + w / 2 + 0.1, h + 0.12, 'rgba(205,196,180,1)');
+          if (o.arch) { c.fillStyle = col_; c.beginPath(); c.moveTo(X(xc - w / 2), Y(0)); c.lineTo(X(xc - w / 2), Y(h - w / 2)); c.arc(X(xc), Y(h - w / 2), w / 2 * kx, Math.PI, 0); c.lineTo(X(xc + w / 2), Y(0)); c.fill(); }
+          else rect(xc - w / 2, 0, xc + w / 2, h, col_);
+          c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = Math.max(1, kx * 0.03);
+          if (o.leaves) { c.beginPath(); c.moveTo(X(xc), Y(0)); c.lineTo(X(xc), Y(h)); c.stroke(); }
+          for (const yy of [0.3, h * 0.5, h - 0.3]) { c.strokeRect(X(xc - w / 2 + 0.1), Y(yy + 0.5), (w - 0.2) * kx, 0.4 * ky); }
+          rect(xc + w / 2 - 0.22, 1.0, xc + w / 2 - 0.12, 1.12, '#d8c27a'); // poignée
+          rect(xc - w / 2 - 0.2, 0, xc + w / 2 + 0.2, 0.12, 'rgba(190,182,168,1)'); // marche
+        };
+        const sign = (xa, xb, ya, yb, k) => { const [bg, fg] = R_SIGN[k % R_SIGN.length]; rect(xa, ya, xb, yb, bg); c.strokeStyle = fg; c.lineWidth = Math.max(1, ky * 0.06); c.lineCap = 'round'; c.beginPath(); for (let q = 0; q < 6; q++) { const xx = xa + 0.25 + q * (xb - xa - 0.5) / 6; c.moveTo(X(xx), Y((ya + yb) / 2 + (rnd() - 0.5) * 0.1)); c.quadraticCurveTo(X(xx + 0.12), Y(yb - 0.06), X(xx + 0.3), Y((ya + yb) / 2)); } c.stroke(); };
+        const shutter = (xa, xb, h, col_) => { rect(xa, 0, xb, h, col_); c.fillStyle = 'rgba(0,0,0,0.16)'; for (let yy = 0.08; yy < h; yy += 0.12) c.fillRect(X(xa), Y(yy), (xb - xa) * kx, Math.max(1, ky * 0.025)); rect(xa - 0.08, 0, xa, h + 0.1, 'rgba(120,120,120,1)'); rect(xb, 0, xb + 0.08, h + 0.1, 'rgba(120,120,120,1)'); };
+        const shopOpen = (xa, xb, h) => { rect(xa, 0, xb, h, '#1d1a17'); const cols = ['#c0392b', '#f2c200', '#1f8a8a', '#e67e22', '#ecf0f1', '#27ae60', '#8e44ad']; for (let q = 0; q < 14; q++) { const xx = xa + 0.1 + rnd() * (xb - xa - 0.4), yy = 0.2 + rnd() * (h - 0.6); rect(xx, yy, xx + 0.2 + rnd() * 0.25, yy + 0.15 + rnd() * 0.3, cols[q % cols.length]); } rect(xa, h - 0.08, xb, h, '#6b6b6b'); };
+        // ---- tuiles : 0 mur nu · 1 porte · 2 fenêtre rez · 3 variante rez · 4/5 fenêtres d'étage · 6 acrotère · 7 portail de clôture
+        if (col === 1) { if (row === 3) { shopOpen(0.5, 3.1, 2.5); sign(0.3, 3.3, 2.55, 3.05, row + 1); } else if (row === 4) { rect(0.6, 0, 3.0, 2.7, '#3d5566'); glass(0.7, 0.05, 2.9, 2.6); door(1.8, 1.0, 2.3, 'rgba(60,85,100,0.6)'); } else door(1.8, row === 6 ? 1.1 : 1.15, 2.3, st.door, { arch: row === 5, leaves: row !== 6 }); }
+        else if (col === 2) { if (row === 3) { shutter(0.4, 3.2, 2.5, ['#9aa3aa', '#5d7f99', '#4f8a64', '#a7a39a'][Math.floor(rnd() * 4)]); sign(0.3, 3.3, 2.55, 3.05, row + 3); } else if (row === 6) rect(1.3, 1.0, 2.3, 1.9, '#1e2328'); else window_(1.8, 1.2, 1.0, 1.3, { grille: true, arch: row === 5 }); }
+        else if (col === 3) { if (row === 3 || row === 4) { shutter(0.4, 3.2, 2.6, ['#5d7f99', '#9aa3aa', '#8a6d4f'][Math.floor(rnd() * 3)]); if (row === 3) sign(0.3, 3.3, 2.65, 3.1, row + 5); } else if (row === 5 || row === 1) { rect(0.4, 0, 3.2, 2.5, R_GATE[row]); c.fillStyle = 'rgba(0,0,0,0.25)'; for (let xx = 0.5; xx < 3.2; xx += 0.2) c.fillRect(X(xx), Y(2.4), Math.max(1, kx * 0.03), 2.3 * ky); } else window_(1.8, 0.9, 1.4, 0.9, { grille: true }); }
+        else if (col === 4) { if (row === 4) window_(1.8, 1.8, 0.9, 1.5, { balcony: '#d9d9d9' }); else if (row === 6) rect(1.2, 1.0, 2.4, 2.1, '#1e2328'); else window_(1.8, row === 5 ? 1.1 : 1.15, 1.0, 1.35, { grille: row !== 3, arch: row === 5, ac: row === 3 }); }
+        else if (col === 5) { if (row === 4) { window_(1.0, 0.8, 1.0, 1.3, {}); window_(2.6, 0.8, 1.0, 1.3, { ac: true }); } else if (row === 6) { rect(0.6, 2.8, 3.0, 3.2, '#8c877e'); c.strokeStyle = '#5a4a3a'; for (let xx = 0.5; xx < 3.4; xx += 0.35) { c.beginPath(); c.moveTo(X(xx), Y(2.8)); c.lineTo(X(xx + 0.05), Y(3.2)); c.stroke(); } } else window_(1.8, 1.0, 1.0, 1.3, { shutters: row !== 3, grille: row === 3, arch: row === 5, balcony: row === 5 ? '#efe9dd' : null }); }
+        else if (col === 6) { rect(0, 0, 3.6, 0.32 * 0.8 * 3.2 / 0.8 * 0.1, 'rgba(0,0,0,0.18)'); rect(0, 3.2 * 0.84, 3.6, 3.2, 'rgba(232,226,214,1)'); rect(0, 3.2 * 0.8, 3.6, 3.2 * 0.84, 'rgba(0,0,0,0.12)'); if (row === 5 || row === 2) { c.fillStyle = 'rgba(0,0,0,0.1)'; for (let xx = 0; xx < 3.6; xx += 0.6) { c.beginPath(); c.moveTo(X(xx), Y(3.2 * 0.2)); c.lineTo(X(xx + 0.3), Y(3.2 * 0.62)); c.lineTo(X(xx + 0.6), Y(3.2 * 0.2)); c.fill(); } } }
+        else if (col === 7) { const gc = R_GATE[(row * 3 + 1) % R_GATE.length]; rect(0.4, 0, 3.2, 2.15, gc); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(X(1.79), Y(2.15), Math.max(1, kx * 0.04), 2.15 * ky); for (let xx = 0.5; xx < 3.2; xx += 0.25) c.fillRect(X(xx), Y(1.2), Math.max(1, kx * 0.03), 1.0 * ky); rect(0.4, 2.0, 3.2, 2.15, 'rgba(0,0,0,0.2)'); for (let xx = 0.5; xx < 3.2; xx += 0.25) { c.fillStyle = gc; c.beginPath(); c.moveTo(X(xx - 0.06), Y(2.15)); c.lineTo(X(xx), Y(2.35)); c.lineTo(X(xx + 0.06), Y(2.15)); c.fill(); } rect(0, 2.3, 3.6, 2.45, 'rgba(225,218,204,1)'); }
+        else { rect(0, 2.3, 3.6, 2.45, 'rgba(225,218,204,0.55)'); } // mur nu (chaperon des clôtures)
+        c.restore();
+      }
+    }, false);
+  }
+  function rFacadeMat(atlas) {
+    const m = LOW ? new THREE.MeshLambertMaterial({ vertexColors: true }) : new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, envMapIntensity: 0.3 });
+    m.onBeforeCompile = sh => {
+      sh.uniforms.uAtlas = { value: atlas };
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aUv; attribute vec4 aB; varying vec2 vU; varying vec4 vB; varying vec3 vWp;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvU = aUv; vB = aB; vWp = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uAtlas; varying vec2 vU; varying vec4 vB; varying vec3 vWp;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n' +
+        '{ vec4 qb = floor(vB + 0.5); float kind = qb.w;\n' +
+        '  if (kind < 0.5 || kind > 2.5) {\n' +
+        '    float y = vU.y, H = qb.z * 0.25, st = qb.x, seed = qb.y / 255.0;\n' +
+        '    float bay = floor(vU.x), fx = fract(vU.x), fl = floor(y / 3.2), fy = fract(y / 3.2);\n' +
+        '    float h1 = fract(sin(mod(bay * 17.0 + fl * 131.0 + qb.y * 7.0, 977.0) * 0.731) * 4375.85);\n' +
+        '    float col = 0.0;\n' +
+        '    if (kind > 2.5) col = h1 < 0.2 ? 7.0 : 0.0;\n' +
+        '    else if (H > 3.0 && y > H - 0.8) { col = 6.0; fy = (y - (H - 0.8)) / 0.8 * 0.25 + 0.75; }\n' +
+        '    else if (fl < 0.5) col = h1 < 0.2 ? 1.0 : h1 < 0.62 ? 2.0 : 3.0;\n' +
+        '    else col = h1 < 0.55 ? 4.0 : h1 < 0.92 ? 5.0 : 0.0;\n' +
+        '    vec4 t = texture2D(uAtlas, vec2((col + 0.03 + fx * 0.94) / 8.0, (7.0 - st + 0.03 + fy * 0.94) / 8.0));\n' +
+        '    float grime = mix(0.8, 1.0, smoothstep(0.0, 0.9, y)) * (0.95 + 0.05 * h1);\n' +
+        '    diffuseColor.rgb = mix(diffuseColor.rgb * grime, pow(t.rgb, vec3(2.2)), t.a);\n' +
+        '  } else if (kind < 1.5) {\n' +
+        '    float n = fract(sin(dot(floor(vWp.xz * 0.5), vec2(12.9898, 78.233))) * 43758.5453);\n' +
+        '    diffuseColor.rgb = mix(vec3(0.50, 0.47, 0.42), vec3(0.42, 0.39, 0.35), n * 0.6);\n' +
+        '  } }');
+    };
+    m.customProgramCacheKey = () => 'dzfacade' + (LOW ? 1 : 0);
+    return m;
+  }
+  /* --- découpage en morceaux de 256 m, construits autour du joueur et libérés quand il s'éloigne --- */
+  const rCh = new Map(); let R_MAT = null;
+  function rIndexChunks() {
+    const get = (x, z) => { const k = rChunkKey(x, z); let c = rCh.get(k); if (!c) rCh.set(k, c = { k, cx: (Math.floor(x / 256) + 0.5) * 256, cz: (Math.floor(z / 256) + 0.5) * 256, bld: [], walls: [], pieces: [], nodes: [], meshes: [], cols: [], built: false }); return c; };
+    const Bd = RD.bld; for (let i = 0; i < Bd.n.length; i++) { const o = Bd.off[i]; get(Bd.p[2 * o], Bd.p[2 * o + 1]).bld.push(i); }
+    const Wd = RD.walls; for (let i = 0; i < Wd.n.length; i++) { const o = Wd.off[i]; get(Wd.p[2 * o], Wd.p[2 * o + 1]).walls.push(i); }
+    for (const e of RD.E) for (let s = 0; s < e.L; s += 150) { const s1 = Math.min(e.L, s + 150), q = rAt(e, (s + s1) / 2); get(q[0], q[1]).pieces.push([e.k, s, s1]); }
+    for (let n = 0; n < RD.NN; n++) get(RD.NX[n], RD.NZ[n]).nodes.push(n);
+  }
+  function rMats() {
+    if (R_MAT) return R_MAT;
+    const asT = A.canvasTex(256, 256, (c, w, h) => { A.noise(c, w, h, '#45474a', 0.14, 26000); c.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < 10; k++) { c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, 30, 10, Math.random() * 3, 0, 6.3); c.fill(); } c.fillStyle = 'rgba(205,170,120,0.35)'; c.fillRect(0, 0, w, 6); }, true);
     const trT = A.canvasTex(256, 256, (c, w, h) => { A.noise(c, w, h, '#b0916a', 0.2, 20000); c.strokeStyle = 'rgba(85,64,40,0.35)'; c.lineWidth = 10; for (const x of [0.3, 0.7]) { c.beginPath(); c.moveTo(x * w, 0); c.lineTo(x * w, h); c.stroke(); } c.fillStyle = 'rgba(70,52,32,0.25)'; c.fillRect(0, 0, 10, h); c.fillRect(w - 10, 0, 10, h); }, true);
     const swT = A.canvasTex(128, 128, (c, w, h) => { A.noise(c, w, h, '#cdbfa6', 0.1, 6000); c.strokeStyle = 'rgba(80,70,55,0.3)'; c.lineWidth = 2; for (let k = 0; k <= w; k += 32) { c.beginPath(); c.moveTo(k, 0); c.lineTo(k, h); c.stroke(); } }, true);
     const po = (m, f) => { m.polygonOffset = true; m.polygonOffsetFactor = f; m.polygonOffsetUnits = f * 2; return m; };
-    const MAT = {
+    const atlas = rAtlas(); atlas.anisotropy = Math.min(LOW ? 2 : 8, A.renderer.capabilities.getMaxAnisotropy());
+    R_MAT = {
       asph: po(A.surf({ map: asT, roughness: 0.9, envMapIntensity: 0.3 }), -1), track: po(A.surf({ map: trT, roughness: 1, envMapIntensity: 0.2 }), -1),
       walk: po(A.surf({ map: swT, roughness: 0.95, envMapIntensity: 0.2 }), -1), disc: po(A.surf({ map: asT, roughness: 0.9, envMapIntensity: 0.3 }), -2),
       white: po(new THREE.MeshLambertMaterial({ color: 0xe8e8e2 }), -3), yellow: po(new THREE.MeshLambertMaterial({ color: 0xe8c547 }), -3),
+      fac: rFacadeMat(atlas), tints: R_STY.map(s => s.walls.map(h => lin(h))),
     };
-    const B = {}; // chunk -> matériau -> {p, uv, i}
-    const buf = (ck, mk) => { const c = B[ck] || (B[ck] = {}); return c[mk] || (c[mk] = { p: [], uv: [], i: [] }); };
-    // ruban entre deux décalages latéraux (offA < offB) sur la portion [s0, s1] d'une arête
+    return R_MAT;
+  }
+  function rColAdd(ch, c) { if (RM) return; const g = colMaps.real, b = c.box; for (let cx = Math.floor(b[0] / CELL); cx <= Math.floor(b[2] / CELL); cx++) for (let cz = Math.floor(b[1] / CELL); cz <= Math.floor(b[3] / CELL); cz++) { const k = gkey(cx, cz); let l = g.get(k); if (!l) g.set(k, l = []); l.push(c); } ch.cols.push(c); }
+  function rColFree(ch) { const g = colMaps.real; for (const c of ch.cols) { const b = c.box; for (let cx = Math.floor(b[0] / CELL); cx <= Math.floor(b[2] / CELL); cx++) for (let cz = Math.floor(b[1] / CELL); cz <= Math.floor(b[3] / CELL); cz++) { const l = g.get(gkey(cx, cz)); if (!l) continue; const i = l.indexOf(c); if (i >= 0) l.splice(i, 1); } } ch.cols.length = 0; }
+  function rBuildChunk(ch) {
+    const M = rMats(), B = {};
+    const buf = mk => B[mk] || (B[mk] = { p: [], uv: [], i: [] });
     const ribbon = (e, s0, s1, offA, offB, y, mk, ustep) => {
       if (s1 - s0 < 0.2) return;
       const L = rLanePts(e, 1, 0, s0, s1), n = L.length / 2; if (n < 2) return;
-      const ck = rChunkKey(L[0], L[1]), b = buf(ck, mk), base = b.p.length / 3; let acc = s0;
+      const b = buf(mk), base = b.p.length / 3; let acc = s0;
       for (let i = 0; i < n; i++) {
         const x = L[2 * i], z = L[2 * i + 1];
         let tx, tz; if (i === 0) { tx = L[2] - x; tz = L[3] - z; } else if (i === n - 1) { tx = x - L[2 * i - 2]; tz = z - L[2 * i - 1]; } else { const a1 = Math.hypot(x - L[2 * i - 2], z - L[2 * i - 1]) || 1, a2 = Math.hypot(L[2 * i + 2] - x, L[2 * i + 3] - z) || 1; tx = (x - L[2 * i - 2]) / a1 + (L[2 * i + 2] - x) / a2; tz = (z - L[2 * i - 1]) / a1 + (L[2 * i + 3] - z) / a2; }
         const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
         let k = 1; if (i > 0 && i < n - 1) { const a2 = Math.hypot(L[2 * i + 2] - x, L[2 * i + 3] - z) || 1; k = 1 / Math.max(0.55, tx * (L[2 * i + 2] - x) / a2 + tz * (L[2 * i + 3] - z) / a2); }
         if (i > 0) acc += Math.hypot(x - L[2 * i - 2], z - L[2 * i - 1]);
-        const rx = -tz * k, rz = tx * k; // droite du sens a -> b
+        const rx = -tz * k, rz = tx * k;
         b.p.push(x + rx * offA, y, z + rz * offA, x + rx * offB, y, z + rz * offB);
         const u = acc / (ustep || 8); if (mk === 'track') b.uv.push(0, u, 1, u); else b.uv.push(offA / 8, u, offB / 8, u);
         if (i) { const q = base + (i - 1) * 2; b.i.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
       }
     };
-    for (const e of RD.E) {
-      if (e.cl >= 6 && e.pv !== 1) { ribbon(e, 0, e.L, -e.w / 2, e.w / 2, 0.03, 'track', 6); continue; }
-      const paved = e.pv === 1, mk = paved ? 'asph' : 'track', hw = e.w / 2;
-      ribbon(e, 0, e.L, -hw, hw, paved ? 0.06 : 0.03, mk, paved ? 8 : 6);
-      if (paved && e.cl <= 3 && !e.link) { // trottoirs des grandes avenues
-        ribbon(e, 0, e.L, hw, hw + 2.6, 0.05, 'walk', 4); ribbon(e, 0, e.L, -hw - 2.6, -hw, 0.05, 'walk', 4);
-      }
-      if (paved && e.cl <= 4 && e.w >= 7) { // marquages (hors carrefours)
-        const [s0, s1] = rTrim(e);
-        if (!e.ow) { if (e.cl <= 3) { ribbon(e, s0, s1, -0.22, -0.1, 0.1, 'yellow'); ribbon(e, s0, s1, 0.1, 0.22, 0.1, 'yellow'); } else for (let s = s0 + 1; s < s1 - 3; s += 9) ribbon(e, s, s + 3, -0.07, 0.07, 0.1, 'white'); }
+    // routes : morceaux de 150 m
+    for (const [k, a, b2] of ch.pieces) {
+      const e = RD.E[k];
+      if (e.cl >= 6 && e.pv !== 1) { ribbon(e, a, b2, -e.w / 2, e.w / 2, 0.03, 'track', 6); continue; }
+      const paved = e.pv === 1, hw = e.w / 2;
+      ribbon(e, a, b2, -hw, hw, paved ? 0.06 : 0.03, paved ? 'asph' : 'track', paved ? 8 : 6);
+      if (paved && e.cl <= 3 && !e.link) { ribbon(e, a, b2, hw, hw + 2.6, 0.05, 'walk', 4); ribbon(e, a, b2, -hw - 2.6, -hw, 0.05, 'walk', 4); }
+      if (paved && e.cl <= 4 && e.w >= 7) {
+        const [t0, t1] = rTrim(e), s0 = Math.max(a, t0), s1 = Math.min(b2, t1); if (s1 - s0 < 1) continue;
+        const dash = (o1, o2) => { for (let s = t0 + 1 + Math.ceil((s0 - t0 - 1) / 9) * 9; s < s1 - 3; s += 9) ribbon(e, s, s + 3, o1, o2, 0.1, 'white'); };
+        if (!e.ow) { if (e.cl <= 3) { ribbon(e, s0, s1, -0.22, -0.1, 0.1, 'yellow'); ribbon(e, s0, s1, 0.1, 0.22, 0.1, 'yellow'); } else dash(-0.07, 0.07); }
         if (e.cl <= 3) { ribbon(e, s0, s1, -hw + 0.35, -hw + 0.5, 0.1, 'white'); ribbon(e, s0, s1, hw - 0.5, hw - 0.35, 0.1, 'white'); }
-        if (rLanes(e).length > 1 && e.ow) for (let s = s0 + 1; s < s1 - 3; s += 9) ribbon(e, s, s + 3, -0.07, 0.07, 0.1, 'white');
-        if (!e.ow && e.w >= 12) for (const sd of [-1, 1]) for (let s = s0 + 1; s < s1 - 3; s += 9) ribbon(e, s, s + 3, sd * e.w * 0.25 - 0.07, sd * e.w * 0.25 + 0.07, 0.1, 'white');
+        if (rLanes(e).length > 1 && e.ow) dash(-0.07, 0.07);
+        if (!e.ow && e.w >= 12) for (const sd of [-1, 1]) dash(sd * e.w * 0.25 - 0.07, sd * e.w * 0.25 + 0.07);
       }
     }
-    // carrefours : disques de goudron qui couvrent les raccords
-    for (let n = 0; n < RD.NN; n++) {
+    for (const n of ch.nodes) {
       const l = RD.inc[n]; if (l.length < 2) continue; let paved = false, r = 0; for (const k of l) { const e = RD.E[k]; if (e.pv === 1) paved = true; r = Math.max(r, e.w / 2); }
       if (l.length === 2 && r < 4) continue;
-      const x = RD.NX[n], z = RD.NZ[n], b = buf(rChunkKey(x, z), paved ? 'disc' : 'track'), base = b.p.length / 3, S = 14, y = paved ? 0.075 : 0.035;
+      const x = RD.NX[n], z = RD.NZ[n], b = buf(paved ? 'disc' : 'track'), base = b.p.length / 3, S = 14, y = paved ? 0.075 : 0.035;
       b.p.push(x, y, z); b.uv.push(x / 8, z / 8);
-      for (let k = 0; k <= S; k++) { const a = k / S * Math.PI * 2; b.p.push(x + Math.cos(a) * r, y, z + Math.sin(a) * r); b.uv.push((x + Math.cos(a) * r) / 8, (z + Math.sin(a) * r) / 8); if (k) b.i.push(base, base + k + 1, base + k); }
+      for (let k = 0; k <= S; k++) { const ang = k / S * Math.PI * 2; b.p.push(x + Math.cos(ang) * r, y, z + Math.sin(ang) * r); b.uv.push((x + Math.cos(ang) * r) / 8, (z + Math.sin(ang) * r) / 8); if (k) b.i.push(base, base + k + 1, base + k); }
     }
-    for (const ck in B) for (const mk in B[ck]) {
-      const b = B[ck][mk]; if (!b.i.length) continue;
+    for (const mk in B) {
+      const b = B[mk]; if (!b.i.length) continue;
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2));
       const nor = new Float32Array(b.p.length); for (let i = 1; i < nor.length; i += 3) nor[i] = 1; g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
       g.setIndex(b.p.length / 3 > 65000 ? new THREE.Uint32BufferAttribute(b.i, 1) : new THREE.Uint16BufferAttribute(b.i, 1));
-      rAddChunkMesh(g, MAT[mk], { maxD: mk === 'white' || mk === 'yellow' ? (LITE ? 260 : 420) : undefined, order: mk === 'disc' ? 1 : mk === 'white' || mk === 'yellow' ? 2 : 0 });
+      ch.meshes.push(rAddChunkMesh(g, M[mk], { noCull: true, order: mk === 'disc' ? 1 : mk === 'white' || mk === 'yellow' ? 2 : 0 }));
     }
-  }
-  const R_TINTS = [0xd9c19a, 0xece4d6, 0xc9a77a, 0xe0c49e, 0xbfb3a1, 0xe6d6bb, 0xd3b083, 0xf1e9dc];
-  function rBuildingMat() {
-    const m = LOW ? new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000 }) : new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.93, metalness: 0, envMapIntensity: 0.3 });
-    m.onBeforeCompile = sh => {
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n' +
-        '{ vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz);\n' +
-        '  if (wn.y > 0.6) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.74, 0.71, 0.66), 0.55) * 0.9; }\n' +
-        '  else { vec2 t = normalize(vec2(-wn.z, wn.x) + 1e-5); float u = dot(vWp.xz, t); float fy = fract(vWp.y / 3.3), fx = fract(u / 3.4);\n' +
-        '    float win = step(0.3, fx) * step(fx, 0.72) * step(0.36, fy) * step(fy, 0.8) * step(1.0, vWp.y);\n' +
-        '    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.16, 0.19), win * 0.82); diffuseColor.rgb *= 0.88 + 0.12 * smoothstep(0.0, 0.6, vWp.y); } }');
+    // bâtiments : façades peintes, acrotère, toit-terrasse, citernes et cages d'escalier ; murs de clôture avec portails
+    const P = [], N_ = [], C = [], U = [], Bv = [], I = [];
+    let v = 0;
+    const vert = (x, y, z, nx_, ny, nz, col, u, vv, b4) => { P.push(x, y, z); N_.push(nx_, ny, nz); C.push(col.r * 255, col.g * 255, col.b * 255); U.push(u, vv); Bv.push(b4[0], b4[1], b4[2], b4[3]); return v++; };
+    const Bd = RD.bld, tmp = [];
+    const box = (x, z, hx, hz, y0, y1, rot, col, b4) => { // petite boîte (cage d'escalier, citerne)
+      const ca = Math.cos(rot), sa = Math.sin(rot), pts = [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]].map(([a, b]) => [x + a * ca + b * sa, z - a * sa + b * ca]);
+      for (let k = 0; k < 4; k++) { const [ax, az] = pts[k], [bx, bz] = pts[(k + 1) % 4], ex = bx - ax, ez = bz - az, l = Math.hypot(ex, ez) || 1, nx_ = ez / l, nz_ = -ex / l; const i0 = vert(ax, y0, az, nx_, 0, nz_, col, 0, 0, b4), i1 = vert(bx, y0, bz, nx_, 0, nz_, col, 0, 0, b4), i2 = vert(bx, y1, bz, nx_, 0, nz_, col, 0, 0, b4), i3 = vert(ax, y1, az, nx_, 0, nz_, col, 0, 0, b4); I.push(i0, i2, i1, i0, i3, i2); }
+      const t0 = vert(pts[0][0], y1, pts[0][1], 0, 1, 0, col, 0, 0, b4), t1 = vert(pts[1][0], y1, pts[1][1], 0, 1, 0, col, 0, 0, b4), t2 = vert(pts[2][0], y1, pts[2][1], 0, 1, 0, col, 0, 0, b4), t3 = vert(pts[3][0], y1, pts[3][1], 0, 1, 0, col, 0, 0, b4); I.push(t0, t2, t1, t0, t3, t2);
     };
-    m.customProgramCacheKey = () => 'dzbld' + (LOW ? 1 : 0);
-    return m;
-  }
-  function rBuildBuildings() {
-    const Bd = RD.bld, N = Bd.n.length, chunks = new Map(), mat = rBuildingMat(), col = R_TINTS.map(h => lin(h));
-    for (let i = 0; i < N; i++) { const o = Bd.off[i]; const x = Bd.p[2 * o] * 0.25, z = Bd.p[2 * o + 1] * 0.25, k = rChunkKey(x, z); let l = chunks.get(k); if (!l) chunks.set(k, l = []); l.push(i); }
-    const tmp = [];
-    for (const list of chunks.values()) {
-      let nv = 0; for (const i of list) nv += Bd.n[i] * 2;
-      const pos = new Float32Array(nv * 3), clr = new Uint8Array(nv * 3), idx = []; let v = 0;
-      for (const i of list) {
-        const n = Bd.n[i], o = Bd.off[i], H = Bd.h[i] * 0.25, c = col[Bd.t[i] & 7], base = v;
-        tmp.length = 0; for (let k = 0; k < n; k++) tmp.push(new THREE.Vector2(Bd.p[2 * (o + k)] * 0.25, Bd.p[2 * (o + k) + 1] * 0.25));
-        let area = 0; for (let k = 0; k < n; k++) { const a = tmp[k], b = tmp[(k + 1) % n]; area += a.x * b.y - b.x * a.y; }
-        const ccw = area > 0; // en (x, z)
-        const sh = 0.92 + ((i * 37) % 17) / 100;
-        for (let k = 0; k < n; k++) {
-          const p = tmp[k];
-          pos.set([p.x, 0, p.y, p.x, H, p.y], v * 3); for (let q = 0; q < 2; q++) { clr[(v + q) * 3] = c.r * 255 * sh; clr[(v + q) * 3 + 1] = c.g * 255 * sh; clr[(v + q) * 3 + 2] = c.b * 255 * sh; }
-          v += 2;
-        }
-        for (let k = 0; k < n; k++) { // murs (normales vers l'extérieur)
-          const a = base + 2 * k, b = base + 2 * ((k + 1) % n);
-          if (ccw) idx.push(a, a + 1, b, b, a + 1, b + 1); else idx.push(a, b, a + 1, b, b + 1, a + 1);
-        }
-        // toit : éventail si convexe, sinon triangulation
-        let convex = true; for (let k = 0; k < n && convex; k++) { const a = tmp[k], b = tmp[(k + 1) % n], c2 = tmp[(k + 2) % n]; const cr = (b.x - a.x) * (c2.y - b.y) - (b.y - a.y) * (c2.x - b.x); if (cr * (ccw ? 1 : -1) < -1e-6) convex = false; }
-        const tris = convex ? (() => { const t = []; for (let k = 1; k < n - 1; k++) t.push([0, k, k + 1]); return t; })() : THREE.ShapeUtils.triangulateShape(tmp, []);
-        for (const [a, b, c2] of tris) { const ia = base + 2 * a + 1, ib = base + 2 * b + 1, ic = base + 2 * c2 + 1; const ax = tmp[a].x, az = tmp[a].y, bx = tmp[b].x, bz = tmp[b].y, cx = tmp[c2].x, cz = tmp[c2].y; const up = (bz - az) * (cx - ax) - (bx - ax) * (cz - az) > 0; if (up) idx.push(ia, ib, ic); else idx.push(ia, ic, ib); }
-        // collision : l'emprise exacte du bâtiment
-        let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; const poly = new Float32Array(n * 2); for (let k = 0; k < n; k++) { const p = tmp[k]; poly[2 * k] = p.x; poly[2 * k + 1] = p.y; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.y); z1 = Math.max(z1, p.y); }
-        if (H > 1.5) addCol({ poly, box: [x0, z0, x1, z1], h: H });
+    const TANK = [lin(0x1b1d20), lin(0x2a5ea8), lin(0xe8e8e4), lin(0x1b1d20)];
+    for (const i of ch.bld) {
+      if (RM && rBldMasked(i)) continue;
+      const n = Bd.n[i], o = Bd.off[i], H = Bd.h[i] * 0.25, code = Bd.t[i], st = code & 7, tv = (code >> 3) & 3, col = M.tints[st][tv], seed = (i * 2654435761 >>> 24) & 255;
+      tmp.length = 0; for (let k = 0; k < n; k++) tmp.push(new THREE.Vector2(Bd.p[2 * (o + k)], Bd.p[2 * (o + k) + 1]));
+      let area = 0; for (let k = 0; k < n; k++) { const a = tmp[k], b = tmp[(k + 1) % n]; area += a.x * b.y - b.x * a.y; } const ccw = area > 0; area = Math.abs(area) / 2;
+      const b4 = [st, seed, Math.min(255, Math.round(H * 4)), 0], roofY = H > 3 ? H - 0.8 : H - 0.3;
+      for (let k = 0; k < n; k++) { // murs : 4 sommets par mur, u en travées de ~3,6 m, v en mètres
+        const a = tmp[k], b = tmp[(k + 1) % n], ex = b.x - a.x, ez = b.y - a.y, L = Math.hypot(ex, ez); if (L < 0.05) continue;
+        const nx_ = (ccw ? ez : -ez) / L, nz_ = (ccw ? -ex : ex) / L, nb = Math.max(1, Math.round(L / 3.6));
+        const i0 = vert(a.x, 0, a.y, nx_, 0, nz_, col, 0, 0, b4), i1 = vert(b.x, 0, b.y, nx_, 0, nz_, col, nb, 0, b4), i2 = vert(b.x, H, b.y, nx_, 0, nz_, col, nb, H, b4), i3 = vert(a.x, H, a.y, nx_, 0, nz_, col, 0, H, b4);
+        if (ccw) I.push(i0, i3, i1, i1, i3, i2); else I.push(i0, i1, i3, i1, i2, i3);
       }
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(clr, 3, true));
-      g.setIndex(nv > 65000 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
-      rAddChunkMesh(g, mat, { cast: !LITE, maxD: LITE ? 650 : 1250 });
+      // toit
+      let convex = true; for (let k = 0; k < n && convex; k++) { const a = tmp[k], b = tmp[(k + 1) % n], c2 = tmp[(k + 2) % n]; const cr = (b.x - a.x) * (c2.y - b.y) - (b.y - a.y) * (c2.x - b.x); if (cr * (ccw ? 1 : -1) < -1e-6) convex = false; }
+      const tris = convex ? (() => { const t = []; for (let k = 1; k < n - 1; k++) t.push([0, k, k + 1]); return t; })() : THREE.ShapeUtils.triangulateShape(tmp, []);
+      const rb = [st, seed, b4[2], 1], ri = tmp.map(p => vert(p.x, roofY, p.y, 0, 1, 0, col, 0, 0, rb));
+      for (const [a, b, c2] of tris) { const up = (tmp[b].y - tmp[a].y) * (tmp[c2].x - tmp[a].x) - (tmp[b].x - tmp[a].x) * (tmp[c2].y - tmp[a].y) > 0; if (up) I.push(ri[a], ri[b], ri[c2]); else I.push(ri[a], ri[c2], ri[b]); }
+      // sur le toit : cage d'escalier, citerne (pas sur les petites cabanes)
+      if (area > 45 && H > 3) {
+        let cx = 0, cz = 0; for (const p of tmp) { cx += p.x; cz += p.y; } cx /= n; cz /= n;
+        const e0 = tmp[1].clone().sub(tmp[0]), rot = Math.atan2(e0.x, e0.y), h2 = (seed * 7) & 255;
+        if (H > 6 && h2 < 110) box(cx + Math.sin(rot) * 1.2, cz + Math.cos(rot) * 1.2, 1.25, 1.4, roofY, roofY + 2.5, rot, col, [st, seed, 0, 2]);
+        if (h2 > 70 && h2 < 200) { const tx = cx - Math.sin(rot) * 1.6 + Math.cos(rot) * 1.2, tz = cz - Math.cos(rot) * 1.6 - Math.sin(rot) * 1.2; box(tx, tz, 0.55, 0.55, roofY, roofY + 1.15, rot + 0.4, TANK[h2 & 3], [0, 0, 0, 2]); }
+      }
+      // collision : emprise exacte
+      if (H > 1.5) { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; const poly = new Float32Array(n * 2); for (let k = 0; k < n; k++) { const p = tmp[k]; poly[2 * k] = p.x; poly[2 * k + 1] = p.y; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.y); z1 = Math.max(z1, p.y); } rColAdd(ch, { poly, box: [x0, z0, x1, z1], h: H }); }
     }
+    const Wd = RD.walls;
+    for (const i of ch.walls) {
+      const n = Wd.n[i], o = Wd.off[i], h = (i * 2654435761 >>> 20) & 4095, st = [0, 1, 2, 7, 0, 5, 1, 2][h & 7], col = M.tints[st][(h >> 3) & 3], b4 = [st, (h >> 5) & 255, 10, 3];
+      let acc = 0;
+      for (let k = 0; k < n - 1; k++) {
+        const ax = Wd.p[2 * (o + k)], az = Wd.p[2 * (o + k) + 1], bx = Wd.p[2 * (o + k + 1)], bz = Wd.p[2 * (o + k + 1) + 1], ex = bx - ax, ez = bz - az, L = Math.hypot(ex, ez); if (L < 0.3) continue;
+        if (RM && (RM(ax, az) || RM(bx, bz) || RM((ax + bx) / 2, (az + bz) / 2))) { acc += L; continue; }
+        const nx_ = -ez / L, nz_ = ex / L, u0 = acc / 3.6, u1 = (acc + L) / 3.6, Hh = 2.4; acc += L;
+        for (const sd of [1, -1]) { const i0 = vert(ax, 0, az, nx_ * sd, 0, nz_ * sd, col, u0, 0, b4), i1 = vert(bx, 0, bz, nx_ * sd, 0, nz_ * sd, col, u1, 0, b4), i2 = vert(bx, Hh, bz, nx_ * sd, 0, nz_ * sd, col, u1, Hh, b4), i3 = vert(ax, Hh, az, nx_ * sd, 0, nz_ * sd, col, u0, Hh, b4); if (sd > 0) I.push(i0, i1, i2, i0, i2, i3); else I.push(i0, i2, i1, i0, i3, i2); }
+        const t = 0.14, px = nx_ * t, pz = nz_ * t; rColAdd(ch, { poly: new Float32Array([ax - px, az - pz, bx - px, bz - pz, bx + px, bz + pz, ax + px, az + pz]), box: [Math.min(ax, bx) - t, Math.min(az, bz) - t, Math.max(ax, bx) + t, Math.max(az, bz) + t], h: 2.4 });
+      }
+    }
+    if (I.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N_, 3));
+      g.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(C), 3, true)); g.setAttribute('aUv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('aB', new THREE.BufferAttribute(new Uint8Array(Bv), 4, false));
+      g.setIndex(v > 65000 ? new THREE.Uint32BufferAttribute(I, 1) : new THREE.Uint16BufferAttribute(I, 1));
+      ch.meshes.push(rAddChunkMesh(g, M.fac, { noCull: true, cast: !LITE }));
+    }
+    ch.built = true;
+  }
+  function rPreload() { // générique : les lieux survolés sont construits d'avance
+    const pts = [[1080, 20]]; const port = RPLACES.find(p => p.name === 'Port de pêche'); if (port) pts.push([port.rx, port.rz]);
+    for (const id of ['snim', 'marche', 'mosquee']) { const q = RPLACES.find(p => p.id === id); if (q) pts.push([q.rx, q.rz]); }
+    for (const ch of rCh.values()) if (pts.some(([x, z]) => Math.hypot(ch.cx - x, ch.cz - z) < 420)) { ch.keep = true; if (!ch.built) rBuildChunk(ch); }
+  }
+  function rFreeChunk(ch) { for (const m of ch.meshes) { realG.remove(m); m.geometry.dispose(); } ch.meshes.length = 0; rColFree(ch); ch.built = false; }
+  function rStream(x, z, budget, x2, z2) { // construit les morceaux proches, libère les lointains
+    if (!RD) return 0;
+    const RIN = RM ? (LOW ? 640 : LITE ? 880 : 1250) : (LOW ? 560 : LITE ? 720 : 1050), ROUT = RIN + 320; let made = 0;
+    const want = [];
+    for (const ch of rCh.values()) { let d = Math.hypot(ch.cx - x, ch.cz - z); if (x2 !== undefined) d = Math.min(d, Math.hypot(ch.cx - x2, ch.cz - z2)); if (ch.built) { if (d > ROUT && !ch.keep) rFreeChunk(ch); } else if (d < RIN) want.push([d, ch]); }
+    want.sort((a, b) => a[0] - b[0]);
+    for (const [, ch] of want) { if (made >= budget) break; rBuildChunk(ch); made++; }
+    return made;
   }
   const R_LM = { palais: 'lm_palais', marche: 'lm_marche', bmd: 'lm_bmd', snim: 'lm_snim', afarco: 'lm_afarco', sheraton: 'lm_sheraton', fasq: 'lm_fasq', mauricenter: 'lm_mauricenter', iman: 'lm_iman', nkc: 'lm_nkc' };
-  const rinst = {};
+  let rinst = {};
   function rBuildLandmarks() {
-    for (const [id, name, ar, x, z, face, ek, s, side] of RD.lm) {
+    for (const [id, name, ar, x0_, z0_, face, ek, s, side] of RD.lm) {
       const rot = face; // la façade (+z local) regarde la rue
+      let x = x0_, z = z0_;
+      if (RM) { // course : le monument recule (côté arrière) jusqu'à sortir de l'emprise du circuit
+        const [w0, d0] = LM_DIMS[R_LM[id]] || (id === 'mosquee' ? [48, 44] : id === 'musee' ? [40, 26] : id === 'stade' ? [110, 80] : [30, 24]), ca = Math.cos(rot), sa = Math.sin(rot);
+        const hit = (cx, cz) => [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]].some(([u, v]) => RM(cx + u * w0 / 2 * ca + v * d0 / 2 * sa, cz - u * w0 / 2 * sa + v * d0 / 2 * ca));
+        let ok = false; for (let back = 0; back <= 36 && !ok; back += 3) { const cx = x0_ - Math.sin(rot) * back, cz = z0_ - Math.cos(rot) * back; if (!hit(cx, cz)) { x = cx; z = cz; ok = true; } }
+        if (!ok) continue;
+      }
+      rTgt.lms.push({ id, name, ar, x, z, face });
       let g = null, w = 30, d = 24, sc = 1;
       if (R_LM[id]) { const lm = A.glbLM(R_LM[id]); if (lm) { g = lm.g; [w, d] = LM_DIMS[R_LM[id]]; } }
       else if (id === 'mosquee') { const lm = A.LANDMARKS.mosqueSaudi(); g = lm.g; w = 48; d = 44; }
@@ -1886,14 +2051,14 @@ window.DZTaxi = function (A) {
         const key = id === 'stade' ? 'B_Stadium' : 'mrt_station', s3 = libSize(key);
         if (s3) { sc = id === 'stade' ? Math.min(1.6, 110 / Math.max(s3.w, s3.d)) : 1; const ca = Math.cos(rot), sa = Math.sin(rot), ox = (s3.cx * ca + s3.cz * sa) * sc, oz = (-s3.cx * sa + s3.cz * ca) * sc; (rinst[key] = rinst[key] || []).push([x - ox, 0.06, z - oz, rot, sc]); rOBB(x, z, rot, s3.w * sc / 2, s3.d * sc / 2, 12); }
       }
-      if (g) { g.position.set(x, 0.05, z); g.rotation.y = rot; g.scale.setScalar(sc); realG.add(g); A.mergeGroup(g); rOBB(x, z, rot, w * sc / 2 - 0.5, d * sc / 2 - 0.5, 20); }
+      if (g) { g.position.set(x, 0.05, z); g.rotation.y = rot; g.scale.setScalar(sc); rTgt.g.add(g); A.mergeGroup(g); rOBB(x, z, rot, w * sc / 2 - 0.5, d * sc / 2 - 0.5, 20); }
       void name; void ar; void ek; void s; void side;
     }
   }
   function rOBB(x, z, rot, hw, hd, h) { // boîte tournée -> polygone de collision
     const ca = Math.cos(rot), sa = Math.sin(rot), pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([u, v]) => [x + u * ca + v * sa, z - u * sa + v * ca]);
     const poly = new Float32Array(pts.flat()); let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const [px, pz] of pts) { x0 = Math.min(x0, px); x1 = Math.max(x1, px); z0 = Math.min(z0, pz); z1 = Math.max(z1, pz); }
-    addCol({ poly, box: [x0, z0, x1, z1], h });
+    rAdd({ poly, box: [x0, z0, x1, z1], h });
   }
   function rBuildProps() {
     const lamps = [], palms = [], heads = [], rnd = seeded(77);
@@ -1902,19 +2067,20 @@ window.DZTaxi = function (A) {
       const [s0, s1] = rTrim(e), sides = e.ow ? [1] : [-1, 1];
       for (let s = s0 + 12; s < s1 - 8; s += 34) for (const sd of sides) {
         const q = rAt(e, s), rx = -q[3], rz = q[2], off = e.w / 2 + 1.4, x = q[0] + rx * sd * off, z = q[1] + rz * sd * off;
-        lamps.push([x, 0.05, z, Math.atan2(-rx * sd, -rz * sd) + Math.PI / 2, 1]); addCol({ x, z, r: 0.35 }); heads.push([x - rx * sd * 1.1, 6.1, z - rz * sd * 1.1]);
-        if (rnd() < 0.7) { const x2 = q[0] + rx * sd * (off + 0.2) + q[2] * 15, z2 = q[1] + rz * sd * (off + 0.2) + q[3] * 15; palms.push([x2, 0.05, z2, rnd() * 6.3, 0.62 + rnd() * 0.25]); addCol({ x: x2, z: z2, r: 0.45 }); }
+        if (RM && RM(x, z)) continue;
+        lamps.push([x, 0.05, z, Math.atan2(-rx * sd, -rz * sd) + Math.PI / 2, 1]); rAdd({ x, z, r: 0.35 }); heads.push([x - rx * sd * 1.1, 6.1, z - rz * sd * 1.1]);
+        if (rnd() < 0.7) { const x2 = q[0] + rx * sd * (off + 0.2) + q[2] * 15, z2 = q[1] + rz * sd * (off + 0.2) + q[3] * 15; if (RM && RM(x2, z2)) continue; palms.push([x2, 0.05, z2, rnd() * 6.3, 0.62 + rnd() * 0.25]); rAdd({ x: x2, z: z2, r: 0.45 }); }
       }
     }
-    const opt = o => Object.assign({ parent: realG, cull: RCULL, cell: 300 }, o);
+    const opt = o => Object.assign({ parent: rTgt.g, cull: rTgt.cull, cell: 300 }, o);
     const fromLib = (name, list, o) => { if (!list.length) return; const src = lib.getObjectByName(name) || (A.ASSETS.city && A.ASSETS.city.getObjectByName(name)); if (!src) return; for (const b of bake(src)) A.addInstanced(b.geo, texFix(lowMat(b.mat)), list.map(([x, y, z, r, s]) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(_Y, r), new THREE.Vector3(s, s, s))), null, opt(o)); };
     fromLib('P_StreetLight', lamps, { cast: !LITE, maxD: LITE ? 280 : 440, name: 'rlamp' });
     const pm = palms.map(([x, y, z, r, s]) => new THREE.Matrix4().compose(_v.set(x, y, z), _q.setFromAxisAngle(_Y, r), _s.set(s, s, s)).clone());
     if (pm.length) { A.addInstanced(A.PALM.trunk, A.PALM.trunkMat, pm, null, opt({ cast: !LITE, maxD: LITE ? 360 : 580, name: 'rpalmT' })); A.addInstanced(A.PALM.crown, A.PALM.crownMat, pm, pm.map(() => new THREE.Color().setHSL(0.27 + R() * 0.06, 0.45 + R() * 0.2, 0.62 + R() * 0.2)), opt({ cast: !LITE, maxD: LITE ? 400 : 620, name: 'rpalmC' })); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(heads.flat(), 3));
-    rLampGlow = new THREE.Points(g, new THREE.PointsMaterial({ map: A.glowSpriteTex, color: 0xffd29a, size: 5, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-    rLampGlow.frustumCulled = false; realG.add(rLampGlow);
-    A.instanceLib(rinst, { parent: realG, cull: RCULL, cell: 400, maxD: (det, small) => det ? (LITE ? 340 : 560) : small ? 300 : (LITE ? 620 : 980) });
+    const glow = new THREE.Points(g, new THREE.PointsMaterial({ map: A.glowSpriteTex, color: 0xffd29a, size: 5, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    glow.frustumCulled = false; glow.visible = false; rTgt.g.add(glow); if (rTgt.race) rRaceGlow = glow; else rLampGlow = glow;
+    A.instanceLib(rinst, { parent: rTgt.g, cull: rTgt.cull, cell: 400, maxD: (det, small) => det ? (LITE ? 340 : 560) : small ? 300 : (LITE ? 620 : 980) });
   }
   function rBuildLights() { // feux tricolores réels : un poteau à droite de chaque arrivée
     const poles = [], boxes = [], lamps = [];
@@ -1930,17 +2096,17 @@ window.DZTaxi = function (A) {
         boxes.push(new THREE.Matrix4().compose(_v.set(hx, 4.35, hz), _q.setFromAxisAngle(_Y, rot), _s.set(1, 1, 1)).clone());
         RHEADS.push({ n, axis: Math.abs(Math.cos(h - RD.axis[n])) > 0.7071 ? 0 : 1 });
         for (let L = 0; L < 3; L++) lamps.push(new THREE.Matrix4().compose(_v.set(hx - tx * 0.17, 4.75 - L * 0.4, hz - tz * 0.17), _q.setFromAxisAngle(_Y, rot), _s.set(1, 1, 1)).clone());
-        addCol({ x: px, z: pz, r: 0.3 });
+        rAdd({ x: px, z: pz, r: 0.3 });
       }
     }
     if (!poles.length) return;
     const poleG = new THREE.CylinderGeometry(0.09, 0.11, 5, 6); poleG.translate(0, 2.5, 0);
     const arm = new THREE.BoxGeometry(0.08, 0.08, 1.7); arm.rotateY(Math.PI / 2); arm.translate(-0.85, 4.9, 0);
     const pg = mergeGeos([poleG.toNonIndexed(), arm.toNonIndexed()].map(g => { if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2)); return g; }));
-    A.addInstanced(pg, A.surf({ color: 0x2b2f33, roughness: 0.6, metalness: 0.4 }), poles, null, { parent: realG, cull: RCULL, cell: 440, cast: !LITE, maxD: 420, name: 'rtlPole' });
-    A.addInstanced(new THREE.BoxGeometry(0.42, 1.3, 0.3), A.surf({ color: 0x15171a, roughness: 0.7 }), boxes, null, { parent: realG, cull: RCULL, cell: 440, cast: !LITE, maxD: 420, name: 'rtlBox' });
+    A.addInstanced(pg, A.surf({ color: 0x2b2f33, roughness: 0.6, metalness: 0.4 }), poles, null, { parent: rTgt.g, cull: rTgt.cull, cell: 440, cast: !LITE, maxD: 420, name: 'rtlPole' });
+    A.addInstanced(new THREE.BoxGeometry(0.42, 1.3, 0.3), A.surf({ color: 0x15171a, roughness: 0.7 }), boxes, null, { parent: rTgt.g, cull: rTgt.cull, cell: 440, cast: !LITE, maxD: 420, name: 'rtlBox' });
     rLampIM = new THREE.InstancedMesh(new THREE.CircleGeometry(0.15, 12), new THREE.MeshBasicMaterial({ toneMapped: false }), lamps.length);
-    lamps.forEach((m, k) => { rLampIM.setMatrixAt(k, m); rLampIM.setColorAt(k, LCOL.R[1]); }); rLampIM.frustumCulled = false; realG.add(rLampIM);
+    lamps.forEach((m, k) => { rLampIM.setMatrixAt(k, m); rLampIM.setColorAt(k, LCOL.R[1]); }); rLampIM.frustumCulled = false; rTgt.g.add(rLampIM);
   }
   const rLight = (n, axis) => { let ph = (lightT + RD.ofs[n]) % CYC; if (axis) ph = (ph + CYC / 2) % CYC; if (ph < G_T) return { s: 'G', toG: 0, left: G_T - ph }; if (ph < G_T + Y_T) return { s: 'Y', toG: CYC - ph, left: G_T + Y_T - ph }; return { s: 'R', toG: CYC - ph, left: CYC - ph }; };
   const rAxisOf = (n, h) => Math.abs(Math.cos(h - RD.axis[n])) > 0.7071 ? 0 : 1;
@@ -1955,12 +2121,13 @@ window.DZTaxi = function (A) {
       const cn = RD.carN[n]; if (!cn) continue;
       let e = null; for (const k of RD.inc[n]) if (!e || RD.E[k].cl < e.cl) e = RD.E[k];
       const s = e.a === n ? Math.min(e.L, RD.rn[n] + 3) : Math.max(0, e.L - RD.rn[n] - 3), q = rAt(e, s), rx = -q[3], rz = q[2], x = q[0] + rx * (e.w / 2 + 2.2), z = q[1] + rz * (e.w / 2 + 2.2);
+      if (RM && RM(x, z)) continue;
       const sg = new THREE.Group(); sg.position.set(x, 0, z); sg.rotation.y = Math.atan2(q[2], q[3]) + Math.PI / 2;
       A.prim(sg, new THREE.CylinderGeometry(0.1, 0.1, 5.6, 8), A.poleMat, 0, 2.8, 0);
       A.signMesh(sg, A.textTex([{ t: cn[0].toUpperCase(), y: 0.32, size: 92 }, { t: cn[1] || ' ', y: 0.74, size: 84, font: '700 SZpx Arial, Tahoma, sans-serif' }], { bg: '#0b6b3a', fg: '#ffffff', border: '#ffffff', w: 768, h: 230 }), 5, 1.5, 0, 4.9, 0.12, 0.9);
-      g.add(sg); addCol({ x, z, r: 0.3 });
+      g.add(sg); rAdd({ x, z, r: 0.3 });
     }
-    realG.add(g); A.mergeGroup(g);
+    rTgt.g.add(g); A.mergeGroup(g);
   }
   function rCurb(e, s, side, inLane) { // point sur le trottoir (m) et dans la voie de droite (z), côté side (+1 = droite de a->b)
     const q = rAt(e, s), rx = -q[3] * side, rz = q[2] * side, lane = e.ow ? e.w / 2 - 1.9 : Math.max(1.9, e.w / 2 - 1.9);
@@ -1972,10 +2139,10 @@ window.DZTaxi = function (A) {
     for (const [k, s, side] of RD.stops) {
       const e = RD.E[k], sp = rCurb(e, s, side);
       RSTOPS.push(Object.assign({ client: null, cool: 0, id: RSTOPS.length }, sp));
-      const fx = -Math.sin(sp.look), fz = -Math.cos(sp.look); shel.push([sp.mx + fx * 1.2, 0.05, sp.mz + fz * 1.2, sp.look, 0.8]); addCol({ x: sp.mx + fx * 1.6, z: sp.mz + fz * 1.6, r: 1.2 });
+      const fx = -Math.sin(sp.look), fz = -Math.cos(sp.look); shel.push([sp.mx + fx * 1.2, 0.05, sp.mz + fz * 1.2, sp.look, 0.8]); rAdd({ x: sp.mx + fx * 1.6, z: sp.mz + fz * 1.6, r: 1.2 });
     }
     const src = lib.getObjectByName('P_BusStop') || (A.ASSETS.city && A.ASSETS.city.getObjectByName('P_BusStop'));
-    if (src && shel.length) for (const b of bake(src)) A.addInstanced(b.geo, texFix(lowMat(b.mat)), shel.map(([x, y, z, r, s]) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(_Y, r), new THREE.Vector3(s, s, s))), null, { parent: realG, cull: RCULL, cell: 300, cast: !LITE, maxD: 420, name: 'rshelter' });
+    if (src && shel.length) for (const b of bake(src)) A.addInstanced(b.geo, texFix(lowMat(b.mat)), shel.map(([x, y, z, r, s]) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(_Y, r), new THREE.Vector3(s, s, s))), null, { parent: rTgt.g, cull: rTgt.cull, cell: 300, cast: !LITE, maxD: 420, name: 'rshelter' });
     for (const [id, name, ar, x, z, face, k, s, side] of RD.lm) RPLACES.push(Object.assign({ id, name, ar, rx: x, rz: z, lmFace: face }, rCurb(RD.E[k], s, side)));
     RD.dest.forEach(([name, ar, cat, x, z, k, s, side], i) => RPLACES.push(Object.assign({ id: 'rp' + i, name, ar, cat, pb: true, rx: x, rz: z }, rCurb(RD.E[k], s, side))));
     for (let n = 0; n < RD.NN; n++) { const cn = RD.carN[n]; if (!cn) continue; let e = null; for (const k of RD.inc[n]) if (!RD.E[k].ow && (!e || RD.E[k].cl < e.cl)) e = RD.E[k]; if (!e) continue; const s = e.a === n ? Math.min(e.L, RD.rn[n] + 14) : Math.max(0, e.L - RD.rn[n] - 14); RPLACES.push(Object.assign({ id: 'rc' + n, name: cn[0], ar: cn[1] || '', cat: 'carrefour', node: n }, rCurb(e, s, 1))); }
@@ -2173,11 +2340,11 @@ window.DZTaxi = function (A) {
     const x0 = tx * R_TILE, z0 = tz * R_TILE, m = v => v * R_TK;
     c.fillStyle = '#d8c39a'; c.fillRect(0, 0, S, S);
     // mer
-    const co = RD.coast; if (x0 < co[0][0] + 50 || x0 < -3000) { c.fillStyle = '#2a6f8f'; c.beginPath(); c.moveTo(-1, -1); for (const [x, z] of co) if (z > z0 - 300 && z < z0 + R_TILE + 300) c.lineTo(m(x - x0), m(z - z0)); c.lineTo(-1, S + 1); c.closePath(); c.fill(); }
+    const co = RD.coast; if (x0 < (RD.coastMax || (RD.coastMax = Math.max(...co.map(p => p[0])))) + 50) { c.fillStyle = '#2a6f8f'; c.beginPath(); c.moveTo(-1, -1); for (const [x, z] of co) if (z > z0 - 300 && z < z0 + R_TILE + 300) c.lineTo(m(x - x0), m(z - z0)); c.lineTo(-1, S + 1); c.closePath(); c.fill(); }
     // bâtiments
     const Bd = RD.bld; c.fillStyle = '#a99376';
-    for (const ck of [rChunkKey(x0 + 1, z0 + 1)]) void ck;
-    for (let i = 0; i < Bd.n.length; i++) { const o = Bd.off[i], bx = Bd.p[2 * o] * 0.25, bz = Bd.p[2 * o + 1] * 0.25; if (bx < x0 - 60 || bx > x0 + R_TILE + 60 || bz < z0 - 60 || bz > z0 + R_TILE + 60) continue; c.beginPath(); for (let k = 0; k < Bd.n[i]; k++) { const px = m(Bd.p[2 * (o + k)] * 0.25 - x0), pz = m(Bd.p[2 * (o + k) + 1] * 0.25 - z0); if (k) c.lineTo(px, pz); else c.moveTo(px, pz); } c.fill(); }
+    const list = []; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const ch = rCh.get((tx + a) + ',' + (tz + b)); if (ch) for (const i of ch.bld) list.push(i); }
+    for (const i of list) { const o = Bd.off[i], bx = Bd.p[2 * o], bz = Bd.p[2 * o + 1]; if (bx < x0 - 60 || bx > x0 + R_TILE + 60 || bz < z0 - 60 || bz > z0 + R_TILE + 60) continue; c.beginPath(); for (let k = 0; k < Bd.n[i]; k++) { const px = m(Bd.p[2 * (o + k)] - x0), pz = m(Bd.p[2 * (o + k) + 1] - z0); if (k) c.lineTo(px, pz); else c.moveTo(px, pz); } c.fill(); }
     // rues
     const near = rEdgesNear(x0 + R_TILE / 2, z0 + R_TILE / 2, R_TILE * 0.75, []);
     near.sort((a, b) => RD.E[b].cl - RD.E[a].cl);
@@ -2390,6 +2557,65 @@ window.DZTaxi = function (A) {
   }
   function cullUpdate() { const p = A.camera.position; for (const d of (REAL ? RCULL : CULL)) d.m.visible = p.distanceTo(d.c) - d.r < d.d; }
 
+  /* ======================= Ville réelle pour les courses (Course, Drift, Chrono, 2 joueurs, en ligne) ======================= */
+  // game.js trace le circuit sur les vraies avenues ; ici on pose autour la vraie ville (bâtiments, murs, rues, monuments),
+  // sans ce qui tombe dans l'emprise du circuit (mask), avec les mêmes morceaux de 256 m chargés au fil de la course
+  const RACE = T.race = { on: false, ready: false, want: false, hide: [], mask: null };
+  RACE.prepare = (opt, cb) => {
+    RACE.mask = opt.mask; RACE.hide = opt.hide || []; RACE.want = true;
+    const fail = () => { if (cb) cb(false); };
+    const go = () => rLoadData(ok => {
+      if (!ok) return fail();
+      setTimeout(() => {
+        try {
+          const t0 = performance.now();
+          if (!lib) { lib = A.ASSETS.taxi; lib.updateMatrixWorld(true); }
+          if (!rBase) rBuildBase();
+          if (!rStaticR) { RM = RACE.mask; rStaticR = rBuildStatic(true); RM = null; }
+          console.log('race city ms ' + Math.round(performance.now() - t0));
+        } catch (e) { console.error('race city', e && e.stack || e); RM = null; return fail(); }
+        RACE.ready = true; if (!T.active) RACE.attach(); if (cb) cb(true);
+      }, 20);
+    });
+    if (A.ASSETS.taxi) go(); else A.loadAsset('taxi', g => { if (!g) return fail(); go(); }, opt.prog);
+  };
+  RACE.attach = () => {
+    if (!RACE.ready || RACE.on) return;
+    RACE.on = true; RM = RACE.mask;
+    for (const ch of rCh.values()) if (ch.built) rFreeChunk(ch);
+    A.scene.add(realG); realG.visible = true; realG.position.y = -0.15; // sous le ruban du circuit
+    if (rStaticT) rStaticT.visible = false; rStaticR.visible = true;
+    for (const o of RACE.hide) o.visible = false;
+  };
+  RACE.detach = () => {
+    if (!RACE.on) return;
+    RACE.on = false; RM = null;
+    for (const ch of rCh.values()) if (ch.built) rFreeChunk(ch);
+    root.add(realG); realG.position.y = 0;
+    if (rStaticT) rStaticT.visible = true; if (rStaticR) rStaticR.visible = false;
+    for (const o of RACE.hide) o.visible = true;
+  };
+  RACE.tick = (p1, p2, budget) => { // morceaux de ville autour des caméras + distance d'affichage du décor
+    if (!RACE.on) return 0;
+    const made = rStream(p1.x, p1.z, budget === undefined ? 1 : budget, p2 ? p2.x : undefined, p2 ? p2.z : undefined);
+    for (const d of RCULL_R) { let dd = p1.distanceTo(d.c); if (p2) dd = Math.min(dd, p2.distanceTo(d.c)); d.m.visible = dd - d.r < d.d; }
+    if (rRaceGlow) rRaceGlow.visible = !!prof.night;
+    return made;
+  };
+  RACE.landmarks = () => rStaticR ? rStaticR.userData.lms : []; // monuments posés autour du circuit
+  RACE.drawMap = (c, minX, minZ, k, W, H) => { // fond de la mini-carte des courses : vrais bâtiments et vraies rues
+    if (!RD) return;
+    const x1 = minX + W / k, z1 = minZ + H / k, Bd = RD.bld;
+    c.fillStyle = '#a99376';
+    for (const ch of rCh.values()) {
+      if (ch.cx < minX - 140 || ch.cx > x1 + 140 || ch.cz < minZ - 140 || ch.cz > z1 + 140) continue;
+      for (const i of ch.bld) { const o = Bd.off[i]; c.beginPath(); for (let q = 0; q < Bd.n[i]; q++) { const px = (Bd.p[2 * (o + q)] - minX) * k, pz = (Bd.p[2 * (o + q) + 1] - minZ) * k; if (q) c.lineTo(px, pz); else c.moveTo(px, pz); } c.fill(); }
+    }
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const list = RD.E.filter(e => { const p = e.pts; return !(p[0] < minX - 300 || p[0] > x1 + 300 || p[1] < minZ - 300 || p[1] > z1 + 300); }).sort((a, b) => b.cl - a.cl);
+    for (const e of list) { c.strokeStyle = e.pv === 1 ? (e.cl <= 2 ? '#4a4e54' : '#5b6066') : '#c2a46f'; c.lineWidth = Math.max(1.5, e.w * k); c.beginPath(); for (let q = 0; q < e.pts.length / 2; q++) { const px = (e.pts[2 * q] - minX) * k, pz = (e.pts[2 * q + 1] - minZ) * k; if (q) c.lineTo(px, pz); else c.moveTo(px, pz); } c.stroke(); }
+  };
+
   /* ======================= Cycle de jeu ======================= */
   let driftWas = null, fogWas = null;
   T.start = () => {
@@ -2423,6 +2649,7 @@ window.DZTaxi = function (A) {
     });
   }
   function begin() {
+    if (RACE.on) RACE.detach(); // la ville réelle redevient celle du taxi (bâtiments du circuit remis, feux, arrêts)
     if (!T.active) { driftWas = A.hideDrift(); A.scene.add(root); root.visible = true; T.active = true; fogWas = [A.scene.fog.near, A.scene.fog.far]; }
     A.scene.fog.near = LITE ? 70 : 110; A.scene.fog.far = LITE ? 560 : 900;
     document.body.classList.add('taxi');
@@ -2430,7 +2657,7 @@ window.DZTaxi = function (A) {
     setWorld(T.map === 1);
     makeTaxi(); const sp = REAL ? rSpawnSpot() : spawnSpot(); placeTaxi(sp.x, sp.z, sp.h); me = taxi;
     lightT = 0; if (REAL) rPopulateTraffic(); else populateTraffic(); populatePeds();
-    if (REAL) rLastSig = null;
+    if (REAL) { rLastSig = null; for (const ch of rCh.values()) ch.keep = false; rStream(taxi.x, taxi.z, 9999); if (A.introPlay && !(TEST && !/[?&]intro/.test(location.search)) && !T.introSeen) rPreload(); }
     for (const s of STOPS) { s.client = null; s.cool = 0; }
     Object.assign(job, { st: 'free', client: null, dest: null, t: 0, timer: 0, fare: 0, stars: 5, late: false });
     for (const k in stats) stats[k] = 0; money = 0; wanted = 0; caughtT = 0;
@@ -2445,7 +2672,7 @@ window.DZTaxi = function (A) {
     $('popups').innerHTML = ''; $('hud').classList.add('hidden'); $('touch').classList.add('hidden');
     const dr = DRIVERS[T.driver];
     const go = () => {
-      A.state = 'play'; A.camState.init = false;
+      A.state = 'play'; A.camState.init = false; if (REAL) for (const ch of rCh.values()) ch.keep = false;
       $('hud').classList.remove('hidden'); $('touch').classList.toggle('hidden', !isTouch);
       A.popup('SERVICE COMMENCÉ', dr.name + ' · ' + fmtClock(T.timeLeft) + ' pour gagner un max d’ouguiyas', false, 'gold');
       say(dr.id === 'ba' ? 'Bismillah… Allez, au travail. Les clients attendent aux arrêts verts.' : dr.id === 'moulaye' ? 'Moulaye est dans la place ! Direction les arrêts verts.' : 'C’est parti ! Les clients attendent aux arrêts verts.');
@@ -2476,6 +2703,7 @@ window.DZTaxi = function (A) {
     if (!T.active) return;
     T.active = false; root.visible = false; A.scene.remove(root);
     if (driftWas) A.showDrift(driftWas); driftWas = null;
+    if (RACE.want && RACE.ready) RACE.attach();
     if (fogWas) { A.scene.fog.near = fogWas[0]; A.scene.fog.far = fogWas[1]; }
     document.body.classList.remove('taxi'); sirenOn(false); sirenAmb(false); amb.st = 'off'; amb.car = null;
     for (const pc of chasers.slice()) endChase(pc);
@@ -2524,7 +2752,7 @@ window.DZTaxi = function (A) {
       }
       updateShotFx(dt);
       if (R() < dt * 0.5) spawnClients();
-      if (REAL && (T.rt = (T.rt || 0) + dt) > 0.5) { T.rt = 0; rTrafficTick(false); rPedTick(); }
+      if (REAL && (T.rt = (T.rt || 0) + dt) > 0.5) { T.rt = 0; rTrafficTick(false); rPedTick(); rStream(me.x, me.z, 3); }
       if (sayT > 0) { sayT -= dt; if (sayT <= 0) { const el = $('txSay'); if (el) el.classList.remove('show'); } }
       if (foot.on) { updateFootCam(dt); A.updateAudio(taxi, NO_INP, 0, false); }
       else { updateTaxiVisual(inp, dt); A.updateCamera(dt, taxi); A.updateAudio(taxi, inp, taxi.screech || 0, true); }

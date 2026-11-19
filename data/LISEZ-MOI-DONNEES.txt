@@ -30,11 +30,20 @@ Fichiers
 
 Carte réelle (« Nouakchott réelle »)
 -----------------------------------
-Échelle 1 : 1 m dans le jeu = 1 m à Nouakchott. Zone : 18,058–18,118 N, 16,034–15,952 O.
+Échelle 1 : 1 m dans le jeu = 1 m à Nouakchott. Zone (3.1.0) : toute la ville, 17,960–18,190 N, 16,050–15,860 O.
 Rues découpées aux carrefours, simplifiées à 0,7 m près ; bâtiments simplifiés à 0,35 m près,
 hauteur tirée du nombre d'étages OSM ou de la surface. Positions contrôlées sur la vue
 satellite (Carrefour BMD, avenue Gamal Abdel Nasser, Palais du Peuple, Sheraton, Fasq,
 Hôtel Nouakchott, Stade olympique, Marché Capitale).
+
+Circuit de course réel (data/circuit_nkc.js)
+--------------------------------------------
+Tracé calculé sur le graphe des vraies rues (OpenStreetMap) en passant par les carrefours
+BMD, Sabah, Al Quds, Bana Blanc et l'avenue du Général de Gaulle ; sur les avenues à deux
+chaussées, la piste suit l'axe entre les deux sens. Lissage : rayon mini ~26 m. Raccourcis :
+vraies rues (cl. tertiaire à piste) qui coupent un virage avec au plus 3 tournants.
+Script : circuit.py (graphe de build_real.py). Les bâtiments, murs et lampadaires qui
+tombent dans l'emprise du circuit (piste + glissières + 3 m) ne sont pas posés en course.
 
 Ville classique (damier)
 ------------------------
