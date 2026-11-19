@@ -768,6 +768,7 @@ window.DZTaxi = function (A) {
     peds.push(p); return p;
   }
   function placeWalker(p, near) {
+    p.overRoad = undefined;
     if (REAL) return rPlaceWalker(p, near);
     for (let k = 0; k < 30; k++) { p.bi = Math.floor(R() * (NI - 1)); p.bj = Math.floor(R() * (NJ - 1)); const [bx, bz] = blockC(p.bi, p.bj); if (!taxi || (Math.hypot(bx - taxi.x, bz - taxi.z) > 40 && (!near || Math.hypot(bx - taxi.x, bz - taxi.z) < 300))) break; }
     p.p = R() * 8 * HS; p.st = 'walk'; p.road = false; p.fall = 0; p.down = false; p.leader = null;
@@ -824,7 +825,8 @@ window.DZTaxi = function (A) {
       if (p.leader) { // troupeau : on suit le chef
         const L = p.leader;
         if (!L.on || L.down) { p.leader = null; placeWalker(p); continue; }
-        const fx = Math.sin(L.h), fz = Math.cos(L.h), tx = L.x - fx * (0.9 * p.hk) + fz * p.side, tz = L.z - fz * (0.9 * p.hk) - fx * p.side;
+        const fx = Math.sin(L.h), fz = Math.cos(L.h); let tx = L.x - fx * (0.9 * p.hk) + fz * p.side, tz = L.z - fz * (0.9 * p.hk) - fx * p.side;
+        if (REAL && L.st === 'walk' && (p.chk = (p.chk || 0) + 1) % 8 === 0 && rAsphalt(tx, tz, -1, 0.2)) p.side = -p.side; // la bête de côté passerait sur le goudron : l'autre côté du chef
         const dx = tx - p.x, dz = tz - p.z, dd = Math.hypot(dx, dz);
         if (dd > 25) { p.x = tx; p.z = tz; } else if (dd > 0.08) { const st = Math.min(dd, (L.curV + 0.6 + dd * 0.8) * dt); p.x += dx / dd * st; p.z += dz / dd * st; v = st / dt; p.h = p.h + wrapAng(Math.atan2(dx, dz) - p.h) * Math.min(1, dt * 5); }
         p.road = L.road; p.curV = v; p.ph += v * dt / p.M.stride; p.idle += ((v > 0.15 ? 0 : 1) - p.idle) * Math.min(1, dt * 6); p.st = L.st === 'cross' || L.st === 'flee' ? 'cross' : 'walk';
@@ -852,7 +854,7 @@ window.DZTaxi = function (A) {
         if (p.pauseT > 0 && p.st === 'cross') { p.pauseT -= dt; if (p.pauseT <= 0) { p.pauseT = -1; } }
         else { v = p.st === 'flee' ? (p.kind === 'animal' ? 2.6 : 4.2) : p.spd2 * (p.run > 0 ? 2 : 1); p.t += v * dt / L; }
         const t = clamp(p.t, 0, 1); p.x = p.cx0 + (p.cx1 - p.cx0) * t; p.z = p.cz0 + (p.cz1 - p.cz0) * t; p.h = Math.atan2(p.cx1 - p.cx0, p.cz1 - p.cz0);
-        p.road = t > 0.12 && t < 0.88;
+        p.road = p.overRoad !== false && t > 0.12 && t < 0.88;
         if (p.t >= 1 && REAL) rAfterCross(p);
         else if (p.t >= 1) { p.st = 'walk'; p.road = false; p.bi = p.nbi; p.bj = p.nbj; p.p = p.np; p.lat = p.kind === 'animal' ? 1 + R() * 0.6 : (R() - 0.5) * 2.2; p.dir = R() < 0.5 ? 1 : -1; }
       } else if (p.st === 'wait') { // client à l'arrêt
@@ -1926,8 +1928,9 @@ window.DZTaxi = function (A) {
         if (i) { const q = base + (i - 1) * 2; b.i.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
       }
     };
-    // routes : morceaux de 150 m
-    for (const [k, a, b2] of ch.pieces) {
+    // routes : morceaux de 150 m (en course : rien dans l'emprise du circuit, la rue s'arrête à la glissière)
+    const runs = (k, a, b2) => { if (!RM) return [[a, b2]]; const e = RD.E[k], out = [], n = Math.max(1, Math.ceil((b2 - a) / 2)); let s0 = null; for (let j = 0; j <= n; j++) { const ss = a + (b2 - a) * j / n, q = rAt(e, ss), m = RM(q[0], q[1]) === 2; if (!m && s0 === null) s0 = ss; if (m && s0 !== null) { if (ss - s0 > 0.5) out.push([s0, ss]); s0 = null; } } if (s0 !== null && b2 - s0 > 0.5) out.push([s0, b2]); return out; };
+    for (const [k, a0, b0] of ch.pieces) for (const [a, b2] of runs(k, a0, b0)) {
       const e = RD.E[k];
       if (e.cl >= 6 && e.pv !== 1) { ribbon(e, a, b2, -e.w / 2, e.w / 2, 0.03, 'track', 6); continue; }
       const paved = e.pv === 1, hw = e.w / 2;
@@ -1944,8 +1947,13 @@ window.DZTaxi = function (A) {
     }
     for (const n of ch.nodes) {
       const l = RD.inc[n]; if (l.length < 2) continue; let paved = false, r = 0; for (const k of l) { const e = RD.E[k]; if (e.pv === 1) paved = true; r = Math.max(r, e.w / 2); }
-      if (l.length === 2 && r < 4) continue;
-      const x = RD.NX[n], z = RD.NZ[n], b = buf(paved ? 'disc' : 'track'), base = b.p.length / 3, S = 14, y = paved ? 0.075 : 0.035;
+      const x = RD.NX[n], z = RD.NZ[n];
+      if (l.length === 2 && r < 4) { // virage entre deux rues étroites : un disque comble le coin (sinon la rue paraît coupée)
+        const tg = k => { const e = RD.E[k], t = e.a === n ? rTan(e, Math.min(1, e.L / 2)) : rTan(e, Math.max(0, e.L - 1)); return e.a === n ? t : [-t[0], -t[1]]; };
+        const t1 = tg(l[0]), t2 = tg(l[1]); if (t1[0] * t2[0] + t1[1] * t2[1] < -0.94) continue; // presque droit
+      }
+      if (RM && (RM(x, z) === 2 || [0, 1, 2, 3, 4, 5, 6, 7].some(k => RM(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r) === 2))) continue;
+      const b = buf(paved ? 'disc' : 'track'), base = b.p.length / 3, S = 14, y = paved ? 0.075 : 0.035;
       b.p.push(x, y, z); b.uv.push(x / 8, z / 8);
       for (let k = 0; k <= S; k++) { const ang = k / S * Math.PI * 2; b.p.push(x + Math.cos(ang) * r, y, z + Math.sin(ang) * r); b.uv.push((x + Math.cos(ang) * r) / 8, (z + Math.sin(ang) * r) / 8); if (k) b.i.push(base, base + k + 1, base + k); }
     }
@@ -1967,10 +1975,15 @@ window.DZTaxi = function (A) {
       const t0 = vert(pts[0][0], y1, pts[0][1], 0, 1, 0, col, 0, 0, b4), t1 = vert(pts[1][0], y1, pts[1][1], 0, 1, 0, col, 0, 0, b4), t2 = vert(pts[2][0], y1, pts[2][1], 0, 1, 0, col, 0, 0, b4), t3 = vert(pts[3][0], y1, pts[3][1], 0, 1, 0, col, 0, 0, b4); I.push(t0, t2, t1, t0, t3, t2);
     };
     const TANK = [lin(0x1b1d20), lin(0x2a5ea8), lin(0xe8e8e4), lin(0x1b1d20)];
+    const lmBoxes = ((RM ? rStaticR : rStaticT) || { userData: {} }).userData.boxes || [];
+    const inLm = (px, pz) => lmBoxes.some(b => { const dx = px - b.x, dz = pz - b.z, u = dx * b.ca - dz * b.sa, v = dx * b.sa + dz * b.ca; return Math.abs(u) < b.hw && Math.abs(v) < b.hd; });
     for (const i of ch.bld) {
       if (RM && rBldMasked(i)) continue;
-      const n = Bd.n[i], o = Bd.off[i], H = Bd.h[i] * 0.25, code = Bd.t[i], st = code & 7, tv = (code >> 3) & 3, col = M.tints[st][tv], seed = (i * 2654435761 >>> 24) & 255;
-      tmp.length = 0; for (let k = 0; k < n; k++) tmp.push(new THREE.Vector2(Bd.p[2 * (o + k)], Bd.p[2 * (o + k) + 1]));
+      if (lmBoxes.length) { const o = Bd.off[i]; let cx = 0, cz = 0; for (let k = 0; k < Bd.n[i]; k++) { cx += Bd.p[2 * (o + k)]; cz += Bd.p[2 * (o + k) + 1]; } if (inLm(cx / Bd.n[i], cz / Bd.n[i])) continue; }
+      const o = Bd.off[i], H = Bd.h[i] * 0.25, code = Bd.t[i], st = code & 7, tv = (code >> 3) & 3, col = M.tints[st][tv], seed = (i * 2654435761 >>> 24) & 255;
+      tmp.length = 0; for (let k = 0; k < Bd.n[i]; k++) { const px = Bd.p[2 * (o + k)], pz = Bd.p[2 * (o + k) + 1], lp = tmp[tmp.length - 1]; if (!lp || Math.abs(lp.x - px) > 0.05 || Math.abs(lp.y - pz) > 0.05) tmp.push(new THREE.Vector2(px, pz)); }
+      while (tmp.length > 3 && Math.abs(tmp[0].x - tmp[tmp.length - 1].x) < 0.05 && Math.abs(tmp[0].y - tmp[tmp.length - 1].y) < 0.05) tmp.pop(); // anneau fermé : sommet en double
+      const n = tmp.length; if (n < 3) continue;
       let area = 0; for (let k = 0; k < n; k++) { const a = tmp[k], b = tmp[(k + 1) % n]; area += a.x * b.y - b.x * a.y; } const ccw = area > 0; area = Math.abs(area) / 2;
       const b4 = [st, seed, Math.min(255, Math.round(H * 4)), 0], roofY = H > 3 ? H - 0.8 : H - 0.3;
       for (let k = 0; k < n; k++) { // murs : 4 sommets par mur, u en travées de ~3,6 m, v en mètres
@@ -1981,7 +1994,7 @@ window.DZTaxi = function (A) {
       }
       // toit
       let convex = true; for (let k = 0; k < n && convex; k++) { const a = tmp[k], b = tmp[(k + 1) % n], c2 = tmp[(k + 2) % n]; const cr = (b.x - a.x) * (c2.y - b.y) - (b.y - a.y) * (c2.x - b.x); if (cr * (ccw ? 1 : -1) < -1e-6) convex = false; }
-      const tris = convex ? (() => { const t = []; for (let k = 1; k < n - 1; k++) t.push([0, k, k + 1]); return t; })() : THREE.ShapeUtils.triangulateShape(tmp, []);
+      const tris = convex ? (() => { const t = []; for (let k = 1; k < n - 1; k++) t.push([0, k, k + 1]); return t; })() : THREE.ShapeUtils.triangulateShape(tmp.slice(), []);
       const rb = [st, seed, b4[2], 1], ri = tmp.map(p => vert(p.x, roofY, p.y, 0, 1, 0, col, 0, 0, rb));
       for (const [a, b, c2] of tris) { const up = (tmp[b].y - tmp[a].y) * (tmp[c2].x - tmp[a].x) - (tmp[b].x - tmp[a].x) * (tmp[c2].y - tmp[a].y) > 0; if (up) I.push(ri[a], ri[b], ri[c2]); else I.push(ri[a], ri[c2], ri[b]); }
       // sur le toit : cage d'escalier, citerne (pas sur les petites cabanes)
@@ -2000,7 +2013,7 @@ window.DZTaxi = function (A) {
       let acc = 0;
       for (let k = 0; k < n - 1; k++) {
         const ax = Wd.p[2 * (o + k)], az = Wd.p[2 * (o + k) + 1], bx = Wd.p[2 * (o + k + 1)], bz = Wd.p[2 * (o + k + 1) + 1], ex = bx - ax, ez = bz - az, L = Math.hypot(ex, ez); if (L < 0.3) continue;
-        if (RM && (RM(ax, az) || RM(bx, bz) || RM((ax + bx) / 2, (az + bz) / 2))) { acc += L; continue; }
+        if ((RM && (RM(ax, az) || RM(bx, bz) || RM((ax + bx) / 2, (az + bz) / 2))) || (lmBoxes.length && inLm((ax + bx) / 2, (az + bz) / 2))) { acc += L; continue; }
         const nx_ = -ez / L, nz_ = ex / L, u0 = acc / 3.6, u1 = (acc + L) / 3.6, Hh = 2.4; acc += L;
         for (const sd of [1, -1]) { const i0 = vert(ax, 0, az, nx_ * sd, 0, nz_ * sd, col, u0, 0, b4), i1 = vert(bx, 0, bz, nx_ * sd, 0, nz_ * sd, col, u1, 0, b4), i2 = vert(bx, Hh, bz, nx_ * sd, 0, nz_ * sd, col, u1, Hh, b4), i3 = vert(ax, Hh, az, nx_ * sd, 0, nz_ * sd, col, u0, Hh, b4); if (sd > 0) I.push(i0, i1, i2, i0, i2, i3); else I.push(i0, i2, i1, i0, i3, i2); }
         const t = 0.14, px = nx_ * t, pz = nz_ * t; rColAdd(ch, { poly: new Float32Array([ax - px, az - pz, bx - px, bz - pz, bx + px, bz + pz, ax + px, az + pz]), box: [Math.min(ax, bx) - t, Math.min(az, bz) - t, Math.max(ax, bx) + t, Math.max(az, bz) + t], h: 2.4 });
@@ -2017,7 +2030,7 @@ window.DZTaxi = function (A) {
   }
   function rPreload() { // générique : les lieux survolés sont construits d'avance
     const pts = [[1080, 20]]; const port = RPLACES.find(p => p.name === 'Port de pêche'); if (port) pts.push([port.rx, port.rz]);
-    for (const id of ['snim', 'marche', 'mosquee']) { const q = RPLACES.find(p => p.id === id); if (q) pts.push([q.rx, q.rz]); }
+    for (const id of ['snim', 'fasq', 'sheraton', 'palais', 'marche']) { const q = RPLACES.find(p => p.id === id); if (q) pts.push([q.rx, q.rz]); }
     for (const ch of rCh.values()) if (pts.some(([x, z]) => Math.hypot(ch.cx - x, ch.cz - z) < 420)) { ch.keep = true; if (!ch.built) rBuildChunk(ch); }
   }
   function rFreeChunk(ch) { for (const m of ch.meshes) { realG.remove(m); m.geometry.dispose(); } ch.meshes.length = 0; rColFree(ch); ch.built = false; }
@@ -2027,9 +2040,10 @@ window.DZTaxi = function (A) {
     const want = [];
     for (const ch of rCh.values()) { let d = Math.hypot(ch.cx - x, ch.cz - z); if (x2 !== undefined) d = Math.min(d, Math.hypot(ch.cx - x2, ch.cz - z2)); if (ch.built) { if (d > ROUT && !ch.keep) rFreeChunk(ch); } else if (d < RIN) want.push([d, ch]); }
     want.sort((a, b) => a[0] - b[0]);
-    for (const [, ch] of want) { if (made >= budget) break; rBuildChunk(ch); made++; }
+    for (const [, ch] of want) { if (made >= budget) break; try { rBuildChunk(ch); } catch (e) { console.error('chunk ' + ch.k, e && e.message); ch.built = true; } made++; }
     return made;
   }
+  const R_PROC = { snim: ['snimTower', 44, 29], fasq: ['fasqNkc', 56, 22], sheraton: ['sheratonNkc', 94, 60], nkc: ['nkcHotel', 32, 30], palais: ['palaisCongres', 58, 60] }; // refaits d'après photos
   const R_LM = { palais: 'lm_palais', marche: 'lm_marche', bmd: 'lm_bmd', snim: 'lm_snim', afarco: 'lm_afarco', sheraton: 'lm_sheraton', fasq: 'lm_fasq', mauricenter: 'lm_mauricenter', iman: 'lm_iman', nkc: 'lm_nkc' };
   let rinst = {};
   function rBuildLandmarks() {
@@ -2037,14 +2051,16 @@ window.DZTaxi = function (A) {
       const rot = face; // la façade (+z local) regarde la rue
       let x = x0_, z = z0_;
       if (RM) { // course : le monument recule (côté arrière) jusqu'à sortir de l'emprise du circuit
-        const [w0, d0] = LM_DIMS[R_LM[id]] || (id === 'mosquee' ? [48, 44] : id === 'musee' ? [40, 26] : id === 'stade' ? [110, 80] : [30, 24]), ca = Math.cos(rot), sa = Math.sin(rot);
+        const [w0, d0] = R_PROC[id] && A.LANDMARKS[R_PROC[id][0]] ? [R_PROC[id][1], R_PROC[id][2]] : LM_DIMS[R_LM[id]] || (id === 'mosquee' ? [48, 44] : id === 'musee' ? [40, 26] : id === 'stade' ? [110, 80] : [30, 24]), ca = Math.cos(rot), sa = Math.sin(rot);
         const hit = (cx, cz) => [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]].some(([u, v]) => RM(cx + u * w0 / 2 * ca + v * d0 / 2 * sa, cz - u * w0 / 2 * sa + v * d0 / 2 * ca));
         let ok = false; for (let back = 0; back <= 36 && !ok; back += 3) { const cx = x0_ - Math.sin(rot) * back, cz = z0_ - Math.cos(rot) * back; if (!hit(cx, cz)) { x = cx; z = cz; ok = true; } }
         if (!ok) continue;
       }
       rTgt.lms.push({ id, name, ar, x, z, face });
+      if (R_PROC[id]) (rTgt.g.userData.boxes = rTgt.g.userData.boxes || []).push({ x, z, ca: Math.cos(rot), sa: Math.sin(rot), hw: R_PROC[id][1] / 2 + 2, hd: R_PROC[id][2] / 2 + 2 });
       let g = null, w = 30, d = 24, sc = 1;
-      if (R_LM[id]) { const lm = A.glbLM(R_LM[id]); if (lm) { g = lm.g; [w, d] = LM_DIMS[R_LM[id]]; } }
+      if (R_PROC[id] && A.LANDMARKS[R_PROC[id][0]]) { const lm = A.LANDMARKS[R_PROC[id][0]](); g = lm.g; w = R_PROC[id][1]; d = R_PROC[id][2]; }
+      else if (R_LM[id]) { const lm = A.glbLM(R_LM[id]); if (lm) { g = lm.g; [w, d] = LM_DIMS[R_LM[id]]; } }
       else if (id === 'mosquee') { const lm = A.LANDMARKS.mosqueSaudi(); g = lm.g; w = 48; d = 44; }
       else if (id === 'musee') { const lm = A.LANDMARKS.museum(); g = lm.g; w = 40; d = 26; }
       else if (id === 'stade' || id === 'station') {
@@ -2242,35 +2258,56 @@ window.DZTaxi = function (A) {
     const e = RD.E[p.e], q = rAt(e, p.s), off = e.w / 2 + (e.cl <= 3 && e.pv === 1 ? 1.4 : 0.9) + p.lat * 0.4;
     return [q[0] - q[3] * p.sd * off, q[1] + q[2] * p.sd * off, Math.atan2(q[2] * p.dir, q[3] * p.dir)];
   }
+  const _re2 = [];
+  function rAsphalt(x, z, skip, m) { // ce point est-il sur la chaussée d'une autre rue ?
+    for (const k of rEdgesNear(x, z, 14, _re2)) {
+      if (k === skip) continue; const f = RD.E[k], P_ = f.pts, lim = f.w / 2 + (m || 0.4);
+      for (let i = 0; i < P_.length / 2 - 1; i++) { const ax = P_[2 * i], az = P_[2 * i + 1], dx = P_[2 * i + 2] - ax, dz = P_[2 * i + 3] - az, l2 = dx * dx + dz * dz || 1, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1); if (Math.hypot(x - ax - dx * t, z - az - dz * t) < lim) return true; }
+    }
+    return false;
+  }
+  function rSideOk(e, sd) { // trottoir praticable de ce côté (pas sur l'autre chaussée d'une avenue à deux sens, pas dans un carrefour)
+    const key = sd > 0 ? 'okR' : 'okL'; if (e[key] !== undefined) return e[key];
+    const [t0, t1] = rTrim(e), off = e.w / 2 + (e.cl <= 3 && e.pv === 1 ? 1.4 : 0.9) + 0.5; let ok = t1 - t0 > 2;
+    for (const f of [0.1, 0.5, 0.9]) { if (!ok) break; const q = rAt(e, t0 + (t1 - t0) * f), x = q[0] - q[3] * sd * off, z = q[1] + q[2] * sd * off; if (rAsphalt(x, z, e.k)) ok = false; }
+    e[key] = ok; return ok;
+  }
+  const rWalkable = e => e.cl <= 4 && e.L >= 10 && (rSideOk(e, 1) || rSideOk(e, -1));
   function rPlaceWalker(p, near) {
     const x0 = me ? me.x : 0, z0 = me ? me.z : 0;
-    let e = null; for (let k = 0; k < 10 && !e; k++) e = rRandomEdge(x0, z0, near ? 70 : 25, near ? 230 : 230, 4);
-    if (!e) e = RD.E[0];
-    p.e = e.k; p.sd = R() < 0.5 ? 1 : -1; p.dir = R() < 0.5 ? 1 : -1; p.s = R() * e.L; p.st = 'walk'; p.road = false; p.fall = 0; p.down = false; p.leader = null;
+    const animal = p.kind === 'animal';
+    let e = null; for (let k = 0; k < 16 && !e; k++) { e = rRandomEdge(x0, z0, near ? 70 : 25, near ? 230 : 230, animal ? 6 : 4); if (e && (!rWalkable(e) || (animal && e.pv === 1 && e.cl <= 3 && k < 12))) e = null; } // les bêtes : plutôt les rues en sable
+    if (!e) { e = RD.E[0]; for (const k of rEdgesNear(x0, z0, 300, _re2)) if (rWalkable(RD.E[k])) { e = RD.E[k]; break; } }
+    const [t0, t1] = rTrim(e);
+    p.e = e.k; p.sd = R() < 0.5 ? 1 : -1; if (!rSideOk(e, p.sd)) p.sd = -p.sd; p.dir = R() < 0.5 ? 1 : -1; p.s = t0 + R() * (t1 - t0); p.st = 'walk'; p.road = false; p.fall = 0; p.down = false; p.leader = null;
+    p.lat = animal ? 3 + R() * 3 : (R() - 0.5) * 2.2;
     const q = rSidewalk(p); p.x = q[0]; p.z = q[1]; p.h = q[2];
   }
   function rWalk(p, dt, sp) {
     const e = RD.E[p.e]; p.s += p.dir * sp * dt;
-    if (p.s < 0 || p.s > e.L) { // bout de rue : on tourne dans une rue voisine (ou on traverse)
-      const n = p.s < 0 ? e.a : e.b, opts = RD.inc[n].filter(k => k !== p.e && RD.E[k].cl <= 4);
-      const k = opts.length ? pick(opts) : p.e, f = RD.E[k], from = rSidewalk(Object.assign({}, p, { s: clamp(p.s, 0, e.L) }));
-      p.e = k; p.dir = k === p.e && !opts.length ? -p.dir : (f.a === n ? 1 : -1); p.s = p.dir > 0 ? 0.5 : f.L - 0.5;
-      if (!opts.length) p.dir = p.s < 1 ? 1 : -1;
-      if (R() < 0.5 && p.kind === 'ped') p.sd = -p.sd;
+    const [t0, t1] = rTrim(e);
+    if (p.s < t0 || p.s > t1) { // coin de rue : on tourne dans une rue voisine (en traversant au carrefour) ou on fait demi-tour
+      const n = p.s < t0 ? e.a : e.b, opts = RD.inc[n].filter(k => k !== p.e && rWalkable(RD.E[k]) && (p.kind !== 'animal' || RD.E[k].pv !== 1 || RD.E[k].cl > 3));
+      const from = rSidewalk(Object.assign({}, p, { s: clamp(p.s, t0, t1) }));
+      if (!opts.length) { p.s = clamp(p.s, t0, t1); p.dir = -p.dir; if (!rSideOk(e, p.sd)) p.sd = -p.sd; const q = rSidewalk(p); p.x = q[0]; p.z = q[1]; p.h = q[2]; return; }
+      const k = pick(opts), f = RD.E[k], [u0, u1] = rTrim(f);
+      p.e = k; p.dir = f.a === n ? 1 : -1; p.s = p.dir > 0 ? u0 + 0.3 : u1 - 0.3;
+      const cand = [1, -1].filter(sd => rSideOk(f, sd)).map(sd => { p.sd = sd; const q = rSidewalk(p); return [sd, Math.hypot(q[0] - from[0], q[1] - from[1])]; }).sort((a, b) => a[1] - b[1]);
+      if (cand.length) p.sd = (cand.length > 1 && p.kind === 'ped' && R() < 0.3 ? cand[1] : cand[0])[0]; // le plus souvent on tourne au coin sans traverser
       const to = rSidewalk(p);
-      if (Math.hypot(to[0] - from[0], to[1] - from[1]) > 2.5) { p.cx0 = from[0]; p.cz0 = from[1]; p.cx1 = to[0]; p.cz1 = to[1]; p.st = 'cross'; p.t = 0; p.jay = false; p.spd2 = p.spd * 1.1; p.pauseAt = 2; p.pauseT = 0; p.rNext = { e: p.e, s: p.s, sd: p.sd, dir: p.dir }; return; }
+      if (Math.hypot(to[0] - from[0], to[1] - from[1]) > 2.5) { p.overRoad = rAsphalt((from[0] + to[0]) / 2, (from[1] + to[1]) / 2, -1, 0); p.cx0 = from[0]; p.cz0 = from[1]; p.cx1 = to[0]; p.cz1 = to[1]; p.st = 'cross'; p.t = 0; p.jay = false; p.spd2 = p.spd * 1.1; p.pauseAt = 2; p.pauseT = 0; p.rNext = { e: p.e, s: p.s, sd: p.sd, dir: p.dir }; return; }
     }
     const q = rSidewalk(p); p.x = q[0]; p.z = q[1]; p.h = q[2];
-    if (R() < dt * (p.kind === 'animal' ? 0.03 : 0.004) && e.L > 20 && p.s > 8 && p.s < e.L - 8) rStartJay(p);
+    if (R() < dt * (p.kind === 'animal' ? 0.004 : 0.003) && t1 - t0 > 24 && p.s > t0 + 8 && p.s < t1 - 8 && rSideOk(e, -p.sd) && (e.cl >= 3 || p.kind !== 'animal')) rStartJay(p);
   }
-  function rStartJay(p) { // traverser la rue n'importe où
+  function rStartJay(p) { // traverser la rue (jamais une avenue à deux chaussées : l'autre côté n'est pas un trottoir)
     const from = rSidewalk(p); p.rNext = { e: p.e, s: p.s, sd: -p.sd, dir: R() < 0.5 ? 1 : -1 };
     const to = rSidewalk(Object.assign({}, p, p.rNext));
-    p.cx0 = from[0]; p.cz0 = from[1]; p.cx1 = to[0]; p.cz1 = to[1]; p.st = 'cross'; p.t = 0; p.jay = true; p.spd2 = p.kind === 'animal' ? p.spd * 1.1 : 1.8 + R() * 0.8;
-    p.pauseAt = p.kind === 'animal' && R() < 0.75 ? 0.25 + R() * 0.5 : 2; p.pauseT = 0;
+    p.overRoad = true; p.cx0 = from[0]; p.cz0 = from[1]; p.cx1 = to[0]; p.cz1 = to[1]; p.st = 'cross'; p.t = 0; p.jay = true; p.spd2 = p.kind === 'animal' ? p.spd * 1.4 : 1.8 + R() * 0.8;
+    p.pauseAt = 2; p.pauseT = 0; // personne ne reste planté au milieu de la route
     return true;
   }
-  function rAfterCross(p) { const nx_ = p.rNext; if (nx_) { p.e = nx_.e; p.s = nx_.s; p.sd = nx_.sd; p.dir = nx_.dir; } p.st = 'walk'; p.road = false; p.lat = p.kind === 'animal' ? 1 + R() * 0.6 : (R() - 0.5) * 2.2; }
+  function rAfterCross(p) { p.overRoad = undefined; const nx_ = p.rNext; if (nx_) { p.e = nx_.e; p.s = nx_.s; p.sd = nx_.sd; p.dir = nx_.dir; } p.st = 'walk'; p.road = false; p.lat = p.kind === 'animal' ? 3 + R() * 3 : (R() - 0.5) * 2.2; }
   function rPedTick() { // les passants restent autour du joueur
     if (!me) return;
     for (const p of peds) { if (!p.on || p.client || p.down || p.leader || p.st !== 'walk') continue; if (Math.hypot(p.x - me.x, p.z - me.z) > 260) rPlaceWalker(p, true); }
@@ -2279,7 +2316,7 @@ window.DZTaxi = function (A) {
   /* --- noms des lieux, carrefours, quartiers --- */
   function rPlaceName(x, z) {
     let q = null, best = 1e9; for (const Q of RD.quart) { const d = Math.hypot(Q[1] - x, Q[2] - z); if (d < best) { best = d; q = Q; } }
-    const out = { street: '', district: q ? q[0] : 'Nouakchott', moug: q ? q[3] : '' };
+    const out = { street: '', district: q ? q[0] : 'Nouakchott', moug: q ? q[3] : '', ar: q ? q[4] || '' : 'نواكشوط', mar: q ? q[5] || '' : '' };
     const nn = rNodesNear(x, z, 26); let node = -1, nd = 1e9;
     for (const n of nn) { const d = Math.hypot(RD.NX[n] - x, RD.NZ[n] - z); if (RD.inc[n].length >= 3 && d < RD.rn[n] + 3 && d < nd) { nd = d; node = n; } }
     if (node >= 0) { const cn = RD.carN[node]; if (cn) { out.street = cn[0]; return out; } const names = [...new Set(RD.inc[node].map(k => RD.E[k].name).filter(Boolean))]; if (names.length >= 2) { out.street = names[0] + ' × ' + names[1]; return out; } }
@@ -2376,6 +2413,12 @@ window.DZTaxi = function (A) {
     const tgt = targetPoint();
     if (tgt) { const dx = (tgt[0] - me.x) * R_TK * k, dz = (tgt[1] - me.z) * R_TK * k; if (Math.abs(dx) > W / 2 - 10 || Math.abs(dz) > H / 2 - 10) { const a = Math.atan2(dz, dx), r = W / 2 - 14; c.save(); c.translate(W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r); c.rotate(a); c.beginPath(); c.moveTo(10, 0); c.lineTo(-6, 7); c.lineTo(-6, -7); c.closePath(); c.fillStyle = job.dest ? '#ffd60a' : '#22c55e'; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 2; c.stroke(); c.restore(); } }
   }
+  const LM_CAM = { snim: [128, 46, 30, 1.25], fasq: [82, 28, 15], sheraton: [118, 34, 17], palais: [92, 28, 13], nkc: [72, 26, 14], mosquee: [78, 26, 14], marche: [62, 20, 10], bmd: [58, 20, 10] };
+  function lmShot(id, x, z, face, k, cap, capSub, credit) { // la caméra tourne lentement devant la façade, côté rue
+    const c = LM_CAM[id] || [70, 24, 12], sd = k % 2 ? 1 : -1, f0 = face + (c[3] || 0), a0 = f0 + 0.62 * sd, a1 = f0 + 0.18 * sd, V = (a, b, d) => new THREE.Vector3(a, b, d);
+    return { dur: 3.8, p0: V(x + Math.sin(a0) * c[0], c[1], z + Math.cos(a0) * c[0]), p1: V(x + Math.sin(a1) * c[0] * 0.82, c[2] + 4, z + Math.cos(a1) * c[0] * 0.82), t0: V(x, c[2], z), t1: V(x, c[2] * 0.8, z), fov: 56, cap, capSub, credit: credit || '' };
+  }
+  T.lmShot = lmShot;
   function rIntroShots(full) {
     const V = (x, y, z) => new THREE.Vector3(x, y, z), shots = [], dr = DRIVERS[T.driver], h = taxi.h, fx = Math.sin(h), fz = Math.cos(h);
     if (full) {
@@ -2383,10 +2426,9 @@ window.DZTaxi = function (A) {
       shots.push({ dur: 4.2, p0: V(port.rx - 260, 38, port.rz + 160), p1: V(port.rx - 120, 26, port.rz + 60), t0: V(port.rx + 120, 0, port.rz - 40), t1: V(port.rx + 260, 4, port.rz - 60), fov: 55, title: 'TAXI NOUAKCHOTT', sub: 'La vraie ville · sur l’Atlantique', credit: '' });
       shots.push({ dur: 4.4, p0: V(900, 62, 60), p1: V(1260, 44, 40), t0: V(1500, 0, 20), t1: V(1720, 0, 10), fov: 56, title: '', sub: '', credit: 'Rues, carrefours et bâtiments : la vraie carte (OpenStreetMap, El Minassa)' });
       const credits = ['Taximen : Moulaye · Taximan Ba · Sidi · Mamadou', 'Feux rouges, piétons, animaux, police : prudence !', 'Clients aux arrêts verts · destinations en jaune'];
-      ['snim', 'marche', 'mosquee'].forEach((id, k) => {
+      ['snim', 'fasq', 'sheraton', 'palais', 'marche'].forEach((id, k) => { // bâtiments refaits d'après photos
         const q = RPLACES.find(p => p.id === id); if (!q) return;
-        const ex = q.mx, ez = q.mz, dx = ex - q.rx, dz = ez - q.rz, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, px = -uz, pz = ux, sd = k % 2 ? 1 : -1;
-        shots.push({ dur: 3.6, p0: V(ex + ux * 4 + px * 46 * sd, 17, ez + uz * 4 + pz * 46 * sd), p1: V(ex + ux * 6 + px * 14 * sd, 6.5, ez + uz * 6 + pz * 14 * sd), t0: V(q.rx, 12, q.rz), t1: V(q.rx, 8, q.rz), fov: 58, cap: q.name, capSub: q.ar, credit: credits[k] });
+        shots.push(lmShot(id, q.rx, q.rz, q.lmFace, k, q.name, q.ar, credits[k]));
       });
     }
     shots.push({ dur: full ? 4 : 3, p0: V(taxi.x - fx * 34 + fz * 12, 24, taxi.z - fz * 34 - fx * 12), p1: V(taxi.x - fx * 8.2, 2.9, taxi.z - fz * 8.2), t0: V(taxi.x, 0, taxi.z), t1: V(taxi.x + fx * 2, 1.2, taxi.z + fz * 2), fov: 60, title: dr.name.toUpperCase(), sub: 'prend son service · ' + fmtClock(T.timeLeft) });
@@ -2483,6 +2525,7 @@ window.DZTaxi = function (A) {
     const tn = $('tNitro'); if (tn) tn.style.setProperty('--n', clamp(taxi.nitro, 0, 1).toFixed(3));
     const pn = placeName(me.x, me.z), st = $('txStreet'); const label = pn.street ? pn.street + ' · ' + pn.district : pn.district + (pn.moug && pn.moug !== pn.district ? ' · ' + pn.moug : ''); if (st.textContent !== label) st.textContent = label;
     $('mapName').textContent = pn.district;
+    if (A.quartierAt && (T.qT = (T.qT || 0) + 1) % 15 === 0) A.quartierAt(pn.district, pn.ar, pn.moug, pn.mar);
     drawMap();
   }
 
@@ -2602,6 +2645,9 @@ window.DZTaxi = function (A) {
     if (rRaceGlow) rRaceGlow.visible = !!prof.night;
     return made;
   };
+  RACE.preload = (pts, r) => { if (!RACE.on) return; for (const ch of rCh.values()) if (pts.some(([x, z]) => Math.hypot(ch.cx - x, ch.cz - z) < (r || 300))) { ch.keep = true; if (!ch.built) { try { rBuildChunk(ch); } catch (e) { ch.built = true; } } } };
+  RACE.release = () => { for (const ch of rCh.values()) ch.keep = false; };
+  RACE.placeName = (x, z) => RD ? rPlaceName(x, z) : null;
   RACE.landmarks = () => rStaticR ? rStaticR.userData.lms : []; // monuments posés autour du circuit
   RACE.drawMap = (c, minX, minZ, k, W, H) => { // fond de la mini-carte des courses : vrais bâtiments et vraies rues
     if (!RD) return;
@@ -2649,7 +2695,8 @@ window.DZTaxi = function (A) {
     });
   }
   function begin() {
-    if (RACE.on) RACE.detach(); // la ville réelle redevient celle du taxi (bâtiments du circuit remis, feux, arrêts)
+    if (RACE.on) RACE.detach();
+    if (A.quartierReset) A.quartierReset(); // la ville réelle redevient celle du taxi (bâtiments du circuit remis, feux, arrêts)
     if (!T.active) { driftWas = A.hideDrift(); A.scene.add(root); root.visible = true; T.active = true; fogWas = [A.scene.fog.near, A.scene.fog.far]; }
     A.scene.fog.near = LITE ? 70 : 110; A.scene.fog.far = LITE ? 560 : 900;
     document.body.classList.add('taxi');
@@ -2831,6 +2878,6 @@ window.DZTaxi = function (A) {
   }
   T.renderOpts = renderOpts;
   T.DRIVERS = DRIVERS;
-  if (TEST) T.dbg = { get REAL() { return REAL; }, get RD() { return RD; }, rNearest, rPlaceName, rRoutePts, RSTOPS, RPLACES, RCULL, realG, gps, get grid() { return grid; }, get mapBg() { return mapBg; }, placeName, get SFX() { return SFX; }, foot, parked, get homeTaxi() { return homeTaxi; }, get me() { return me; }, get chaseT() { return chaseT; }, set wanted(v) { wanted = v; }, amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
+  if (TEST) T.dbg = { rCh, rBuildChunk, rFreeChunk, rLanePts, rAt, rTrim, get RM() { return RM; }, get REAL() { return REAL; }, get RD() { return RD; }, rNearest, rPlaceName, rRoutePts, RSTOPS, RPLACES, RCULL, realG, gps, get grid() { return grid; }, get mapBg() { return mapBg; }, placeName, get SFX() { return SFX; }, foot, parked, get homeTaxi() { return homeTaxi; }, get me() { return me; }, get chaseT() { return chaseT; }, set wanted(v) { wanted = v; }, amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
   return T;
 };

@@ -6,6 +6,7 @@ Jeu de course et de drift en 3D qui tourne dans le navigateur (PC, tablette, mob
 **Émulateur mobile :** https://abdoulhamadywone-dot.github.io/drift-zone/emulateur.html
 
 - **Courses dans la vraie Nouakchott** : course contre 5 pilotes IA, drift libre, défi drift 90 s, contre-la-montre avec fantôme, 2 joueurs et en ligne sur un circuit de 7,2 km tracé sur les vraies avenues (Gamal Abdel Nasser, route de Nouadhibou, Al Quds, Général de Gaulle) au milieu des vrais bâtiments, avec deux raccourcis par de vraies rues (dont une rue en sable) ; l’ancien circuit (giratoires Cité Smar et Bamako, autopont du carrefour Madrid) reste au choix
+- Bâtiments refaits d’après photos à leur vraie adresse : tour SNIM, Fasq Hôtel, Sheraton Nouakchott, Nouakchott Hôtel, Palais des Congrès ; le nom du quartier s’affiche en haut de l’écran (français + arabe)
 - Toute la ville en carte réelle (Tevragh Zeina, Ksar, Sebkha, El Mina, Arafat, Dar Naïm, Teyarett, Toujounine, Riyad…) : 248 000 bâtiments aux façades peintes comme à Nouakchott, murs de clôture et portails, chargés au fur et à mesure
 - 6 voitures avec chacune son son moteur, nitro, mode nuit, garage et améliorations
 - Mode 2 joueurs en écran partagé (deux manettes sur le même PC), manette configurable

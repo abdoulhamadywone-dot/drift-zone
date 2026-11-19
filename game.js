@@ -1069,6 +1069,134 @@ const LANDMARKS = {
     return { g, r: 26, d: 26, name: 'Musée National' };
   },
 };
+/* --- Bâtiments réels de Nouakchott, reproduits d'après photos (2026) : la façade (+z) regarde la rue --- */
+function crenels(grp, w, d, y, mat, step, hgt) { // créneaux mauresques en bord de toit (merlons pointus)
+  const st = step || 1.7, h = hgt || 1.1, geo = new THREE.ConeGeometry(st * 0.42, h, 4, 1); geo.rotateY(Math.PI / 4); geo.scale(1, 1, 0.45);
+  for (const [len, axis, off] of [[w, 'x', d / 2], [w, 'x', -d / 2], [d, 'z', w / 2], [d, 'z', -w / 2]]) {
+    const n = Math.max(2, Math.floor(len / st));
+    for (let k = 0; k <= n; k++) { const t = -len / 2 + k * len / n; const m = prim(grp, geo, mat, axis === 'x' ? t : off, y + h / 2, axis === 'x' ? off : t); if (axis === 'z') m.rotation.y = Math.PI / 2; }
+  }
+}
+function stadiumShape(w, d, frontWave, phase) { // plan arrondi aux deux bouts ; frontWave : creux au milieu de la façade
+  const s = new THREE.Shape(), r = d / 2, hx = w / 2 - r, N = 18;
+  s.moveTo(-hx, -r);
+  for (let k = 1; k <= 24; k++) { const t = k / 24, x = -hx + 2 * hx * t, wv = frontWave ? frontWave * Math.pow(Math.cos((x / hx) * Math.PI / 2), 2) : 0; s.lineTo(x, -r + wv); } // façade (devient +z une fois couchée)
+  for (let k = 1; k <= N; k++) { const a = -Math.PI / 2 + Math.PI * k / N; s.lineTo(hx + Math.cos(a) * r, Math.sin(a) * r); }
+  for (let k = 1; k <= 24; k++) { const t = k / 24, x = hx - 2 * hx * t; s.lineTo(x, r); } void phase;
+  for (let k = 1; k < N; k++) { const a = Math.PI / 2 + Math.PI * k / N; s.lineTo(-hx + Math.cos(a) * r, Math.sin(a) * r); }
+  return s;
+}
+Object.assign(LANDMARKS, {
+  sheratonNkc() { // Sheraton Nouakchott (2025) : grand hôtel mauresque couleur sable, tour centrale crénelée, loggias, socle à arcades, piscine
+    const g0 = new THREE.Group(), g = new THREE.Group(); g0.add(g); g.scale.x = 0.86;
+    const wall = facadeMat('sherW', { wall: '#e6c993', win: '#7a6650', cols: 4, rows: 4, cellW: 3.4, cellH: 3.4, lit: 0.5, balcony: '#f4e4c4' });
+    const top = facadeMat('sherT', { style: 'arch', wall: '#e9cd98', win: '#86705a', cols: 4, rows: 2, cellW: 3.4, cellH: 3.4, lit: 0.6 });
+    const arc = facadeMat('sherA', { style: 'arch', wall: '#ead2a0', win: '#4a3a2a', cols: 2, rows: 1, cellW: 6.5, cellH: 8, lit: 0.9 });
+    const roof = plainMat(0xd9bd88), sand = plainMat(0xe6c993), cream = plainMat(0xf3e6c8);
+    const mash = surf({ map: canvasTex(64, 64, (c, w, h) => { c.fillStyle = '#7a5532'; c.fillRect(0, 0, w, h); c.fillStyle = '#3a2717'; for (let y = 4; y < h; y += 10) for (let x = 4 + (y % 20 ? 5 : 0); x < w; x += 10) { c.beginPath(); c.arc(x, y, 2.6, 0, 6.3); c.fill(); } c.strokeStyle = '#a07648'; c.lineWidth = 3; c.strokeRect(1, 1, w - 2, h - 2); }, true), roughness: 0.8 }); // moucharabieh en bois
+    // aile principale (rez + 6 étages) et retours en L
+    bbox(g, 104, 24, 22, wall, roof, 0, 0, 0); bbox(g, 22, 24, 24, wall, roof, -41, 0, -22); bbox(g, 22, 24, 24, wall, roof, 41, 0, -22);
+    bbox(g, 104, 3.4, 22.4, top, roof, 0, 24, 0);
+    // tour centrale (9 niveaux) et tours d'angle
+    bbox(g, 26, 30.6, 26, wall, roof, 0, 0, 0.5); bbox(g, 26.6, 3.4, 26.6, top, roof, 0, 30.6, 0.5);
+    for (const x of [-46, 46]) { bbox(g, 12, 27.4, 22.6, wall, roof, x, 0, 0); bbox(g, 12.4, 3, 23, top, roof, x, 27.4, 0); }
+    crenels(g, 104, 22.4, 27.4, sand, 1.8, 1.0); crenels(g, 26.6, 26.6, 34, sand, 1.6, 1.3);
+    for (const x of [-46, 46]) crenels(g, 12.4, 23, 30.4, sand, 1.6, 1.1);
+    // balcons à moucharabieh sur la façade (côté rue) de part et d'autre de la tour
+    for (const x of [-30, -22, 22, 30]) for (let f = 1; f < 7; f += 1) { const b = prim(g, new THREE.BoxGeometry(5.2, 2.2, 1.2), mash, x, f * 3.4 + 1.4, 11.6); b.castShadow = false; prim(g, new THREE.BoxGeometry(5.6, 0.25, 1.5), cream, x, f * 3.4 + 0.25, 11.7); }
+    // socle de deux niveaux à grandes arcades (côté jardin) + terrasse vitrée
+    bbox(g, 96, 8, 12, arc, roof, 0, 0, -17); prim(g, new THREE.BoxGeometry(96, 1.1, 12.4), new THREE.MeshStandardMaterial({ color: 0xdfeef4, transparent: true, opacity: 0.5, roughness: 0.1 }), 0, 8.6, -17);
+    // porche d'entrée côté rue
+    bbox(g, 18, 7, 6, arc, cream, 0, 0, 14);
+    // piscine en haricot devant le socle, plages et palmiers en pots
+    const ps = new THREE.Shape(); ps.moveTo(-18, 0); ps.bezierCurveTo(-18, -9, -4, -10, 0, -5); ps.bezierCurveTo(4, -1, 14, -11, 20, -5); ps.bezierCurveTo(26, 1, 14, 9, 4, 6); ps.bezierCurveTo(-4, 3, -18, 10, -18, 0);
+    const pg = new THREE.ShapeGeometry(ps, 24); pg.rotateX(-Math.PI / 2);
+    const pool = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ color: 0x2aa7c9, roughness: 0.08, metalness: 0.1 })); pool.position.set(-6, 0.12, -40); g.add(pool);
+    const deck = new THREE.Mesh(new THREE.PlaneGeometry(70, 30), plainMat(0xe9d6ae)); deck.rotation.x = -Math.PI / 2; deck.position.set(-4, 0.08, -38); g.add(deck);
+    const t = textTex([{ t: 'SHERATON', y: 0.55, size: 150 }], { bg: '#e3c48c', fg: '#3b2b1d', w: 1024, h: 256 });
+    signMesh(g, t, 16, 4, 0, 31.2, 13.85, 1.3);
+    signMesh(g, textTex([{ t: 'SHERATON NOUAKCHOTT', y: 0.36, size: 88 }, { t: 'شيراتون نواكشوط', y: 0.76, size: 70, font: '700 SZpx Arial, sans-serif' }], { bg: '#3b2b1d', fg: '#f3e2bd', w: 1024, h: 256 }), 12, 3, 0, 5.2, 17.1, 1);
+    flagPole(g, -8, 22, 12); flagPole(g, 8, 22, 12);
+    return { g: g0, r: 56, d: 60, w: 94, name: 'Sheraton Nouakchott' };
+  },
+  fasqNkc() { // Fasq Hôtel (2023) : 7 étages en bandeaux blancs ondulés, vitrages sombres et panneaux brun-rouge, extrémités arrondies
+    const g = new THREE.Group();
+    const core = facadeMat('fasqC', { wall: '#94523c', win: '#26343d', cols: 4, rows: 4, cellW: 2.8, cellH: 3.3, lit: 0.55 });
+    const white = plainMat(0xf4f4f1, { roughness: 0.4 }), roof = plainMat(0xd9d9d6), brown = plainMat(0x5a3726, { roughness: 0.6 }), lobby = facadeMat('fasqL', { style: 'glass', wall: '#4a2c1f', win: '#26343c', cols: 3, rows: 1, cellW: 4, cellH: 5, lit: 0.9 });
+    const W = 50, D = 15, FH = 3.3, NF = 7, Y0 = 5.2;
+    const extr = (shape, h) => { const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 18 }); geo.rotateX(-Math.PI / 2); return geo; };
+    const coreG = extr(stadiumShape(W, D, 2.2), NF * FH + 1); const cuv = coreG.attributes.uv; for (let i = 0; i < cuv.count; i++) cuv.setXY(i, cuv.getX(i) / (2.6 * 4), cuv.getY(i) / (3.3 * 4));
+    prim(g, coreG, core, 0, Y0, 0);
+    prim(g, extr(stadiumShape(W + 2, D + 3, 0), Y0), lobby, 0, 0, 0);
+    prim(g, extr(stadiumShape(W + 3.4, D + 4.4, 0), 0.6), white, 0, Y0 - 0.3, 0);
+    for (let f = 1; f <= NF; f++) prim(g, extr(stadiumShape(W + 3.6, D + 3.6, 2.6 + 0.5 * Math.sin(f * 0.9)), 0.45), white, 0, Y0 + f * FH - 0.2, 0); // bandeaux ondulés
+    prim(g, extr(stadiumShape(W + 3.2, D + 3.2, 2.4), 1.1), white, 0, Y0 + NF * FH + 0.9, 0);
+    prim(g, new THREE.BoxGeometry(1.4, NF * FH, 1.6), brown, 0, Y0 + NF * FH / 2, D / 2 + 0.6); // fente verticale centrale
+    for (const x of [-10, -4, 4, 10]) prim(g, new THREE.BoxGeometry(1.2, Y0, 1.2), brown, x, Y0 / 2, D / 2 + 1.6);
+    const s = textTex([{ t: 'FASQ ★★★★★', y: 0.55, size: 130 }], { bg: '#f4f4f1', fg: '#6b6f73', w: 1024, h: 200 });
+    signMesh(g, s, 15, 2.9, -6, Y0 + NF * FH + 3.6, D / 2 + 0.2, 1.2);
+    signMesh(g, textTex([{ t: 'فصك', y: 0.55, size: 150, font: '700 SZpx Arial, sans-serif' }], { bg: '#f4f4f1', fg: '#b33a2a', w: 512, h: 200 }), 6, 2.3, 11, Y0 + NF * FH + 3.4, D / 2 + 0.2, 1.2);
+    flagPole(g, -14, D / 2 + 6, 10); flagPole(g, 14, D / 2 + 6, 10);
+    return { g, r: 30, d: 22, w: 56, name: 'Fasq Hôtel' };
+  },
+  snimTower() { // Immeuble SNIM (2017) : 15 étages, 54 m, la tour s'évase vers le haut (pignons courbes crème), bandeaux de fenêtres
+    const g = new THREE.Group();
+    const H = 52, D = 17, W0 = 23, W1 = 37, NL = 26;
+    const win = facadeMat('snimW', { style: 'glass', wall: '#e9ddc6', win: '#3f4e5c', cols: 6, rows: 4, cellW: 2.2, cellH: 3.45, lit: 0.6, band: '#efe5d3' });
+    const endM = plainMat(0xefe2c8, { roughness: 0.7 });
+    const roof = plainMat(0xd8cdb8), cream = plainMat(0xf1e6d0), white = plainMat(0xffffff, { roughness: 0.5 });
+    const pos = [], uv = [], idx = [], grpF = [], grpE = [];
+    const wAt = y => W0 + (W1 - W0) * Math.pow(y / H, 2.2);
+    const vtx = (x, y, z, u, v) => { pos.push(x, y, z); uv.push(u, v); return pos.length / 3 - 1; };
+    for (let k = 0; k < NL; k++) { // une tranche par niveau : 2 grandes façades vitrées + 2 pignons courbes
+      const y0 = H * k / NL, y1 = H * (k + 1) / NL, a0 = wAt(y0) / 2, a1 = wAt(y1) / 2;
+      for (const sz of [1, -1]) { const i0 = vtx(-a0 * sz, y0, sz * D / 2, -a0 / 2.2 / 6, y0 / 3.45 / 4), i1 = vtx(a0 * sz, y0, sz * D / 2, a0 / 2.2 / 6, y0 / 3.45 / 4), i2 = vtx(a1 * sz, y1, sz * D / 2, a1 / 2.2 / 6, y1 / 3.45 / 4), i3 = vtx(-a1 * sz, y1, sz * D / 2, -a1 / 2.2 / 6, y1 / 3.45 / 4); grpF.push(i0, i1, i2, i0, i2, i3); }
+      for (const sx of [1, -1]) { const i0 = vtx(sx * a0, y0, sx * D / 2, 0, y0 / 3.45), i1 = vtx(sx * a0, y0, -sx * D / 2, 1, y0 / 3.45), i2 = vtx(sx * a1, y1, -sx * D / 2, 1, y1 / 3.45), i3 = vtx(sx * a1, y1, sx * D / 2, 0, y1 / 3.45); grpE.push(i0, i1, i2, i0, i2, i3); }
+    }
+    idx.push(...grpF, ...grpE);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+    geo.addGroup(0, grpF.length, 0); geo.addGroup(grpF.length, grpE.length, 1); geo.computeVertexNormals();
+    const tw = new THREE.Mesh(geo, [win, endM]); tw.position.y = 7; tw.castShadow = !LOW; tw.receiveShadow = !LOW; g.add(tw);
+    // bande vitrée verticale au milieu de chaque pignon
+    for (const sx of [1, -1]) for (let k = 0; k < 13; k++) { const y = 7 + 4 * k + 2, a = wAt(4 * k + 2) / 2; prim(g, new THREE.BoxGeometry(0.2, 3.6, 1.6), new THREE.MeshStandardMaterial({ color: 0x5d86ad, roughness: 0.2, metalness: 0.3 }), sx * (a + 0.08), y, 0); }
+    const rt = new THREE.BoxGeometry(W1 + 0.6, 1.2, D + 0.6); prim(g, rt, cream, 0, 7 + H + 0.6, 0);
+    bbox(g, 40, 7, 25, facadeMat('snimP', { style: 'glass', wall: '#d9cdb5', win: '#2f3e4a', cols: 4, rows: 1, cellW: 4, cellH: 7, lit: 0.8 }), roof, 0, 0, 0);
+    prim(g, new THREE.BoxGeometry(44, 0.6, 29), white, 0, 7.3, 0);
+    signMesh(g, textTex([{ t: 'SNIM', y: 0.36, size: 100 }, { t: 'شركة اسنيم', y: 0.76, size: 70, font: '700 SZpx Arial, sans-serif' }], { bg: '#0d2f6b', w: 768, h: 256 }), 9, 3, 0, 4.6, 12.6, 0.8);
+    flagPole(g, -16, 17, 12); flagPole(g, 16, 17, 12);
+    return { g, r: 26, d: 29, w: 44, name: 'Tour SNIM' };
+  },
+  nkcHotel() { // Nouakchott Hôtel : tour de 9 niveaux beige rosé à balcons, colonne centrale de balcons, rez vitré ; annexe à arcades et piscine
+    const g = new THREE.Group();
+    const wall = facadeMat('nkcW', { wall: '#d6ae93', win: '#2d2a2c', cols: 3, rows: 3, cellW: 3.3, cellH: 3.3, lit: 0.6, balcony: '#5b3d33' });
+    const roof = plainMat(0xc89e85), dark = plainMat(0x4e2f29), cream = plainMat(0xf2e8da);
+    const ann = facadeMat('nkcA', { style: 'arch', wall: '#f3eee6', win: '#5f6b72', cols: 2, rows: 1, cellW: 4.2, cellH: 4.4, lit: 0.8 });
+    bbox(g, 22, 4.6, 16, facadeMat('nkcL', { style: 'glass', wall: '#b88f78', win: '#2a3238', cols: 3, rows: 1, cellW: 3.6, cellH: 4.6, lit: 0.9 }), roof, 0, 0, 0);
+    bbox(g, 22, 27, 16, wall, roof, 0, 4.6, 0);
+    for (let f = 0; f < 8; f++) { prim(g, new THREE.BoxGeometry(5.4, 0.25, 1.4), cream, 0, 4.9 + f * 3.33, 8.6); prim(g, new THREE.BoxGeometry(5.4, 1, 0.08), dark, 0, 5.6 + f * 3.33, 9.3); }
+    for (const x of [-10.9, 10.9]) prim(g, new THREE.BoxGeometry(0.4, 27, 0.6), dark, x, 18, 8.1);
+    prim(g, new THREE.BoxGeometry(23, 1.1, 17), cream, 0, 32.2, 0);
+    bbox(g, 30, 7, 12, ann, cream, 2, 0, -15);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(14, 7), new THREE.MeshStandardMaterial({ color: 0x2aa7c9, roughness: 0.08 })); pool.rotation.x = -Math.PI / 2; pool.position.set(2, 0.12, -26); g.add(pool);
+    signMesh(g, textTex([{ t: 'Nouakchott Hotel', y: 0.5, size: 110, font: 'italic 700 SZpx Georgia, serif' }], { bg: '#3b1c1a', fg: '#ff5a6a', w: 1024, h: 180 }), 9, 1.6, -3.5, 5.5, 8.2, 1.6);
+    signMesh(g, textTex([{ t: 'فندق انواكشوط', y: 0.5, size: 100, font: '700 SZpx Arial, sans-serif' }], { bg: '#3b1c1a', fg: '#ff5a6a', w: 768, h: 180 }), 6, 1.4, 5.5, 5.5, 8.2, 1.6);
+    flagPole(g, 13, 10, 10);
+    return { g, r: 22, d: 30, w: 32, name: 'Nouakchott Hôtel' };
+  },
+  palaisCongres() { // Palais des Congrès : grande salle carrée beige à hautes arcades, coupole blanche
+    const g = new THREE.Group();
+    const arcade = facadeMat('palA', { style: 'arch', wall: '#e7cf9f', win: '#3d4d58', cols: 2, rows: 1, cellW: 5, cellH: 11, lit: 0.85 });
+    const roof = plainMat(0xe2c896), white = plainMat(0xf7f5ef, { roughness: 0.5 }), sand = plainMat(0xe0c391);
+    bbox(g, 54, 12, 54, arcade, roof, 0, 0, 0); bbox(g, 38, 4, 38, arcade, roof, 0, 12, 0);
+    for (const s of [-1, 1]) for (const ax of ['x', 'z']) for (let k = -5; k <= 5; k++) { const m = prim(g, new THREE.BoxGeometry(1.1, 12.5, 1.1), sand, ax === 'x' ? k * 5 : s * 27.3, 6.25, ax === 'x' ? s * 27.3 : k * 5); m.castShadow = false; }
+    prim(g, new THREE.BoxGeometry(56, 1.2, 56), sand, 0, 12.6, 0);
+    prim(g, domeGeo(15), white, 0, 16, 0); prim(g, new THREE.CylinderGeometry(15.2, 15.2, 1.2, 32), sand, 0, 16.2, 0); prim(g, new THREE.SphereGeometry(0.9, 10, 8), GOLD, 0, 31.5, 0);
+    for (let k = 0; k < 5; k++) prim(g, new THREE.BoxGeometry(30 - k * 2, 0.35, 2.4), plainMat(0xeee3cd), 0, 0.17 + k * 0.35, 29 + 4 - k * 1.2);
+    signMesh(g, textTex([{ t: 'PALAIS DES CONGRÈS', y: 0.36, size: 84 }, { t: 'قصر المؤتمرات', y: 0.76, size: 74, font: '700 SZpx Arial, sans-serif' }], { bg: '#0b5d3b', fg: '#ffffff', w: 1024, h: 256 }), 14, 3.5, 0, 13.6, 27.9, 1);
+    flagPole(g, -10, 34, 12); flagPole(g, 10, 34, 12);
+    return { g, r: 40, d: 60, w: 58, name: 'Palais des Congrès' };
+  },
+});
 // palmiers (géométrie procédurale, instanciée)
 const PALM = (() => { // cocotier : tronc annelé et courbé, palmes découpées (texture à transparence), noix de coco
   const H = 9, RS = LOW ? 6 : 8, HS = LOW ? 4 : 6;
@@ -1399,14 +1527,17 @@ function buildCity() {
 // création des InstancedMesh (un appel de rendu par type d'objet) : aussi utilisé par le mode Taxi
 function raceMask() { // emprise du circuit : la vraie ville n'y pose ni bâtiment, ni mur, ni lampadaire
   const C = 2, x0 = BBOX[0] - 300, z0 = BBOX[2] - 300, W = Math.ceil((BBOX[1] - BBOX[0] + 600) / C), H = Math.ceil((BBOX[3] - BBOX[2] + 600) / C), g = new Uint8Array(W * H);
-  const disc = (x, z, r) => {
+  const disc = (x, z, r, v) => {
     const a0 = Math.max(0, Math.floor((x - r - x0) / C)), a1 = Math.min(W - 1, Math.floor((x + r - x0) / C)), b0 = Math.max(0, Math.floor((z - r - z0) / C)), b1 = Math.min(H - 1, Math.floor((z + r - z0) / C)), r2 = (r + C * 0.7) ** 2;
-    for (let b = b0; b <= b1; b++) { const dz = z0 + (b + 0.5) * C - z; for (let a = a0; a <= a1; a++) { const dx = x0 + (a + 0.5) * C - x; if (dx * dx + dz * dz <= r2) g[b * W + a] = 1; } }
+    for (let b = b0; b <= b1; b++) { const dz = z0 + (b + 0.5) * C - z; for (let a = a0; a <= a1; a++) { const dx = x0 + (a + 0.5) * C - x; if (dx * dx + dz * dz <= r2 && g[b * W + a] < v) g[b * W + a] = v; } }
   };
-  for (let i = 0; i < N; i += 2) disc(PX[i], PZ[i], WALL + 3.2);
-  for (const br of BR) for (let k = 0; k < br.M; k += 2) disc(br.X[k], br.Z[k], BW + 2.4);
-  for (const o of RT_OCC) disc(o.x, o.z, o.r + 1);
-  return (x, z) => { const a = Math.floor((x - x0) / C), b = Math.floor((z - z0) / C); return a >= 0 && b >= 0 && a < W && b < H && g[b * W + a] === 1; };
+  // 1 : abords (ni bâtiment, ni mur, ni lampadaire) · 2 : la piste jusqu'aux glissières (les rues réelles s'y arrêtent)
+  for (let i = 0; i < N; i += 2) disc(PX[i], PZ[i], WALL + 3.2, 1);
+  for (const br of BR) for (let k = 0; k < br.M; k += 2) disc(br.X[k], br.Z[k], BW + 2.4, 1);
+  for (const o of RT_OCC) disc(o.x, o.z, o.r + 1, 1);
+  for (let i = 0; i < N; i += 2) disc(PX[i], PZ[i], WALL - 0.6, 2);
+  for (const br of BR) for (let k = 0; k < br.M; k += 2) disc(br.X[k], br.Z[k], BW - 0.6, 2);
+  return (x, z) => { const a = Math.floor((x - x0) / C), b = Math.floor((z - z0) / C); return a >= 0 && b >= 0 && a < W && b < H ? g[b * W + a] : 0; };
 }
 function instanceLib(inst, O) {
   const city = ASSETS.city;
@@ -2289,7 +2420,7 @@ function startGame() {
   clearSkids(); clearSmoke();
   const m = mode();
   Object.assign(game, { time: 0, raceT: 0, score: 0, timeLeft: 90, drifts: 0, bestCombo: 0, maxAngle: 0, countdown: 3.2, lastCount: -1, laps: prof.laps, earned: 0, finishWait: 0, wrongT: 0, stuck: 0, lightsT: 0, ghostRec: [], newBest: false, nitroTold: false, bottles: 0, flashT: 0, street: null, mi: undefined });
-  for (const b of BOTTLES) b.t = 0;
+  for (const b of BOTTLES) b.t = 0; quartierReset();
   game.best = store.get('best_' + m, 0);
   Object.assign(combo, { active: false, pts: 0, time: 0, grace: 0, mult: 1 });
   resetPlayerRun(player);
@@ -2947,6 +3078,7 @@ function updateHud() {
     $('mapName').textContent = st.name;
     el.classList.add('show'); clearTimeout(game.streetTO); game.streetTO = setTimeout(() => el.classList.remove('show'), 2600);
   }
+  if (RT && TAXI && TAXI.race && TAXI.race.on && (game.qT = (game.qT || 0) + 1) % 15 === 0) { const q = TAXI.race.placeName(pc.x, pc.z); if (q) quartierAt(q.district, q.ar, q.moug, q.mar); }
   drawMap();
 }
 // étiquettes de noms au-dessus des voitures
@@ -3334,9 +3466,12 @@ function mainIntroShots() {
   if (RT) {
     const i0 = idxWrap(-Math.round(520 / SEG)), i1 = idxWrap(-Math.round(90 / SEG));
     shots.push({ dur: 5.5, p0: V3(PX[i0] - TX[i0] * 160 + NX[i0] * 70, 75, PZ[i0] - TZ[i0] * 160 + NZ[i0] * 70), p1: V3(PX[i0] + NX[i0] * 26, 34, PZ[i0] + NZ[i0] * 26), t0: V3(PX[i1], 0, PZ[i1]), t1: V3(PX[0], 2, PZ[0]), fov: 55, title: 'DRIFT ZONE', sub: 'Nouakchott réelle · Mauritanie', credit: '' });
-    const pref = ['bmd', 'snim', 'mosquee', 'marche', 'afarco', 'sheraton', 'musee', 'palais', 'nkc', 'iman', 'fasq', 'mauricenter'], rank = l => { const r = pref.indexOf(l.id); return r < 0 ? 99 : r; };
-    const lmR = TAXI && TAXI.race && TAXI.race.on ? TAXI.race.landmarks().filter(l => nearest(l.x, l.z, -1).d < 380).sort((a, b) => rank(a) - rank(b)).slice(0, 3) : [];
-    lmR.forEach((l, k) => { const a = l.face + 0.55, b = l.face + 0.2, R = 48; shots.push({ dur: 3.6, p0: V3(l.x + Math.sin(a) * R, 19, l.z + Math.cos(a) * R), p1: V3(l.x + Math.sin(b) * (R - 9), 13, l.z + Math.cos(b) * (R - 9)), t0: V3(l.x, 14, l.z), t1: V3(l.x, 11, l.z), cap: l.name, capSub: l.ar || 'Nouakchott', title: k === 0 ? '' : undefined, credit: credits[k] }); });
+    // les monuments refaits d'après photos : tour SNIM, Fasq, Sheraton, Palais des Congrès, puis la Grande Mosquée près du circuit
+    const order = ['snim', 'fasq', 'sheraton', 'palais', 'mosquee'], subs = { snim: 'Avenue Gamal Abdel Nasser · Capitale', fasq: 'Avenue Moktar Ould Daddah · Tevragh Zeina', sheraton: 'Tevragh Zeina · ouvert en 2025', palais: 'Tevragh Zeina', mosquee: 'Capitale' };
+    const lmR = TAXI && TAXI.race && TAXI.race.on ? order.map(id => TAXI.race.landmarks().find(l => l.id === id)).filter(Boolean) : [];
+    if (lmR.length && TAXI.race.preload) TAXI.race.preload(lmR.map(l => [l.x, l.z]), 330);
+    const cr = credits.concat(['Le circuit : Gamal Abdel Nasser · route de Nouadhibou · Al Quds · De Gaulle', 'Chaque quartier s’affiche en haut de l’écran']);
+    lmR.forEach((l, k) => { const sh = TAXI.lmShot(l.id, l.x, l.z, l.face, k, l.name, (l.ar ? l.ar + ' · ' : '') + subs[l.id], cr[k]); if (k === 0) sh.title = ''; shots.push(sh); });
   } else
   shots.push({ dur: 5.5, p0: V3(OCEAN_X - 140, 50, cz + 300), p1: V3(OCEAN_X + 40, 105, cz + 60), t0: V3(cx, 8, cz), t1: V3(cx, 0, cz - 60), fov: 50, title: 'DRIFT ZONE', sub: 'Nouakchott · Mauritanie', credit: '' });
   const pref = ['SNIM', 'FASQ HÔTEL', 'Grande Mosquée', 'MARCHÉ CAPITALE', 'MAURICENTER', 'SHERATON NOUAKCHOTT', 'HÔTEL NOUAKCHOTT'];
@@ -3347,6 +3482,22 @@ function mainIntroShots() {
   return shots;
 }
 
+/* ======================= Nom du quartier en haut de l'écran (course et taxi) ======================= */
+const quart = { cur: null, cand: null, candT: 0, to: 0 };
+function quartierAt(name, ar, moug, mar, force) { // affiché quand on entre dans un nouveau quartier (après 1,5 s, pour ne pas clignoter aux limites)
+  const el = $('quartier'); if (!el || !name) return;
+  const now = performance.now();
+  if (force) quart.cur = null;
+  if (name === quart.cur) { quart.cand = null; return; }
+  if (name !== quart.cand) { quart.cand = name; quart.candT = now; if (quart.cur !== null && !force) return; }
+  if (quart.cur !== null && now - quart.candT < 1500) return;
+  quart.cur = name; quart.cand = null;
+  const sub = [ar, moug && moug !== name ? 'Moughataa ' + moug + (mar ? ' · ' + mar : '') : ''].filter(Boolean).join(' · ');
+  el.innerHTML = '📍 ' + esc(name.toUpperCase()) + (sub ? '<small>' + esc(sub) + '</small>' : '');
+  el.classList.add('show'); clearTimeout(quart.to); quart.to = setTimeout(() => el.classList.remove('show'), 3800);
+}
+function quartierReset() { quart.cur = null; quart.cand = null; const el = $('quartier'); if (el) el.classList.remove('show'); }
+
 /* ======================= Interface pour le mode Taxi (taxi.js) ======================= */
 function taxiApi() {
   return {
@@ -3355,7 +3506,7 @@ function taxiApi() {
     ASSETS, loadAsset, newCar, makeSpec, dynStep, collidePair, readInput, getPad, padActs, pad, keys, touch, initAudio, audio, updateAudio, blip, crashSound, GEAR_TOP,
     spawnSmoke, addSkid, clearSkids, clearSmoke, fx(dt) { updateSmoke(dt); crashFx.update(dt); if (skidDirty) { skidGeo.attributes.position.needsUpdate = true; skidDirty = false; } },
     updateCamera, camState, CAMS, attachHeadlights, headSpot, beam, popup, buildCar, dentModel, repairModel, crashFx, shake(v) { camShake = Math.max(camShake, v); }, introPlay, introUpdate, get introOn() { return intro.on; }, music, showScreen, renderMenu, hexCss, menuTime: () => menuTime, perf,
-    get state() { return state; }, set state(v) { state = v; }, game, clock,
+    get state() { return state; }, set state(v) { state = v; }, game, clock, quartierAt, quartierReset,
     hideDrift() { const keep = new Set([hemi, sun, sun.target, sky, stars, smokePts, skidMesh, headHolder]); const was = []; for (const o of scene.children) if (!keep.has(o) && o.visible) { was.push(o); o.visible = false; } if (player && player.model) player.model.root.visible = false; return was; },
     showDrift(was) { for (const o of was) o.visible = true; if (player && player.model) { player.model.root.visible = true; attachHeadlights(player.model); } updateDistCull(); },
   };
@@ -3375,7 +3526,7 @@ loadAll(() => {
   if (!TAXI && mode() === 'taxi') prof.mode = 0;
   const startUi = () => {
     $('loading').classList.add('hidden');
-    const toMenuNow = () => { state = 'menu'; showScreen('menu'); renderMenu(); orbitAng = 0.6; camera.fov = 42; camera.updateProjectionMatrix(); };
+    const toMenuNow = () => { if (RT && TAXI && TAXI.race && TAXI.race.release) TAXI.race.release(); state = 'menu'; showScreen('menu'); renderMenu(); orbitAng = 0.6; camera.fov = 42; camera.updateProjectionMatrix(); };
     if (!TEST || /[?&]intro/.test(location.search)) { state = 'intro'; showScreen(null); introPlay(mainIntroShots(), toMenuNow); } else toMenuNow();
   };
   if (RT && TAXI && TAXI.race) { // circuit dans la vraie Nouakchott : rues, bâtiments et monuments réels autour de la piste

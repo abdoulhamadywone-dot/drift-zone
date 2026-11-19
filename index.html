@@ -212,6 +212,11 @@ input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;backg
 #street{position:absolute;top:16px;left:50%;transform:translateX(-50%) translateY(-12px);opacity:0;transition:.45s;padding:7px 16px;font-weight:700;font-size:16px;letter-spacing:.06em;white-space:nowrap;text-align:center;border-left:4px solid #00a95c}
 #street.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #street small{display:block;font-size:14px;opacity:.85;font-family:Arial,sans-serif;letter-spacing:0}
+#quartier{position:absolute;top:70px;left:50%;transform:translateX(-50%) translateY(-10px);opacity:0;transition:opacity .5s,transform .5s;padding:6px 20px;font-weight:800;font-size:19px;letter-spacing:.14em;white-space:nowrap;text-align:center;border-bottom:3px solid #f2c200;pointer-events:none;z-index:6}
+#quartier.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#quartier small{display:block;font-size:13px;opacity:.9;font-family:Arial,sans-serif;letter-spacing:.02em;font-weight:700}
+.has-touch #quartier{top:100px;font-size:15px;padding:5px 14px}
+body.cleanHud #quartier{display:none!important}
 .has-touch #street{top:56px;font-size:13px;padding:5px 12px}.has-touch #street small{font-size:12px}
 #mapName{position:absolute;left:0;right:0;bottom:-20px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.08em;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
 .has-touch #mapName{display:none}
@@ -366,6 +371,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
   <div id="speedo" class="panel"><div class="gear disp" id="gear">1</div><div class="val disp" id="speed">0</div><div class="unit">KM/H</div><div class="meter" id="rpm"><i id="rpmBar"></i></div><div class="nlab">NITRO</div><div class="meter" id="nitroM"><i id="nitroBar"></i></div></div>
   <div id="minimap" class="panel"><canvas id="mapCv" width="320" height="320"></canvas><div id="mapName"></div></div>
   <div id="street" class="panel"></div>
+  <div id="quartier" class="panel"></div>
   <div id="nitroBtn" title="Nitro"><div class="ring"><b>🔥</b></div><div class="t"><span>NITRO</span><small>appuie sur <kbd id="nitroKey">MAJ</kbd></small></div></div>
   <div id="lights" class="panel hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="countdown" class="disp hidden">3</div>
@@ -524,7 +530,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '3.1.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '3.2.0';</script>
 <script src="engine-dsp.js"></script>
 <script src="data/geo.js"></script>
 <script src="data/circuit_nkc.js"></script>

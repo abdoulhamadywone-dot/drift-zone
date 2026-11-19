@@ -51,6 +51,30 @@ QUALITÉ GRAPHIQUE (Options)
   Le jeu ajuste tout seul la résolution pour rester fluide, sans descendre
   sous une image nette.
 
+NOUVEAU EN 3.2.0
+  - Les passants marchent sur les trottoirs (plus sur la chaussée, ni sur
+    l'autre chaussée des avenues à deux sens) et tournent au coin des rues ;
+    ils traversent aux carrefours. Les chèvres, ânes et moutons restent sur
+    le sable au bord des rues et ne se plantent plus au milieu de la route.
+  - Le nom du quartier s'affiche en haut de l'écran quand tu y entres
+    (Riyad, Arafat, Capitale, Las Palmas, Dar Naïm, Teyarett…), en français
+    et en arabe, avec la moughataa — en taxi comme en course.
+  - Route de Rosso (route du PK) du carrefour Madrid au carrefour Bamako :
+    nom usuel affiché, deux chaussées, circulation dans les deux sens.
+    La route de Nouadhibou porte aussi son nom usuel.
+  - Bâtiments refaits d'après photos, à leur vraie adresse : tour SNIM
+    (15 étages, s'évase vers le haut), Fasq Hôtel (bandeaux blancs ondulés),
+    Sheraton Nouakchott (hôtel mauresque crénelé, moucharabiehs, piscine),
+    Nouakchott Hôtel (tour à balcons), Palais des Congrès (arcades et
+    coupole blanche).
+  - En course, les rues qui croisent le circuit vont jusqu'aux glissières
+    (plus de bouts de route coupés), et les carrefours de la vraie ville ne
+    dépassent plus sur la piste.
+  - Générique refait : survol du centre-ville, tour SNIM, Fasq, Sheraton,
+    Palais des Congrès, Grande Mosquée, puis le départ.
+  - Correction : certains quartiers ne se chargeaient pas (bâtiment au tracé
+    fermé en double) ; un morceau de ville en erreur ne bloque plus le jeu.
+
 COURSES DANS LA VRAIE NOUAKCHOTT (nouveau, 3.1.0)
   Tous les modes de course (Course contre l'IA, Drift libre, Défi drift 90 s,
   Contre-la-montre, 2 joueurs, En ligne) se courent maintenant dans la vraie

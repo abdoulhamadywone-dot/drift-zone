@@ -36,6 +36,13 @@ hauteur tirée du nombre d'étages OSM ou de la surface. Positions contrôlées 
 satellite (Carrefour BMD, avenue Gamal Abdel Nasser, Palais du Peuple, Sheraton, Fasq,
 Hôtel Nouakchott, Stade olympique, Marché Capitale).
 
+Noms usuels : « Autoroute Rosso » et « Route nationale 2 » (OSM) sont affichées « Route de Rosso
+(route du PK) », « Nouakchott-Nouadhibou » devient « Route de Nouadhibou ». Les quartiers ont leur
+nom arabe (OpenStreetMap, place=suburb). Les grands bâtiments (tour SNIM, Fasq, Sheraton,
+Nouakchott Hôtel, Palais des Congrès) sont modélisés d'après des photos publiques ; les bâtiments
+OSM sous leur emprise ne sont pas posés. L'Hôtel Tasiast se trouve à Nouadhibou (boulevard
+Maritime), pas à Nouakchott : il n'est donc pas sur la carte réelle.
+
 Circuit de course réel (data/circuit_nkc.js)
 --------------------------------------------
 Tracé calculé sur le graphe des vraies rues (OpenStreetMap) en passant par les carrefours
