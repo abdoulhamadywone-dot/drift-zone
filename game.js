@@ -1799,6 +1799,7 @@ window.addEventListener('keydown', e => {
   if (state !== 'play' && state !== 'countdown') return;
   if (e.code === 'KeyR' && state === 'play') { if (TAXI && TAXI.active) TAXI.reset(); else resetToTrack(player, true); }
   if (e.code === 'KeyH' && TAXI && TAXI.active) TAXI.horn();
+  if ((e.code === 'KeyF' || e.code === 'KeyE') && TAXI && TAXI.active && !e.repeat) TAXI.door();
   if (e.code === 'KeyC') cycleCam();
   if (e.code === 'KeyM') setMuted(!prof.muted);
   if (e.code === 'KeyK') nextTrack();
@@ -1987,7 +1988,8 @@ function pollPad(dt) {
   const has = k => e.includes(k) || e2.includes(k);
   if (intro.on) { if (e.length || e2.length) introEnd(); return; }
   if (state === 'play' || state === 'countdown') {
-    if (has('start') || has('select')) pauseGame(); // Start : pause · Select : menu des options de la course
+    if (TAXI && TAXI.active && has('select') && state === 'play') TAXI.door(); // mode Taxi : Select = descendre / monter
+    else if (has('start') || has('select')) pauseGame(); // Start : pause · Select : menu des options de la course
     else if (e.includes('reset') && state === 'play') { if (TAXI && TAXI.active) TAXI.reset(); else resetToTrack(player, true); }
     else if (TAXI && TAXI.active && has('tabR')) TAXI.horn();
     else if (e2.includes('reset') && state === 'play' && player2) resetToTrack(player2, true);
@@ -3022,7 +3024,7 @@ function renderMenu() {
   $('raceOpts').classList.toggle('hidden', !raceLike(mode())); renderDuo();
   if (TAXI) TAXI.renderOpts(mode() === 'taxi');
   setSeg('segDiff', prof.diff); setSeg('segLaps', prof.laps);
-  $('modeTip').textContent = { race: 'Astuce : freine avant les virages serrés, garde le nitro pour les lignes droites.', drift: 'Astuce : frein à main pour lancer la glisse, puis contre-braque en gardant les gaz.', chrono: 'Astuce : les longs drifts près du bord rapportent plus.', time: 'Astuce : le fantôme bleu rejoue ton meilleur tour.', taxi: 'Astuce : arrête-toi dans le cercle vert, le client monte. Klaxon : H, R1 ou 📯.', online: 'Astuce : partage le jeu à tes amis pour rouler ensemble.' }[mode()] || '';
+  $('modeTip').textContent = { race: 'Astuce : freine avant les virages serrés, garde le nitro pour les lignes droites.', drift: 'Astuce : frein à main pour lancer la glisse, puis contre-braque en gardant les gaz.', chrono: 'Astuce : les longs drifts près du bord rapportent plus.', time: 'Astuce : le fantôme bleu rejoue ton meilleur tour.', taxi: 'Astuce : arrête-toi dans le cercle vert, le client monte. Klaxon : H, R1 ou 📯. Poursuivi ? F pour descendre et voler une autre voiture.', online: 'Astuce : partage le jeu à tes amis pour rouler ensemble.' }[mode()] || '';
   $('btnPlay').textContent = mode() === 'online' ? 'REJOINDRE ▶' : 'JOUER ▶';
   renderGarage(); renderOptions(); renderNet();
   $('nameInput').value = prof.name;

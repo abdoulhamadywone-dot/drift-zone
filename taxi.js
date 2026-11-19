@@ -463,7 +463,7 @@ window.DZTaxi = function (A) {
   const VT = { // uniquement des modèles détaillés
     civil: { node: 'tx_mondeo_civil', tint: CAR_TINTS, w: 5 },
     suv: { build: 'audi', tint: CAR_TINTS, w: 4 },
-    taxi2: { node: 'tx_mondeo_taxi', w: 2.2 }, e7: { node: 'tx_e7', w: 2.2 },
+    taxi2: { node: 'tx_mondeo_taxi', w: 3.2 },
     police: { node: 'tx_mondeo_police', w: 0, police: true },
     amb: { node: 'tx_ambulance', w: 0.4, vmax: 13 },
     box: { node: 'tx_truck_box', w: 1.3, vmax: 10.5 }, cist: { node: 'tx_truck_cistern', w: 1.1, vmax: 10 }, flat: { node: 'tx_truck_flat', w: 1.3, vmax: 10.5 },
@@ -536,7 +536,7 @@ window.DZTaxi = function (A) {
   }
   function spawnCar(type, i, j, d, lane, s) {
     const t = VT[type]; if (!t || !t.free || !t.free.length) return null;
-    const c = { type, t, slot: t.free.pop(), col: t.tint ? lin(pick(t.tint)) : null, i, j, d, lane, s: s || 0, v: 6, vmax: (t.vmax || 12.5) + R() * 2, hl: t.hl, hw: t.hw, x: 0, z: 0, h: HEAD(d), vx: 0, vz: 0, police: !!t.police, cart: !!t.cart, bump: 0, honkT: 0, stuck: 0, ghost: 0, id: cars.length, gap: 99, wait: 0 };
+    const hex = t.tint ? pick(t.tint) : null, c = { type, t, slot: t.free.pop(), hex, col: hex !== null ? lin(hex) : null, i, j, d, lane, s: s || 0, v: 6, vmax: (t.vmax || 12.5) + R() * 2, hl: t.hl, hw: t.hw, x: 0, z: 0, h: HEAD(d), vx: 0, vz: 0, police: !!t.police, cart: !!t.cart, bump: 0, honkT: 0, stuck: 0, ghost: 0, id: cars.length, gap: 99, wait: 0 };
     if (c.cart) c.lane = 1;
     edgePath(c); chooseNext(c); const p = pathAt(c, c.s); c.x = p[0]; c.z = p[1]; c.h = p[2];
     if (taxi && Math.hypot(c.x - taxi.x, c.z - taxi.z) < 28) { t.free.push(c.slot); return null; }
@@ -552,6 +552,8 @@ window.DZTaxi = function (A) {
     for (const c of cars) if (!c.chase) dynAdd(c);
     for (const p of peds) if (p.on && (p.road || p.st === 'board' || p.st === 'alight')) dynAdd(p);
     if (taxi) dynAdd(taxi);
+    for (const v of parked) dynAdd(v.car);
+    if (foot.on) dynAdd(foot);
     for (const pc of chasers) dynAdd(pc.car);
     if (amb.car) dynAdd(amb.car);
   }
@@ -602,8 +604,8 @@ window.DZTaxi = function (A) {
       if (c.bump > 0) want = 0;
       c.v += clamp(want - c.v, -9 * dt, 2.6 * dt); if (c.v < 0) c.v = 0;
       // embouteillage : klaxon, et on finit par passer
-      if (c.v < 0.2 && !stopByLight && c.blocker && c.blocker.kind && c.piece === 'edge' && c.stuck > 2.5 && !c.cart && c.s < c.len - 18) { c.lane = 1 - c.lane; const s0 = c.s; edgePath(c); c.s = s0; chooseNext(c); c.stuck = 0; honk(c.x, c.z, 0.7); } // contourner
-      if (c.v < 0.2 && !stopByLight && c.blocker) { c.stuck += dt; if ((c.blocker === taxi || c.blocker.kind) && c.honkT <= 0 && c.stuck > 1.8) { honk(c.x, c.z, 1); c.honkT = 2.5 + R() * 2; } if (c.stuck > 6 && c.blocker !== taxi) { c.ghost = 2.5; c.stuck = 0; } } else c.stuck = 0;
+      if (c.v < 0.2 && !stopByLight && c.blocker && (c.blocker.kind || c.blocker.parked) && c.piece === 'edge' && c.stuck > 2.5 && !c.cart && c.s < c.len - 18) { c.lane = 1 - c.lane; const s0 = c.s; edgePath(c); c.s = s0; chooseNext(c); c.stuck = 0; honk(c.x, c.z, 0.7); } // contourner
+      if (c.v < 0.2 && !stopByLight && c.blocker) { c.stuck += dt; if ((c.blocker === taxi || c.blocker.kind) && c.honkT <= 0 && c.stuck > 1.8) { honk(c.x, c.z, 1); c.honkT = 2.5 + R() * 2; } if (c.stuck > 6 && (c.blocker !== taxi || taxi.parked)) { c.ghost = 2.5; c.stuck = 0; } } else c.stuck = 0;
       c.s += c.v * dt;
       if (c.s >= c.len) {
         const over = c.s - c.len;
@@ -692,7 +694,7 @@ window.DZTaxi = function (A) {
   }
   function buildPedMeshes() {
     WM = {};
-    const capH = Math.ceil((PED_N + CLIENT_N) / HUMANS.length) + 4;
+    const capH = Math.ceil((PED_N + CLIENT_N) / HUMANS.length) + 6; // + le chauffeur à pied et les conducteurs qui s'enfuient
     for (const n of HUMANS) { const m = vatModel(n, capH); if (m) WM[n] = m; }
     const capA = { wk_goat: LOW ? 10 : 24, wk_donkey: 14, wk_dog: 8, wk_chicken: 12, wk_cat: 5 };
     for (const n in ANI) { const m = vatModel(n, capA[n]); if (m) WM[n] = m; }
@@ -823,6 +825,7 @@ window.DZTaxi = function (A) {
       if (p.down || p.fall > 0) { const k = p.down ? 1 : Math.min(1, (1.2 - p.fall) * 4); if (p.kind === 'animal') _q.setFromEuler(_e.set(0, p.h, Math.PI / 2 * k, 'YXZ')); else _q.setFromEuler(_e.set(-Math.PI / 2 * k, p.h, 0, 'YXZ')); drawPed(p.M, p.x, y0 + 0.12 * k, p.z, _q, p.ph, 1, p.tint); }
       else { _q.setFromAxisAngle(_Y, p.h); drawPed(p.M, p.x, y0, p.z, _q, p.ph, p.idle, p.tint); }
     }
+    drawFoot();
     // ânes attelés aux charrettes
     const D = WM.wk_donkey;
     if (D) for (const c of cars) if (c.cart && Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) < far) { c.wph = (c.wph || 0) + c.v * dt / D.stride; _q.setFromAxisAngle(_Y, c.h); drawPed(D, c.x + Math.sin(c.h) * 1.85, 0.02, c.z + Math.cos(c.h) * 1.85, _q, c.wph, c.v > 0.2 ? 0 : 1, NO_TINT); }
@@ -831,53 +834,65 @@ window.DZTaxi = function (A) {
 
   /* ======================= Le taxi du joueur ======================= */
   const DRIVERS = [
-    { id: 'moulaye', name: 'Moulaye', car: 'tx_e7', char: 'ch_moulaye', perk: 'Rapide · moteur nerveux', color: '#ffd60a', st: { power: 1.08, max: 1.07 } },
-    { id: 'ba', name: 'Taximan Ba', car: 'tx_mondeo_taxi', char: 'ch_ba', perk: 'Vétéran · clients patients (+25 % de temps)', color: '#ff9f1c', st: { time: 1.25 } },
-    { id: 'sidi', name: 'Sidi', car: 'tx_mondeo_civil', tint: 0x1f9a52, char: 'ped_9', perk: 'Maniable · tient la route', color: '#2f9e5b', st: { grip: 1.1, steer: 1.08 } },
-    { id: 'mamadou', name: 'Mamadou', car: 'tx_mondeo_civil', tint: 0x2a62d8, char: 'ped_1', perk: 'Connaît la ville · courses +15 %', color: '#2d6cdf', st: { fare: 1.15 } },
+    { id: 'moulaye', name: 'Moulaye', build: 'audi', paint: 0xffc21a, sign: true, char: 'ch_moulaye', foot: 'wk_ped0', perk: 'Rapide · moteur nerveux', color: '#ffd60a', st: { power: 1.08, max: 1.07 } },
+    { id: 'ba', name: 'Taximan Ba', car: 'tx_mondeo_taxi', char: 'ch_ba', foot: 'wk_ba', perk: 'Vétéran · clients patients (+25 % de temps)', color: '#ff9f1c', st: { time: 1.25 } },
+    { id: 'sidi', name: 'Sidi', car: 'tx_mondeo_civil', tint: 0x1f9a52, sign: true, char: 'ped_9', foot: 'wk_ped9', perk: 'Maniable · tient la route', color: '#2f9e5b', st: { grip: 1.1, steer: 1.08 } },
+    { id: 'mamadou', name: 'Mamadou', car: 'tx_mondeo_civil', tint: 0x2a62d8, sign: true, char: 'ped_1', foot: 'wk_ped1', perk: 'Connaît la ville · courses +15 %', color: '#2d6cdf', st: { fare: 1.15 } },
   ];
   T.driver = clamp(store.get('taxiDriver', 0), 0, DRIVERS.length - 1);
   T.shift = clamp(store.get('taxiShift', 1), 0, 2); // 4 / 6 / 8 minutes
   T.traffic = clamp(store.get('taxiTraffic', 1), 0, 2);
   const SHIFT_S = [240, 360, 480];
-  let taxi = null, taxiModel = null;
-  function buildTaxiModel(dr) {
-    const src = lib.getObjectByName(dr.car); if (!src) return null;
-    const g = new THREE.Group(), body = src.clone(true); body.position.set(0, 0, 0); body.rotation.set(0, 0, 0);
-    const wheels = [];
-    body.traverse(o => {
-      if (!o.isMesh) return;
-      o.castShadow = true; o.receiveShadow = false;
-      o.material = texFix(lowMat(o.material));
-      if (dr.tint) { o.material = o.material.clone(); o.material.color = lin(dr.tint); }
-    });
-    body.updateMatrixWorld(true);
-    body.traverse(o => { if (/^Wheel_/.test(o.name)) { const k = o.name.slice(6, 8); wheels.push({ o, front: k[0] === 'F' }); o.rotation.order = 'YXZ'; } });
-    g.add(body);
-    const box = new THREE.Box3().setFromObject(body);
-    // conducteur (assis : on l'enfonce dans le siège)
-    const ch = lib.getObjectByName(dr.char);
-    if (ch) {
-      const d = ch.clone(true); d.traverse(o => { if (o.isMesh) { o.castShadow = false; o.material = lowMat(o.material); } });
-      const s = 0.93; d.scale.setScalar(s); d.position.set(0.42, box.max.y - 0.1 - 1.78 * s, 0.05);
-      if (/^ped_/.test(dr.char)) d.rotation.y = Math.PI; // les passants regardent vers -z
-      g.add(d);
+  let taxi = null, taxiModel = null, homeTaxi = null, homeModel = null, me = null; // taxi : le véhicule conduit (ou quitté) · me : ce que suivent la police et la caméra
+  function buildVehModel(o) { // o : { car (nœud de taxi.glb) | build (voiture du garage), tint | paint, char, sign }
+    const g = new THREE.Group(); let body, wheels = [];
+    if (o.build && A.buildCar) {
+      const m = A.buildCar(o.build, 'lo', o.paint || 0xffffff, 0xc9ced6, false, true);
+      body = m.body; g.add(m.root); m.root.position.set(0, 0, 0); g.userData.box = m.box;
+      for (const w of m.wheels) wheels.push({ o: w.spin, st: w.pivot, front: w.front });
+      for (const f of m.flames || []) f.visible = false;
+      m.root.traverse(q => { if (q.isMesh) { q.castShadow = true; q.receiveShadow = false; } });
+    } else {
+      const src = lib.getObjectByName(o.car); if (!src) return null;
+      body = src.clone(true); body.position.set(0, 0, 0); body.rotation.set(0, 0, 0);
+      body.traverse(q => {
+        if (!q.isMesh) return;
+        q.castShadow = true; q.receiveShadow = false;
+        q.material = texFix(lowMat(q.material));
+        if (o.tint !== undefined) { q.material = q.material.clone(); q.material.color = o.tint.isColor ? o.tint.clone() : lin(o.tint); }
+      });
+      body.updateMatrixWorld(true);
+      body.traverse(q => { if (/^Wheel_/.test(q.name)) { const k = q.name.slice(6, 8); wheels.push({ o: q, front: k[0] === 'F' }); q.rotation.order = 'YXZ'; } });
+      g.add(body);
     }
-    if (dr.tint) { // enseigne TAXI sur le toit
+    g.updateMatrixWorld(true);
+    const box = g.userData.box ? g.userData.box.clone() : new THREE.Box3().setFromObject(g); // (sans l'ombre portée)
+    let driver = null;
+    const ch = o.char && lib.getObjectByName(o.char);
+    if (ch) { // conducteur (assis : on l'enfonce dans le siège)
+      driver = ch.clone(true); driver.traverse(q => { if (q.isMesh) { q.castShadow = false; q.material = lowMat(q.material); } });
+      const s = 0.93; driver.scale.setScalar(s); driver.position.set(0.42, box.max.y - 0.1 - 1.78 * s, 0.05);
+      if (/^ped_/.test(o.char)) driver.rotation.y = Math.PI; // les passants regardent vers -z
+      driver.visible = o.driverOn !== false; g.add(driver);
+    }
+    if (o.sign) { // enseigne TAXI sur le toit
       const tx = A.textTex([{ t: 'TAXI', y: 0.55, size: 150 }], { bg: '#ffd60a', fg: '#111111', w: 512, h: 160 });
       const sm = new THREE.MeshStandardMaterial({ map: tx, emissive: 0xffffff, emissiveMap: tx, emissiveIntensity: 0.35, roughness: 0.5 });
       const sg = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.24, 0.34), sm); sg.position.set(0, box.max.y + 0.1, -0.15); g.add(sg); A.nightReg(sm, 0.35, 1.6);
     }
-    return { root: g, body, wheels, box };
+    return { root: g, body, wheels, box, driver };
   }
+  const buildTaxiModel = dr => buildVehModel(dr);
   function makeTaxi() {
     const dr = DRIVERS[T.driver];
-    if (taxiModel) root.remove(taxiModel.root);
+    clearParked(); if (taxiModel) root.remove(taxiModel.root); if (homeModel && homeModel !== taxiModel) root.remove(homeModel.root);
     taxiModel = buildTaxiModel(dr); if (taxiModel) root.add(taxiModel.root);
     const spec = A.makeSpec('race', { engine: 0, tires: 0, nitro: 0 }, 'audi');
     Object.assign(spec, { power: 10.5 * (dr.st.power || 1), maxSpeed: 30 * (dr.st.max || 1), grip: 8.2 * (dr.st.grip || 1), driftGrip: 1.9, steer: 2.3 * (dr.st.steer || 1), latMax: 13.5 * (dr.st.grip || 1), offGrip: 1, nitroDrain: 0.28, nitroPower: 6.5 });
-    taxi = A.newCar({ isPlayer: true, name: dr.name, carId: 's15', spec, hl: 2.35, hw: 0.95, nitro: 0.6 });
-    taxi.model = null; taxi.y = 0;
+    const bx = taxiModel ? taxiModel.box : null, hl = bx ? Math.max(-bx.min.z, bx.max.z) * 0.95 : 2.35, hw = bx ? Math.max(-bx.min.x, bx.max.x) * 0.92 : 0.95;
+    taxi = A.newCar({ isPlayer: true, name: dr.name, carId: dr.build || 's15', spec, hl, hw, nitro: 0.6 });
+    taxi.model = null; taxi.y = 0; taxi.hp = 100; taxi.isTaxi = true;
+    homeTaxi = taxi; homeModel = taxiModel; me = taxi; resetFoot();
     if (taxiModel && A.attachHeadlights) A.attachHeadlights(taxiModel);
   }
   const spawnSpot = () => ({ x: nx(4) + HW + 30, z: nz(4) + LANE[1], h: HEAD(0) });
@@ -925,7 +940,7 @@ window.DZTaxi = function (A) {
     const roll = clamp(-taxi.w * taxi.speed * 0.004, -0.06, 0.06), pitch = clamp((inp.brk ? 0.02 : 0) - (inp.thr && taxi.speed < 20 ? 0.012 : 0), -0.035, 0.035);
     m.body.rotation.z = lerp(m.body.rotation.z, roll, Math.min(1, dt * 6)); m.body.rotation.x = lerp(m.body.rotation.x, pitch, Math.min(1, dt * 6));
     taxi.wheelRot = (taxi.wheelRot || 0) + taxi.vF / 0.36 * dt;
-    for (const w of m.wheels) { w.o.rotation.x = taxi.wheelRot; if (w.front) w.o.rotation.y = lerp(w.o.rotation.y, taxi.steer * 0.5, Math.min(1, dt * 10)); }
+    for (const w of m.wheels) { w.o.rotation.x = taxi.wheelRot; if (w.front) { const so = w.st || w.o; so.rotation.y = lerp(so.rotation.y, taxi.steer * 0.5, Math.min(1, dt * 10)); } }
     // régime moteur (son) : boîte automatique
     const sp = Math.abs(taxi.vF), top = taxi.spec.maxSpeed * 1.15; let g = 1;
     while (g < 6 && sp > A.GEAR_TOP[g] * top * 0.96) g++;
@@ -939,14 +954,14 @@ window.DZTaxi = function (A) {
     for (let w = 0; w < 2; w++) { const s = w ? -1 : 1, wx = taxi.x + sx * 0.8 * s - fx * 1.45, wz = taxi.z + sz * 0.8 * s - fz * 1.45; if (sliding) A.addSkid(taxi, w, wx, wz, sx, sz); else taxi.skidLast[w] = null; }
     if (sliding) { taxi.smokeAcc = (taxi.smokeAcc || 0) + dt * (12 + 30 * intensity); while (taxi.smokeAcc > 1) { taxi.smokeAcc -= 1; const s = R() < 0.5 ? 1 : -1; A.spawnSmoke(taxi.x + sx * 0.8 * s - fx * 1.8, taxi.z + sz * 0.8 * s - fz * 1.8, taxi.vx, taxi.vz, intensity, false, taxi.y); } }
     taxi.screech = intensity;
-    if (m.damage > 0.4) { taxi.dmgSm = (taxi.dmgSm || 0) + dt * (4 + m.damage * 10); while (taxi.dmgSm > 1) { taxi.dmgSm -= 1; A.spawnSmoke(taxi.x + fx * 1.9, taxi.z + fz * 1.9, taxi.vx * 0.6, taxi.vz * 0.6, 0.25 + m.damage * 0.4, true, taxi.y + 0.9); } }
+    if (m.damage > 0.4 || taxi.dead) { taxi.dmgSm = (taxi.dmgSm || 0) + dt * (4 + m.damage * 10); while (taxi.dmgSm > 1) { taxi.dmgSm -= 1; A.spawnSmoke(taxi.x + fx * (taxi.hl - 0.4), taxi.z + fz * (taxi.hl - 0.4), taxi.vx * 0.6, taxi.vz * 0.6, taxi.dead ? 0.9 : 0.25 + (m.damage || 0) * 0.4, true, taxi.y + 0.9); } }
   }
 
   /* ======================= Clients et courses ======================= */
   const NAMES_F = ['Fatimetou', 'Mariem', 'Aïchetou', 'Khadijetou', 'Oumou', 'Salka', 'Vatimetou', 'Zeinabou', 'Aminata', 'Mounina', 'Lalla', 'Coumba'];
   const NAMES_M = ['Mohamed Lemine', 'Sidi Mohamed', 'Cheikh', 'Brahim', 'Ahmedou', 'Yacoub', 'Moussa', 'El Hacen', 'Abdallahi', 'Samba', 'Oumar', 'Isselmou'];
   const job = { st: 'free', client: null, dest: null, t: 0, timer: 0, fare: 0, stars: 5, board: 0, dist: 0 };
-  const stats = { courses: 0, fares: 0, tips: 0, fines: 0, peds: 0, reds: 0, crashes: 0, starSum: 0, arrests: 0 };
+  const stats = { courses: 0, fares: 0, tips: 0, fines: 0, peds: 0, reds: 0, crashes: 0, starSum: 0, arrests: 0, thefts: 0, hits: 0 };
   let money = 0;
   function manhattan(ax, az, bx, bz) { return Math.abs(ax - bx) + Math.abs(az - bz); }
   function spawnClients(force) {
@@ -1032,19 +1047,19 @@ window.DZTaxi = function (A) {
       g.visible = false; root.add(g); policeModels.push({ g, red, blue, used: false });
     }
   }
-  function nearestPolice(maxD) { let best = null, bd = maxD; for (const c of cars) if (c.police && !c.chase) { const d = Math.hypot(c.x - taxi.x, c.z - taxi.z); if (d < bd) { bd = d; best = c; } } for (const pc of chasers) { const d = Math.hypot(pc.car.x - taxi.x, pc.car.z - taxi.z); if (d < bd) { bd = d; best = pc.src; } } return best; }
+  function nearestPolice(maxD) { let best = null, bd = maxD; for (const c of cars) if (c.police && !c.chase) { const d = Math.hypot(c.x - me.x, c.z - me.z); if (d < bd) { bd = d; best = c; } } for (const pc of chasers) { const d = Math.hypot(pc.car.x - me.x, pc.car.z - me.z); if (d < bd) { bd = d; best = pc.src; } } return best; }
   function spawnCop() { // renfort : une voiture de police arrive d'un carrefour voisin, hors de vue
     let best = null;
-    const fx = Math.sin(taxi.h), fz = Math.cos(taxi.h);
-    for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const x = nx(i), z = nz(j), d = Math.hypot(x - taxi.x, z - taxi.z); if (d < 45) continue; const ahead = (x - taxi.x) * fx + (z - taxi.z) * fz, sc = Math.abs(d - 105) + ahead * 0.25 + R() * 20; if (!best || sc < best.a) best = { x, z, a: sc }; } // de préférence derrière, à ~100 m, hors de vue
+    const fx = Math.sin(me.h), fz = Math.cos(me.h);
+    for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const x = nx(i), z = nz(j), d = Math.hypot(x - me.x, z - me.z); if (d < 45) continue; const ahead = (x - me.x) * fx + (z - me.z) * fz, sc = Math.abs(d - 105) + ahead * 0.25 + R() * 20; if (!best || sc < best.a) best = { x, z, a: sc }; } // de préférence derrière, à ~100 m, hors de vue
     if (!best) return null;
     const t = VT.police || { hl: 2.35, hw: 0.95 };
-    return { x: best.x, z: best.z, h: Math.atan2(taxi.x - best.x, taxi.z - best.z), vx: 0, vz: 0, hl: t.hl, hw: t.hw, police: true, synthetic: true };
+    return { x: best.x, z: best.z, h: Math.atan2(me.x - best.x, me.z - best.z), vx: 0, vz: 0, hl: t.hl, hw: t.hw, police: true, synthetic: true };
   }
   function offence(kind, fine, w, pd, force) { // pd : distance à laquelle la police voit l'infraction ; force : on appelle la police
     let cop = nearestPolice(pd || 110);
     if (!cop && force) cop = (chasers[0] && chasers[0].src) || spawnCop();
-    const label = { red: 'FEU ROUGE GRILLÉ', speed: 'EXCÈS DE VITESSE', ped: 'PIÉTON RENVERSÉ', crash: 'ACCROCHAGE', cop: 'VOITURE DE POLICE PERCUTÉE' }[kind];
+    const label = { red: 'FEU ROUGE GRILLÉ', speed: 'EXCÈS DE VITESSE', ped: 'PIÉTON RENVERSÉ', crash: 'ACCROCHAGE', cop: 'VOITURE DE POLICE PERCUTÉE', vol: 'VOITURE VOLÉE' }[kind];
     if (cop) {
       money -= fine; stats.fines += fine; wanted = Math.min(3, wanted + w); wantedT = 0;
       A.popup('🚨 ' + label, 'Amende : -' + fmtInt(fine) + ' MRU · la police te suit !', true);
@@ -1082,7 +1097,7 @@ window.DZTaxi = function (A) {
     if (c.synthetic) { chasers.splice(chasers.indexOf(pc), 1); if (!chasers.length) sirenOn(false); return; }
     // la voiture reprend une voie du réseau la plus proche
     let best = null, bd = 1e9;
-    for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) for (let d = 0; d < 4; d++) { if (!inGrid(i + DIRS[d][0], j + DIRS[d][1])) continue; const mx = nx(i) + DIRS[d][0] * P / 2, mz = nz(j) + DIRS[d][1] * P / 2, dd = Math.hypot(mx - pc.car.x, mz - pc.car.z) + (taxi ? -Math.min(250, Math.hypot(mx - taxi.x, mz - taxi.z)) : 0); if (dd < bd) { bd = dd; best = [i, j, d]; } }
+    for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) for (let d = 0; d < 4; d++) { if (!inGrid(i + DIRS[d][0], j + DIRS[d][1])) continue; const mx = nx(i) + DIRS[d][0] * P / 2, mz = nz(j) + DIRS[d][1] * P / 2, dd = Math.hypot(mx - pc.car.x, mz - pc.car.z) + (me ? -Math.min(250, Math.hypot(mx - me.x, mz - me.z)) : 0); if (dd < bd) { bd = dd; best = [i, j, d]; } }
     c.i = best[0]; c.j = best[1]; c.d = best[2]; c.lane = 1; c.s = 10; c.v = 4; edgePath(c); chooseNext(c);
     chasers.splice(chasers.indexOf(pc), 1);
     if (!chasers.length) sirenOn(false);
@@ -1145,21 +1160,22 @@ window.DZTaxi = function (A) {
     } else if (amb.st === 'leave') {
       const nxt = amb.queue.find(q => q.down && q.on);
       if (nxt) { amb.queue = amb.queue.filter(q => q !== nxt); Object.assign(amb, { st: 'go', target: nxt, route: null, rt: 0 }); }
-      else if (Math.hypot(amb.leaveTo[0] - c.x, amb.leaveTo[1] - c.z) < 12 || Math.hypot(taxi.x - c.x, taxi.z - c.z) > 300) { amb.st = 'off'; M.g.visible = false; amb.car = null; sirenAmb(false); }
+      else if (Math.hypot(amb.leaveTo[0] - c.x, amb.leaveTo[1] - c.z) < 12 || Math.hypot(me.x - c.x, me.z - c.z) > 300) { amb.st = 'off'; M.g.visible = false; amb.car = null; sirenAmb(false); }
     }
   }
   function policeBumped(v) { if (v > 2.5 && !T.bumpCd) { T.bumpCd = 3; offence('cop', 250, 1, 200); } }
   function chaseInput(pc, dt) { // pilote de la police : itinéraire par les carrefours, puis droit sur le taxi
-    const c = pc.car, dx = taxi.x - c.x, dz = taxi.z - c.z, dist = Math.hypot(dx, dz);
-    let tx = taxi.x + taxi.vx * 0.5, tz = taxi.z + taxi.vz * 0.5;
+    const c = pc.car, dx = me.x - c.x, dz = me.z - c.z, dist = Math.hypot(dx, dz);
+    let tx = me.x + me.vx * 0.5, tz = me.z + me.vz * 0.5;
     pc.rt -= dt;
     if (dist > 45) {
-      if (pc.rt <= 0 || !pc.route || !pc.route.length) { pc.route = gridRoute(c.x, c.z, taxi.x, taxi.z); pc.rt = 1.2; }
+      if (pc.rt <= 0 || !pc.route || !pc.route.length) { pc.route = gridRoute(c.x, c.z, me.x, me.z); pc.rt = 1.2; }
       while (pc.route.length && Math.hypot(pc.route[0][0] - c.x, pc.route[0][1] - c.z) < 9) pc.route.shift();
       if (pc.route.length) { tx = pc.route[0][0]; tz = pc.route[0][1]; }
     }
     const want = Math.atan2(tx - c.x, tz - c.z), err = wrapAng(want - c.h);
     const steer = clamp(err * 2.2, -1, 1), sharp = Math.abs(err) > 0.7;
+    if (foot.on && dist < 11) return { thr: 0, brk: 1, steer, hb: 0, nitro: 0 }; // à pied : la voiture s'arrête à côté de toi
     if (dist > 9 && unstick(c, dt)) return { thr: 0, brk: 1, steer: -steer, hb: 0, nitro: 0 };
     const fast = c.speed > (sharp ? 9 : 30);
     return { thr: fast ? 0 : 1, brk: fast && c.vF > 3 ? 0.7 : 0, steer, hb: 0, nitro: 0 };
@@ -1187,31 +1203,232 @@ window.DZTaxi = function (A) {
       for (const o of [1.4, -1.4]) for (const q of cars) if (!q.chase && Math.abs(q.x - c.x) < 9 && Math.abs(q.z - c.z) < 9) { if (circleOBB(c, fx * o, fz * o, 1.0, q) > 1) q.bump = Math.max(q.bump, 2); }
       c.speed = Math.hypot(c.vx, c.vz);
       pc.src.x = c.x; pc.src.z = c.z; pc.src.h = c.h;
-      const d = Math.hypot(taxi.x - c.x, taxi.z - c.z);
+      const d = Math.hypot(me.x - c.x, me.z - c.z);
       pc.pm.g.position.set(c.x, 0.03, c.z); pc.pm.g.rotation.y = c.h;
       const fl = Math.sin(A.menuTime() * 14) > 0; pc.pm.red.material.opacity = fl ? 1 : 0.15; pc.pm.blue.material.opacity = fl ? 0.15 : 1;
-      if (d < 7.5 && taxi.speed < 3) { caughtT += dt; if (caughtT > 1.4) { arrested(); return; } }
+      if (foot.on ? (d < 14 && (me.speed < 2.6 || foot.down > 0)) : (d < 7.5 && taxi.speed < 3)) { caughtT += dt; if (caughtT > (foot.on ? 1.8 : 1.4)) { arrested(); return; } } else caughtT = Math.max(0, caughtT - dt * 0.5);
+      if (policeFire(pc, d, dt)) return;
       if (d > 170) pc.lost += dt; else pc.lost = Math.max(0, pc.lost - dt * 0.5);
       if (pc.lost > 9) { endChase(pc); if (!chasers.length) { A.popup('POLICE SEMÉE !', 'Tu t’en sors… cette fois', false, 'blue'); wanted = 0; } }
     }
-    if (!chasers.length) caughtT = 0;
+    if (!chasers.length) { caughtT = 0; chaseT = 0; } else chaseT += dt;
     if (wanted && !chasers.length) { wantedT += dt; if (wantedT > 25) wanted = 0; }
   }
-  function arrested() {
-    const fine = 300 * Math.max(1, wanted);
+  function arrested(shot) {
+    const fine = 300 * Math.max(1, wanted) + (shot ? 300 : 0);
     money -= fine; stats.fines += fine; stats.arrests++;
-    A.popup('ARRÊTÉ PAR LA POLICE', 'Amende : -' + fmtInt(fine) + ' MRU · papiers vérifiés (-15 s)', true);
-    T.timeLeft -= 15;
+    if (shot) A.popup('TOUCHÉ, PUIS ARRÊTÉ', 'Soins + amende : -' + fmtInt(fine) + ' MRU (-25 s)', true);
+    else A.popup('ARRÊTÉ PAR LA POLICE', 'Amende : -' + fmtInt(fine) + ' MRU · papiers vérifiés (-15 s)', true);
+    T.timeLeft -= shot ? 25 : 15;
+    backHome(); // la police te ramène à ton taxi
     if (job.st === 'ride' || job.st === 'board') { const p = job.client; say('Je descends ici, je ne veux pas d’ennuis !'); releaseClient(p); job.st = 'free'; job.client = null; job.dest = null; spawnClients(true); }
     for (const pc of chasers.slice()) endChase(pc);
     wanted = 0; caughtT = 0;
+  }
+
+  /* ======================= À pied : descendre, courir, emprunter une autre voiture ======================= */
+  const foot = { on: false, x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0, v: 0, speed: 0, ph: 0, idle: 1, hp: 100, down: 0, hl: 0.32, hw: 0.32, kind: 'me', M: null };
+  const parked = []; // véhicules laissés par le joueur (sauf `taxi`, le dernier conduit) : { car, model }
+  const footCam = { init: false, yaw: 0, pos: new THREE.Vector3() };
+  const NO_INP = { thr: 0, brk: 0, steer: 0, hb: 0, nitro: 0 };
+  let hurtT = 0, chaseT = 0, shootWarned = false;
+  function resetFoot() { foot.on = false; foot.hp = 100; foot.down = 0; hurtT = 0; chaseT = 0; shootWarned = false; }
+  function clearParked() { for (const v of parked) root.remove(v.model.root); parked.length = 0; }
+  const obbDist = (px, pz, o) => { const dx = px - o.x, dz = pz - o.z, ca = Math.cos(o.h), sa = Math.sin(o.h), lx = dx * ca - dz * sa, lz = dx * sa + dz * ca; return Math.hypot(Math.max(0, Math.abs(lx) - o.hw), Math.max(0, Math.abs(lz) - o.hl)); };
+  T.door = () => { // F / E · Select (manette) · bouton 🚪
+    if (!T.active || A.state !== 'play' || !taxi) return;
+    if (foot.on) enterNearest(); else exitVehicle();
+  };
+  function exitVehicle() {
+    if (taxi.speed > 7) { A.popup('RALENTIS D’ABORD', 'impossible de sauter à cette vitesse', true); return; }
+    const sx = Math.cos(taxi.h), sz = -Math.sin(taxi.h), o = taxi.hw + 0.75; // portière du conducteur (côté +x du véhicule)
+    Object.assign(foot, { on: true, x: taxi.x + sx * o, z: taxi.z + sz * o, h: taxi.h, vx: 0, vz: 0, v: 0, speed: 0, ph: 0, idle: 1, down: 0 });
+    const x0 = foot.x, z0 = foot.z; collideCircle(foot, 0, 0, 0.36);
+    if (Math.hypot(foot.x - x0, foot.z - z0) > 0.25) { foot.x = taxi.x - sx * o; foot.z = taxi.z - sz * o; } // un mur : on sort de l'autre côté
+    taxi.vx = taxi.vz = 0; taxi.speed = taxi.vF = 0; taxi.w = 0; taxi.nitroOn = false; taxi.parked = true; taxi.skidLast[0] = taxi.skidLast[1] = null;
+    if (taxiModel && taxiModel.driver) taxiModel.driver.visible = false;
+    foot.M = WM[DRIVERS[T.driver].foot] || WM.wk_ped0 || null;
+    me = foot; footCam.init = false;
+    if (job.st === 'ride' || job.st === 'board') { // le client descend lui aussi
+      const p = job.client;
+      if (p) { const px = taxi.x - sx * (taxi.hw + 0.6), pz = taxi.z - sz * (taxi.hw + 0.6); Object.assign(p, { st: 'alight', t: 0, x: px, z: pz, cx1: px - sx * 5, cz1: pz - sz * 5, on: true }); }
+      say(job.st === 'ride' ? 'Tu me laisses là ?! Je descends, je ne paie pas !' : 'Bon… je vais attendre un autre taxi.');
+      job.st = 'free'; job.client = null; job.dest = null; job.late = false; spawnClients(true);
+    }
+    A.blip(420, 0.08, 0.05);
+    A.popup('🚶 À PIED', 'F / Select : monter dans une voiture · Maj : courir', false, 'blue');
+  }
+  function enterNearest() {
+    if (foot.down > 0) return;
+    let best = null, bd = 2.2;
+    const cand = (o, kind) => { const d = obbDist(foot.x, foot.z, o); if (d < bd) { bd = d; best = { o, kind }; } };
+    cand(taxi, 'last');
+    for (const v of parked) cand(v.car, 'parked');
+    for (const c of cars) if (!c.chase && !c.police && !c.cart && c.type !== 'amb' && Math.abs(c.x - foot.x) < 9 && Math.abs(c.z - foot.z) < 9) cand(c, 'traffic');
+    if (!best) { A.popup('AUCUNE VOITURE À PORTÉE', 'approche-toi d’une portière', true); return; }
+    if (best.kind === 'traffic' && best.o.v > 3.2) { A.popup('ELLE ROULE ENCORE', 'mets-toi devant pour l’arrêter', true); return; }
+    const from = { x: foot.x, z: foot.z };
+    if (best.kind !== 'last') { parked.push({ car: taxi, model: taxiModel }); taxi.parked = true; }
+    if (best.kind === 'parked') { const i = parked.findIndex(v => v.car === best.o); const v = parked.splice(i, 1)[0]; taxi = v.car; taxiModel = v.model; }
+    else if (best.kind === 'traffic') { const v = stealCar(best.o); taxi = v.car; taxiModel = v.model; }
+    while (parked.filter(v => v.car !== homeTaxi).length > 4) { const i = parked.findIndex(v => v.car !== homeTaxi); root.remove(parked[i].model.root); parked.splice(i, 1); } // pas trop de voitures abandonnées
+    taxi.parked = false; foot.on = false; me = taxi; A.camState.init = false;
+    if (taxiModel.driver) taxiModel.driver.visible = true;
+    if (A.attachHeadlights) A.attachHeadlights(taxiModel);
+    A.blip(700, 0.07, 0.05);
+    // changer de voiture loin des yeux de la police : elle perd ta trace
+    let seen = false; for (const pc of chasers) if (Math.hypot(pc.car.x - from.x, pc.car.z - from.z) < 55) seen = true;
+    if (best.kind !== 'last' && chasers.length && !seen) { for (const pc of chasers.slice()) endChase(pc); wanted = Math.max(0, wanted - 1); A.popup('ILS ONT PERDU TA TRACE', 'la police cherche encore l’autre voiture', false, 'blue'); }
+    if (best.kind === 'traffic') { stats.thefts++; if (!offence('vol', 300, 1, 70)) A.popup('🔑 VOITURE EMPRUNTÉE', taxi.vname + ' · ton taxi t’attend (point jaune sur la carte)', false, 'gold'); }
+    else if (taxi === homeTaxi) A.popup('🚕 DE RETOUR DANS TON TAXI', 'les clients t’attendent', false, 'gold');
+  }
+  const VNAME = { civil: 'Ford Mondeo', suv: 'Audi RS Q8', taxi2: 'Taxi Mondeo', box: 'Camion', cist: 'Camion-citerne', flat: 'Camion plateau' };
+  function stealCar(c) {
+    const t = c.t, i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1); freeCar(c);
+    const dr = DRIVERS[T.driver], truck = /^(box|cist|flat)$/.test(c.type);
+    const mdl = buildVehModel(t.build ? { build: t.build, paint: c.hex || 0xffffff, char: dr.char } : { car: t.node, tint: t.tint ? c.col : undefined, char: truck ? null : dr.char }); // (camions : la cabine cache le chauffeur)
+    root.add(mdl.root);
+    const spec = A.makeSpec('race', { engine: 0, tires: 0, nitro: 0 }, 'audi');
+    Object.assign(spec, truck ? { power: 6.6, maxSpeed: 20, grip: 6.8, driftGrip: 2.2, steer: 1.8, latMax: 9.5, offGrip: 1, nitroDrain: 0.3, nitroPower: 4 }
+      : c.type === 'suv' ? { power: 11.8, maxSpeed: 33, grip: 8.6, driftGrip: 1.9, steer: 2.3, latMax: 14, offGrip: 1, nitroDrain: 0.28, nitroPower: 6.5 }
+      : { power: 9.6, maxSpeed: 28, grip: 8.0, driftGrip: 1.9, steer: 2.3, latMax: 13, offGrip: 1, nitroDrain: 0.28, nitroPower: 6 });
+    const car = A.newCar({ isPlayer: true, name: 'Voiture empruntée', carId: truck ? 'hellcat' : c.type === 'suv' ? 'audi' : 's15', spec, hl: t.hl, hw: t.hw, nitro: 0.25 });
+    Object.assign(car, { x: c.x, z: c.z, h: c.h, vx: 0, vz: 0, w: 0, y: 0, model: null, hp: truck ? 170 : 100, hpMax: truck ? 170 : 100, vname: VNAME[c.type] || 'Voiture' });
+    // le conducteur s'enfuit en courant
+    const sx = Math.cos(c.h), sz = -Math.sin(c.h), names = HUMANS.filter(n => WM[n] && WM[n].used < WM[n].cap);
+    if (names.length) { const p = newPed('ped', pick(names)); if (p) { const px = c.x + sx * (c.hw + 0.9), pz = c.z + sz * (c.hw + 0.9); Object.assign(p, { st: 'alight', t: 0, x: px, z: pz, cx1: px + sx * 7, cz1: pz + sz * 7, on: true, road: true }); } }
+    say(pick(['Hé ! Ma voiture !!', 'Au voleur ! Au voleur !', 'Wallahi, rends-moi ma voiture !']));
+    return { car, model: mdl };
+  }
+  function backHome() { // retour au taxi (après une arrestation)
+    if (taxi !== homeTaxi) { if (!parked.some(v => v.car === taxi)) parked.push({ car: taxi, model: taxiModel }); taxi.parked = true; const i = parked.findIndex(v => v.car === homeTaxi); if (i >= 0) parked.splice(i, 1); taxi = homeTaxi; taxiModel = homeModel; }
+    foot.on = false; foot.hp = 100; foot.down = 0; me = taxi; taxi.parked = false; taxi.dead = false; taxi.hp = taxi.hpMax || 100;
+    if (taxiModel && taxiModel.driver) taxiModel.driver.visible = true;
+    if (A.attachHeadlights && taxiModel) A.attachHeadlights(taxiModel);
+    A.camState.init = false; chaseT = 0;
+  }
+  function footStep(inp, dt) {
+    const f = foot;
+    if (f.down > 0) { f.down -= dt; f.v = 0; f.vx *= Math.exp(-dt * 5); f.vz *= Math.exp(-dt * 5); }
+    else {
+      const run = inp.nitro || inp.hb, fwd = (inp.thr || 0) - (inp.brk || 0);
+      f.h += (inp.steer || 0) * dt * (run ? 2.2 : 2.8);
+      const want = fwd > 0.05 ? fwd * (run ? 5.8 : 2.1) : fwd < -0.05 ? -1.3 : 0;
+      f.v += (want - f.v) * Math.min(1, dt * 7);
+      f.vx = Math.sin(f.h) * f.v; f.vz = Math.cos(f.h) * f.v;
+    }
+    f.x += f.vx * dt; f.z += f.vz * dt;
+    collideCircle(f, 0, 0, 0.34);
+    const cx = Math.floor(f.x / DCELL), cz = Math.floor(f.z / DCELL);
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = DYN.get((cx + a) * 4096 + cz + b); if (!l) continue; for (const o of l) {
+      if (o === f || o.hl === undefined || o.kind) continue;
+      const before = obbDist(f.x, f.z, o); if (before > 0.36) continue;
+      const vs = Math.abs(o.speed !== undefined ? o.speed : o.v || 0);
+      circleOBB(f, 0, 0, 0.36, o);
+      if (vs > 4.5 && f.down <= 0) knockDown(o, vs);
+    } }
+    f.speed = Math.hypot(f.vx, f.vz);
+    if (f.M) { f.ph += Math.abs(f.v) * dt / f.M.stride; f.idle += ((Math.abs(f.v) > 0.15 && f.down <= 0 ? 0 : 1) - f.idle) * Math.min(1, dt * 6); }
+  }
+  function knockDown(o, vs) { // renversé par une voiture
+    foot.down = 2.4; const k = Math.min(9, vs * 0.6), dx = foot.x - o.x, dz = foot.z - o.z, d = Math.hypot(dx, dz) || 1;
+    foot.vx = dx / d * k; foot.vz = dz / d * k; foot.v = 0;
+    hurt(10 + vs * 2.2); A.crashSound(0.35); A.shake(0.6);
+    if (o.chaser && foot.hp > 0) { arrested(); A.popup('PLAQUÉ PAR LA POLICE', 'fin de la cavale', true); }
+  }
+  function hurt(dmg) {
+    if (!foot.on) return;
+    foot.hp -= dmg; hurtT = 0.45; A.shake(0.25); stats.hits++;
+    if (foot.hp <= 0) { foot.hp = 0; arrested(true); }
+  }
+  function updateFootCam(dt) {
+    const f = foot, cam = A.camera;
+    if (!footCam.init) { footCam.yaw = f.h; footCam.pos.set(f.x - Math.sin(f.h) * 4.6, 2.3, f.z - Math.cos(f.h) * 4.6); footCam.init = true; }
+    footCam.yaw += wrapAng(f.h - footCam.yaw) * (1 - Math.exp(-dt * 4.5));
+    const y0 = onSidewalk(f.x, f.z) ? 0.15 : 0, d = f.down > 0 ? 5.5 : 4.6;
+    _v.set(f.x - Math.sin(footCam.yaw) * d, 2.25 + y0 + (f.down > 0 ? 1.2 : 0), f.z - Math.cos(footCam.yaw) * d);
+    footCam.pos.lerp(_v, footCam.pos.distanceTo(_v) > 30 ? 1 : 1 - Math.exp(-dt * 8));
+    cam.position.copy(footCam.pos);
+    A.camShakeApply && A.camShakeApply(cam);
+    cam.lookAt(f.x + Math.sin(f.h) * 1.6, 1.25 + y0, f.z + Math.cos(f.h) * 1.6);
+    if (Math.abs(cam.fov - 58) > 0.1) { cam.fov = lerp(cam.fov, 58, Math.min(1, dt * 4)); cam.updateProjectionMatrix(); }
+  }
+  function drawFoot() {
+    if (!foot.on || !foot.M) return;
+    const y0 = onSidewalk(foot.x, foot.z) ? 0.15 : 0.02;
+    if (foot.down > 0) { const k = Math.min(1, (2.4 - foot.down) * 5); _q.setFromEuler(_e.set(-Math.PI / 2 * k, foot.h, 0, 'YXZ')); drawPed(foot.M, foot.x, y0 + 0.12 * k, foot.z, _q, foot.ph, 1, NO_TINT); }
+    else { _q.setFromAxisAngle(_Y, foot.h); drawPed(foot.M, foot.x, y0, foot.z, _q, foot.ph, foot.idle, NO_TINT); }
+  }
+
+  /* ======================= Tirs de la police ======================= */
+  let SFX = null;
+  function buildShotFx() { // traçantes (fines baguettes lumineuses) + éclairs de canon
+    const N = 10, mat = new THREE.MeshBasicMaterial({ color: 0xffe7a0, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    const geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0, 0, 0.5);
+    const tr = []; for (let k = 0; k < N; k++) { const m = new THREE.Mesh(geo, mat); m.visible = false; m.frustumCulled = false; root.add(m); tr.push({ m, t: 0 }); }
+    const flashes = [];
+    for (let k = 0; k < 4; k++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: A.glowSpriteTex, color: 0xffc46b, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); sp.visible = false; sp.scale.setScalar(2.8); root.add(sp); flashes.push({ sp, t: 0 }); }
+    SFX = { tr, k: 0, flashes, fk: 0, shots: 0 };
+  }
+  function shotFx(ox, oy, oz, tx, ty, tz) {
+    if (!SFX) return;
+    const t = SFX.tr[SFX.k = (SFX.k + 1) % SFX.tr.length], L = Math.hypot(tx - ox, ty - oy, tz - oz) || 1;
+    t.o = [ox, oy, oz]; t.d = [(tx - ox) / L, (ty - oy) / L, (tz - oz) / L]; t.L = L; t.sl = Math.min(7, L * 0.6); t.life = t.t = 0.1;
+    t.m.position.set(ox, oy, oz); t.m.lookAt(tx, ty, tz); t.m.scale.set(0.075, 0.075, t.sl); t.m.visible = true; // une balle lumineuse qui file vers la cible
+    const fl = SFX.flashes[SFX.fk = (SFX.fk + 1) % SFX.flashes.length]; fl.sp.position.set(ox, oy, oz); fl.sp.visible = true; fl.t = 0.07;
+    SFX.shots++;
+  }
+  function updateShotFx(dt) {
+    if (!SFX || (TEST && T.freezeFx)) return;
+    for (const t of SFX.tr) if (t.t > 0) { t.t -= dt; if (t.t <= 0) { t.m.visible = false; continue; } const k = (1 - t.t / t.life) * Math.max(0, t.L - t.sl); t.m.position.set(t.o[0] + t.d[0] * k, t.o[1] + t.d[1] * k, t.o[2] + t.d[2] * k); }
+    for (const f of SFX.flashes) if (f.t > 0) { f.t -= dt; if (f.t <= 0) f.sp.visible = false; }
+    if (hurtT > 0) hurtT -= dt;
+    const el = $('txHurt'); if (el) { const o = clamp(hurtT / 0.45, 0, 1) * 0.85 + (foot.on && foot.hp < 35 ? 0.25 + 0.1 * Math.sin(A.menuTime() * 6) : 0); if (Math.abs((+el.dataset.o || 0) - o) > 0.02) { el.dataset.o = o; el.style.opacity = o.toFixed(2); } }
+  }
+  function bang(x, z) { // détonation : bruit blanc filtré, atténué avec la distance
+    const ac = A.audio && A.audio.ctx; if (!ac || prof.muted) return;
+    const d = me ? Math.hypot(x - me.x, z - me.z) : 0, g0 = 0.5 * clamp(1 - d / 160, 0, 1); if (g0 < 0.01) return;
+    if (!snd.noise) { const n = ac.sampleRate * 0.25, b = ac.createBuffer(1, n, ac.sampleRate), c = b.getChannelData(0); for (let i = 0; i < n; i++) c[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2.2); snd.noise = b; }
+    const t = ac.currentTime, src = ac.createBufferSource(); src.buffer = snd.noise;
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2400 + Math.random() * 1200;
+    const g = ac.createGain(); g.gain.setValueAtTime(g0, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    src.connect(f); f.connect(g); g.connect(A.audio.master || ac.destination); src.start(t); src.stop(t + 0.25);
+  }
+  function lineBlocked(ax, az, bx, bz) { // un immeuble entre le policier et toi ?
+    const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 2.5);
+    for (let k = 1; k < n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n; for (const o of nearCols(x, z, _cols)) if (o.box && x > o.box[0] && x < o.box[2] && z > o.box[1] && z < o.box[3] && (o.h === undefined || o.h > 1.2)) return true; }
+    return false;
+  }
+  function policeFire(pc, d, dt) { // retourne true si l'arrestation a eu lieu
+    const armed = wanted >= 2 || chaseT > 12;
+    if (!armed || d > 42) { pc.fire = Math.max(pc.fire || 0, 0.6); return false; }
+    pc.fire = (pc.fire === undefined ? 0.9 : pc.fire) - dt;
+    if (pc.fire > 0) return false;
+    pc.fire = 0.45 + R() * 0.85;
+    const c = pc.car, sx = Math.cos(c.h), sz = -Math.sin(c.h), side = ((me.x - c.x) * sx + (me.z - c.z) * sz) >= 0 ? 1 : -1;
+    const ox = c.x + sx * side * 1.25 + Math.sin(c.h) * 0.3, oz = c.z + sz * side * 1.25 + Math.cos(c.h) * 0.3, oy = 1.4; // le policier tire par la vitre
+    if (lineBlocked(ox, oz, me.x, me.z)) return false;
+    if (!shootWarned) { shootWarned = true; A.popup('🔫 LA POLICE TIRE !', foot.on ? 'cours, cache-toi, vole une voiture !' : 'sème-les ou abandonne la voiture', true); }
+    const hitP = clamp(0.62 - d / 70 - me.speed / 40 + (foot.on ? 0.12 : 0), 0.06, 0.72), hit = R() < hitP;
+    let ix, iy, iz;
+    if (hit) { ix = me.x + (R() - 0.5) * 0.6; iz = me.z + (R() - 0.5) * 0.6; iy = foot.on ? 1.1 : 0.9; }
+    else { const a = R() * 6.28, r = 1.2 + R() * 2.5; ix = me.x + Math.cos(a) * r; iz = me.z + Math.sin(a) * r; iy = 0.05 + R() * 1.4; }
+    shotFx(ox, oy, oz, ix, iy, iz); bang(ox, oz);
+    const nx_ = ox - ix, nz_ = oz - iz, nl = Math.hypot(nx_, nz_) || 1;
+    if (hit && foot.on) { hurt(13 + R() * 9); return !foot.on || foot.hp <= 0; }
+    if (hit) { // impact sur la carrosserie : étincelles, petite bosse, le moteur finit par lâcher
+      A.crashFx(ix, iy, iz, nx_ / nl, nz_ / nl, 4.2); if (taxiModel) A.dentModel(taxiModel, ix, iy, iz, -nx_ / nl, -nz_ / nl, 4.8);
+      taxi.hp = (taxi.hp === undefined ? 100 : taxi.hp) - (7 + R() * 5); A.shake(0.2); stats.hits++;
+      if (taxi.hp <= 0 && !taxi.dead) { taxi.hp = 0; taxi.dead = true; A.popup('💥 MOTEUR TOUCHÉ', 'la voiture est fichue : descends (F) et trouve-en une autre !', true); }
+    } else A.crashFx(ix, Math.max(0.05, iy), iz, nx_ / nl, nz_ / nl, 3.6);
+    return false;
   }
 
   /* ======================= Sons : klaxon, sirène ======================= */
   const snd = {};
   function honk(x, z, vol) { // klaxon (joueur ou IA) atténué avec la distance
     const au = A.audio; if (!au.ctx || prof.muted) return;
-    const d = taxi ? Math.hypot(x - taxi.x, z - taxi.z) : 0, g0 = (vol || 1) * 0.16 * clamp(1 - d / 140, 0, 1); if (g0 < 0.005) return;
+    const d = me ? Math.hypot(x - me.x, z - me.z) : 0, g0 = (vol || 1) * 0.16 * clamp(1 - d / 140, 0, 1); if (g0 < 0.005) return;
     try {
       const ctx = au.ctx, t = ctx.currentTime, g = ctx.createGain(), f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(g0, t + 0.02);
       const dur = x === taxi.x ? 0.5 : 0.28 + Math.random() * 0.3; g.gain.setValueAtTime(g0, t + dur); g.gain.exponentialRampToValueAtTime(0.0008, t + dur + 0.08);
@@ -1235,14 +1452,14 @@ window.DZTaxi = function (A) {
     if (snd.amb && !on) snd.amb.g.gain.setTargetAtTime(0, au.ctx.currentTime, 0.1);
   }
   function updateSiren() {
-    if (snd.amb && A.audio.ctx) { const d = amb.car ? Math.hypot(amb.car.x - taxi.x, amb.car.z - taxi.z) : 1e9; snd.amb.g.gain.setTargetAtTime(amb.st !== 'off' && T.active && A.state === 'play' && !prof.muted ? 0.05 * clamp(1 - d / 300, 0.05, 1) : 0, A.audio.ctx.currentTime, 0.15); }
+    if (snd.amb && A.audio.ctx) { const d = amb.car ? Math.hypot(amb.car.x - me.x, amb.car.z - me.z) : 1e9; snd.amb.g.gain.setTargetAtTime(amb.st !== 'off' && T.active && A.state === 'play' && !prof.muted ? 0.05 * clamp(1 - d / 300, 0.05, 1) : 0, A.audio.ctx.currentTime, 0.15); }
     if (!snd.siren || !A.audio.ctx) return;
-    let d = 1e9; for (const pc of chasers) d = Math.min(d, Math.hypot(pc.car.x - taxi.x, pc.car.z - taxi.z));
+    let d = 1e9; for (const pc of chasers) d = Math.min(d, Math.hypot(pc.car.x - me.x, pc.car.z - me.z));
     const v = chasers.length && T.active && A.state === 'play' && !prof.muted ? 0.07 * clamp(1 - d / 320, 0.1, 1) : 0;
     snd.siren.g.gain.setTargetAtTime(v, A.audio.ctx.currentTime, 0.15);
   }
   T.horn = () => {
-    if (!taxi || A.state !== 'play') return;
+    if (!taxi || A.state !== 'play' || foot.on) return;
     if (T.hornCd > 0) return; T.hornCd = 0.45;
     A.initAudio(); honk(taxi.x, taxi.z, 1.2);
     const fx = Math.sin(taxi.h), fz = Math.cos(taxi.h);
@@ -1268,11 +1485,14 @@ window.DZTaxi = function (A) {
       '<div id="txClock" class="panel disp">6:00</div>' +
       '<div id="txJob" class="panel"><div class="lbl" id="txJobT">Cherche un client</div><div class="val disp" id="txJobV">🟢 Arrêts en vert</div><div class="sub" id="txJobS"></div></div>' +
       '<div id="txWanted" class="panel hidden">🚨 <b id="txStars"></b></div>' +
+      '<div id="txHp" class="panel hidden"><span id="txHpL">🚗</span><i><b id="txHpBar"></b></i></div><div id="txHurt"></div>' +
       '<div id="txSay" class="panel"></div><div id="txStreet"></div>';
     $('hud').appendChild(hudEl);
     const t = $('touch'); if (t && !$('tHorn')) { const b = document.createElement('div'); b.className = 'tbtn'; b.id = 'tHorn'; b.textContent = '📯'; t.appendChild(b); b.addEventListener('pointerdown', e => { e.preventDefault(); A.initAudio(); T.horn(); b.classList.add('on'); }); const off = () => b.classList.remove('on'); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off); }
-    const hint = $('hint'); if (hint && !hint.querySelector('.kbT')) { const sp = document.createElement('span'); sp.className = 'kbT'; sp.innerHTML = '<kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein à main · <kbd>H</kbd> klaxon · <kbd>Maj</kbd> turbo · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra'; hint.appendChild(sp); }
+    const hint = $('hint'); if (hint && !hint.querySelector('.kbT')) { const sp = document.createElement('span'); sp.className = 'kbT'; sp.innerHTML = '<kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein à main · <kbd>H</kbd> klaxon · <kbd>F</kbd> descendre / monter · <kbd>Maj</kbd> turbo (à pied : courir) · <kbd>R</kbd> replacer · <kbd>C</kbd> caméra'; hint.appendChild(sp); }
     const tb = $('topBtns'); if (tb && !$('btnHorn')) { const b = document.createElement('button'); b.className = 'iconBtn'; b.id = 'btnHorn'; b.title = 'Klaxon (H)'; b.textContent = '📯'; b.onclick = () => T.horn(); tb.insertBefore(b, tb.firstChild); }
+    if (tb && !$('btnDoor')) { const b = document.createElement('button'); b.className = 'iconBtn'; b.id = 'btnDoor'; b.title = 'Descendre / monter (F)'; b.textContent = '🚪'; b.onclick = () => T.door(); tb.insertBefore(b, tb.firstChild); }
+    if (t && !$('tDoor')) { const b = document.createElement('div'); b.className = 'tbtn'; b.id = 'tDoor'; b.textContent = '🚪'; t.appendChild(b); b.addEventListener('pointerdown', e => { e.preventDefault(); T.door(); }); }
   }
   const MAP_K = 0.6, MAP_W = 360; // px par mètre sur la carte pré-dessinée
   function buildMapBg() {
@@ -1291,7 +1511,7 @@ window.DZTaxi = function (A) {
   }
   function drawMap() {
     const cv = $('mapCv'); if (!cv || !mapBg) return; const c = cv.getContext('2d'), W = cv.width, H = cv.height, k = W / MAP_W / MAP_K;
-    const px = mapBg.mx(taxi.x), pz = mapBg.mz(taxi.z);
+    const px = mapBg.mx(me.x), pz = mapBg.mz(me.z);
     c.save(); c.fillStyle = '#c9a877'; c.fillRect(0, 0, W, H);
     c.translate(W / 2, H / 2); c.scale(k, k); c.translate(-px, -pz);
     c.drawImage(mapBg, 0, 0);
@@ -1299,10 +1519,11 @@ window.DZTaxi = function (A) {
     if (job.st === 'free' || job.st === 'board') for (const s of STOPS) if (s.client) dot(s.zx, s.zz, 7, '#22c55e', '#fff');
     if (job.dest) { const t = A.menuTime(); dot(job.dest.zx, job.dest.zz, 9 + Math.sin(t * 6) * 2, '#ffd60a', '#111'); }
     for (const q of cars) if (q.police && !q.chase) dot(q.x, q.z, 4, '#3b82f6');
+    if (taxi !== homeTaxi || foot.on) dot(homeTaxi.x, homeTaxi.z, 7, '#ffd60a', '#111'); // ton taxi garé
     for (const pc of chasers) dot(pc.car.x, pc.car.z, 6, Math.sin(A.menuTime() * 12) > 0 ? '#ef4444' : '#3b82f6', '#fff');
     c.restore();
     // flèche du joueur (au centre)
-    c.save(); c.translate(W / 2, H / 2); c.rotate(Math.PI - taxi.h); c.beginPath(); c.moveTo(0, -12); c.lineTo(8, 9); c.lineTo(0, 4); c.lineTo(-8, 9); c.closePath(); c.fillStyle = '#ffd60a'; c.fill(); c.lineWidth = 2; c.strokeStyle = '#111'; c.stroke(); c.restore();
+    c.save(); c.translate(W / 2, H / 2); c.rotate(Math.PI - me.h); c.beginPath(); c.moveTo(0, -12); c.lineTo(8, 9); c.lineTo(0, 4); c.lineTo(-8, 9); c.closePath(); c.fillStyle = '#ffd60a'; c.fill(); c.lineWidth = 2; c.strokeStyle = '#111'; c.stroke(); c.restore();
     // cible hors carte : flèche au bord
     const tgt = targetPoint();
     if (tgt) {
@@ -1311,9 +1532,10 @@ window.DZTaxi = function (A) {
     }
   }
   function targetPoint() {
+    if (foot.on || taxi !== homeTaxi) return [homeTaxi.x, homeTaxi.z]; // retourne à ton taxi
     if (job.dest) return [job.dest.zx, job.dest.zz];
     if (job.st === 'board' && job.client) return [job.client.stop.zx, job.client.stop.zz];
-    let best = null, bd = 1e9; for (const s of STOPS) if (s.client) { const d = Math.hypot(s.zx - taxi.x, s.zz - taxi.z); if (d < bd) { bd = d; best = [s.zx, s.zz]; } }
+    let best = null, bd = 1e9; for (const s of STOPS) if (s.client) { const d = Math.hypot(s.zx - me.x, s.zz - me.z); if (d < bd) { bd = d; best = [s.zx, s.zz]; } }
     return best;
   }
   const fmtClock = t => { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
@@ -1321,17 +1543,19 @@ window.DZTaxi = function (A) {
     $('txCash').textContent = fmtInt(money) + ' MRU';
     $('txSub').textContent = stats.courses + (stats.courses > 1 ? ' courses' : ' course') + (stats.fines ? ' · amendes ' + fmtInt(stats.fines) : '');
     const ck = $('txClock'); ck.textContent = fmtClock(T.timeLeft); ck.classList.toggle('warn', T.timeLeft < 30);
-    const tgt = targetPoint(), dist = tgt ? Math.round(manhattan(taxi.x, taxi.z, tgt[0], tgt[1]) / 10) * 10 : 0;
-    if (job.st === 'free') { $('txJobT').textContent = 'Cherche un client'; $('txJobV').textContent = '🟢 Arrêt le plus proche'; $('txJobS').textContent = tgt ? dist + ' m · arrête-toi dans le cercle vert' : ''; }
+    const tgt = targetPoint(), dist = tgt ? Math.round(manhattan(me.x, me.z, tgt[0], tgt[1]) / 10) * 10 : 0;
+    if (foot.on || taxi !== homeTaxi) { $('txJobT').textContent = foot.on ? 'À pied' : 'Voiture empruntée'; $('txJobV').textContent = '🚕 Ton taxi'; $('txJobS').textContent = (foot.on && Math.hypot(homeTaxi.x - me.x, homeTaxi.z - me.z) < 6 ? 'F / Select : monter' : dist + ' m · F / Select pour descendre ou monter'); }
+    else if (job.st === 'free') { $('txJobT').textContent = 'Cherche un client'; $('txJobV').textContent = '🟢 Arrêt le plus proche'; $('txJobS').textContent = tgt ? dist + ' m · arrête-toi dans le cercle vert' : ''; }
     else if (job.st === 'board') { $('txJobT').textContent = job.client.name; $('txJobV').textContent = 'Le client monte…'; $('txJobS').textContent = 'reste arrêté'; }
     else if (job.st === 'ride') { $('txJobT').textContent = job.client.name + ' · ' + fmtInt(job.fare) + ' MRU'; $('txJobV').textContent = '🟡 ' + job.dest.name; $('txJobS').innerHTML = dist + ' m · <b class="' + (job.t < 10 ? 'late' : '') + '">⏱ ' + fmtClock(job.t) + '</b> · <span class="stars">' + stars(job.stars) + '</span>'; }
     const wv = $('txWanted'); wv.classList.toggle('hidden', !wanted && !chasers.length); $('txStars').textContent = '★'.repeat(Math.max(1, wanted)) + (chasers.length ? ' POURSUITE' : '');
     wv.classList.toggle('chase', chasers.length > 0);
-    $('speed').textContent = Math.round(taxi.speed * 3.6); $('gear').textContent = taxi.vF < -0.5 ? 'R' : taxi.gear;
+    $('speed').textContent = Math.round(me.speed * 3.6); $('gear').textContent = foot.on ? '🚶' : taxi.vF < -0.5 ? 'R' : taxi.gear;
+    const hpv = foot.on ? foot.hp : 100 * (taxi.hp || 0) / (taxi.hpMax || 100), hpe = $('txHp'); if (hpe) { hpe.classList.toggle('hidden', !foot.on && !chasers.length && hpv >= 99.5); $('txHpL').textContent = foot.on ? '🧍' : '🚗'; const bar = $('txHpBar'); bar.style.width = clamp(hpv, 0, 100).toFixed(0) + '%'; bar.style.background = hpv > 55 ? '#4ade80' : hpv > 25 ? '#facc15' : '#ef4444'; }
     const rb = $('rpmBar'); if (rb) rb.style.width = (clamp(taxi.rpm, 0, 1) * 100).toFixed(0) + '%';
     const nb = $('nitroBtn'); if (nb) { nb.style.setProperty('--n', clamp(taxi.nitro, 0, 1).toFixed(3)); nb.classList.toggle('on', taxi.nitroOn); nb.classList.toggle('ready', taxi.nitro > 0.5 && !taxi.nitroOn); nb.classList.toggle('empty', taxi.nitro < 0.05); }
     const tn = $('tNitro'); if (tn) tn.style.setProperty('--n', clamp(taxi.nitro, 0, 1).toFixed(3));
-    const pn = placeName(taxi.x, taxi.z), st = $('txStreet'); const label = pn.street ? pn.street + ' · ' + pn.district : pn.district; if (st.textContent !== label) st.textContent = label;
+    const pn = placeName(me.x, me.z), st = $('txStreet'); const label = pn.street ? pn.street + ' · ' + pn.district : pn.district; if (st.textContent !== label) st.textContent = label;
     $('mapName').textContent = pn.district;
     drawMap();
   }
@@ -1377,10 +1601,10 @@ window.DZTaxi = function (A) {
     const tgt = targetPoint();
     arrow.visible = !!tgt && A.state === 'play';
     if (tgt) {
-      arrow.position.set(taxi.x, (taxiModel ? taxiModel.box.max.y : 1.5) + 1.9 + Math.sin(t * 3) * 0.12, taxi.z);
+      arrow.position.set(me.x, (foot.on ? 1.2 : taxiModel ? taxiModel.box.max.y : 1.5) + 1.9 + Math.sin(t * 3) * 0.12, me.z); arrow.scale.setScalar(foot.on ? 0.45 : 0.78);
       // trajet par les rues : viser le carrefour suivant si la cible n'est pas sur la même rue
-      const [ax, az] = nextAim(taxi.x, taxi.z, tgt[0], tgt[1]);
-      const want = Math.atan2(ax - taxi.x, az - taxi.z); arrow.rotation.y = lerp(arrow.rotation.y, arrow.rotation.y + wrapAng(want - arrow.rotation.y), Math.min(1, dt * 6));
+      const [ax, az] = nextAim(me.x, me.z, tgt[0], tgt[1]);
+      const want = Math.atan2(ax - me.x, az - me.z); arrow.rotation.y = lerp(arrow.rotation.y, arrow.rotation.y + wrapAng(want - arrow.rotation.y), Math.min(1, dt * 6));
       arrow.mat.color.setHex(job.dest ? 0xffd000 : 0x22ff66);
     }
   }
@@ -1398,7 +1622,7 @@ window.DZTaxi = function (A) {
     buildVehicleTypes();
     const counts = {}; for (const k in VT) counts[k] = k === 'police' ? 3 : k === 'cart' ? 5 : Math.max(4, Math.ceil(VT[k].w * 6));
     buildVehicleMeshes(counts);
-    buildPedMeshes(); buildPoliceModels(); buildAmbulanceModel(); buildMarkers(); buildMapBg(); buildHud();
+    buildPedMeshes(); buildPoliceModels(); buildAmbulanceModel(); buildShotFx(); buildMarkers(); buildMapBg(); buildHud();
     root.traverse(o => { if (o.isMesh && o.material && o.material.map) texFix(o.material); });
     T.ready = true;
   }
@@ -1481,7 +1705,7 @@ window.DZTaxi = function (A) {
     for (const pc of chasers.slice()) endChase(pc);
   };
   T.pause = () => { sirenOn(false); sirenAmb(false); A.updateAudio(null, { thr: 0 }, 0, false); };
-  T.reset = () => { if (!taxi || A.state !== 'play') return; resetTaxi(); A.popup('TAXI REPLACÉ', '', false, 'blue'); };
+  T.reset = () => { if (!taxi || A.state !== 'play') return; if (foot.on) { if (foot.down <= 0) A.popup('À PIED', 'F / Select : monter dans une voiture', false, 'blue'); return; } resetTaxi(); A.popup(taxi === homeTaxi ? 'TAXI REPLACÉ' : 'VOITURE REPLACÉE', '', false, 'blue'); };
   function endShift() {
     A.state = 'results'; sirenOn(false); A.updateAudio(null, { thr: 0 }, 0, false);
     $('touch').classList.add('hidden'); $('hud').classList.add('hidden');
@@ -1492,7 +1716,7 @@ window.DZTaxi = function (A) {
     $('resTitle').textContent = 'Service terminé · ' + dr.name + ' · ' + fmtClock(SHIFT_S[T.shift]);
     $('resBig').textContent = fmtInt(money) + ' MRU';
     $('resBody').innerHTML = '<div class="res"><div><span class="lbl">Courses</span><b>' + stats.courses + '</b></div><div><span class="lbl">Recettes + pourboires</span><b>' + fmtInt(stats.fares + stats.tips) + '</b></div><div><span class="lbl">Amendes</span><b>' + (stats.fines ? '-' + fmtInt(stats.fines) : '0') + '</b></div><div><span class="lbl">Note moyenne</span><b>' + (stats.courses ? stars(avg) : '--') + '</b></div></div>' +
-      '<div class="note" style="margin-top:10px;opacity:.85">🚦 Feux grillés : ' + stats.reds + ' · 🚶 Piétons heurtés : ' + stats.peds + ' · 🚓 Arrestations : ' + stats.arrests + '<br>Meilleur service : ' + fmtInt(Math.max(best, net)) + ' MRU</div>';
+      '<div class="note" style="margin-top:10px;opacity:.85">🚦 Feux grillés : ' + stats.reds + ' · 🚶 Piétons heurtés : ' + stats.peds + ' · 🚓 Arrestations : ' + stats.arrests + (stats.thefts ? ' · 🔑 Voitures empruntées : ' + stats.thefts : '') + '<br>Meilleur service : ' + fmtInt(Math.max(best, net)) + ' MRU</div>';
     $('resNew').classList.toggle('hidden', !isNew);
     $('resEarn').textContent = earned ? '+' + fmtInt(earned) + ' crédits' : '';
     $('btnAgain').textContent = 'Nouveau service';
@@ -1505,22 +1729,29 @@ window.DZTaxi = function (A) {
     if (st === 'play') {
       lightT += dt; T.timeLeft -= dt; if (T.hornCd > 0) T.hornCd -= dt;
       let inp = A.readInput(0);
-      if (inp.nitro && taxi.nitro < 0.02) inp.nitro = 0;
       rebuildDyn();
-      const SUB = Math.max(2, Math.ceil(dt / 0.011)); let hit = 0;
-      lastHit.v = 0;
-      for (let s = 0; s < SUB; s++) hit = Math.max(hit, taxiStep(inp, dt / SUB));
-      crashEffects();
-      taxi.nitro = Math.min(1, taxi.nitro + dt * 0.01);
-      if (hit > 6.5) { stats.crashes++; A.crashSound(hit / 20); loseStar(1, pick(['Doucement ! Tu veux nous tuer ?', 'Aïe ! Fais attention !', 'Wallahi, conduis mieux que ça !'])); if (hit > 9) offence('crash', 150, 1, 60); }
-      else if (hit > 3) A.crashSound(hit / 30);
-      updateCars(dt); updatePeds(dt); hitPeds(); updatePolice(dt); updateAmbulance(dt);
-      checkRedLight(); jobLogic(dt);
+      if (foot.on) { // à pied
+        footStep(inp, dt); lastHit.v = 0;
+        updateCars(dt); updatePeds(dt); updatePolice(dt); updateAmbulance(dt);
+      } else {
+        if (inp.nitro && taxi.nitro < 0.02) inp.nitro = 0;
+        if (taxi.dead) inp = Object.assign({}, inp, { thr: 0, nitro: 0 }); // moteur touché par balle
+        const SUB = Math.max(2, Math.ceil(dt / 0.011)); let hit = 0;
+        lastHit.v = 0;
+        for (let s = 0; s < SUB; s++) hit = Math.max(hit, taxiStep(inp, dt / SUB));
+        crashEffects();
+        taxi.nitro = Math.min(1, taxi.nitro + dt * 0.01);
+        if (hit > 6.5) { stats.crashes++; A.crashSound(hit / 20); loseStar(1, pick(['Doucement ! Tu veux nous tuer ?', 'Aïe ! Fais attention !', 'Wallahi, conduis mieux que ça !'])); if (hit > 9) offence('crash', 150, 1, 60); }
+        else if (hit > 3) A.crashSound(hit / 30);
+        updateCars(dt); updatePeds(dt); hitPeds(); updatePolice(dt); updateAmbulance(dt);
+        if (!foot.on) { checkRedLight(); if (taxi === homeTaxi) jobLogic(dt); }
+      }
+      updateShotFx(dt);
       if (R() < dt * 0.5) spawnClients();
       if (sayT > 0) { sayT -= dt; if (sayT <= 0) { const el = $('txSay'); if (el) el.classList.remove('show'); } }
-      updateTaxiVisual(inp, dt);
-      A.updateCamera(dt, taxi);
-      A.updateAudio(taxi, inp, taxi.screech || 0, true); updateSiren();
+      if (foot.on) { updateFootCam(dt); A.updateAudio(taxi, NO_INP, 0, false); }
+      else { updateTaxiVisual(inp, dt); A.updateCamera(dt, taxi); A.updateAudio(taxi, inp, taxi.screech || 0, true); }
+      updateSiren();
       hudAcc += dt; if (hudAcc > 1 / 15) { hudAcc = 0; updateHud(); }
       if (T.timeLeft <= 0) { if (job.st === 'ride' && T.timeLeft > -75) { if (!T.overtime) { T.overtime = true; A.popup('FIN DU SERVICE', 'termine ta dernière course !', false, 'gold'); } } else { T.endAt = T.endAt == null ? 2.2 : T.endAt - dt; if (T.endAt <= 0) endShift(); } }
       T.lastInp = inp;
@@ -1533,7 +1764,7 @@ window.DZTaxi = function (A) {
     if (st !== 'pause') { if (Math.floor(lightT * 5) !== lastLightUpd) { lastLightUpd = Math.floor(lightT * 5); updateLights(); } }
     drawCars(); drawPeds(dt); updateMarkers(dt);
     if ((T.fc = (T.fc || 0) + 1) % 4 === 0) cullUpdate();
-    A.sun.position.set(taxi.x + A.SUN_OFF.x, A.SUN_OFF.y, taxi.z + A.SUN_OFF.z); A.sun.target.position.set(taxi.x, 0, taxi.z);
+    A.sun.position.set(me.x + A.SUN_OFF.x, A.SUN_OFF.y, me.z + A.SUN_OFF.z); A.sun.target.position.set(me.x, 0, me.z);
     A.sky.position.set(A.camera.position.x, 0, A.camera.position.z);
     if (lampGlow) lampGlow.visible = !!prof.night;
     A.fx(dt);
@@ -1593,6 +1824,6 @@ window.DZTaxi = function (A) {
   }
   T.renderOpts = renderOpts;
   T.DRIVERS = DRIVERS;
-  if (TEST) T.dbg = { amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
+  if (TEST) T.dbg = { get SFX() { return SFX; }, foot, parked, get homeTaxi() { return homeTaxi; }, get me() { return me; }, get chaseT() { return chaseT; }, set wanted(v) { wanted = v; }, amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
   return T;
 };

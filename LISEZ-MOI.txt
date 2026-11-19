@@ -99,7 +99,7 @@ MODE TAXI NOUAKCHOTT
   Charles de Gaulle, route de l'Espoir, carrefours BMD, Madrid, Bamako,
   Cité Smar, PK10…
   Choisis ton taximan :
-    Moulaye     taxi jaune, rapide (moteur nerveux)
+    Moulaye     taxi jaune (Audi RS Q8), rapide (moteur nerveux)
     Taximan Ba  le vétéran : ses clients sont plus patients (+25 % de temps)
     Sidi        taxi vert, maniable
     Mamadou     taxi bleu, connaît la ville (courses +15 %)
@@ -125,6 +125,25 @@ MODE TAXI NOUAKCHOTT
     sans regarder !), animaux, charrettes, camions, bus, ambulance…
     Feu grillé ou excès de vitesse devant la police = amende + poursuite
     (sirène). Sème la police… ou fais-toi arrêter.
+  - DESCENDRE / CHANGER DE VOITURE : F (ou E) au clavier, Select sur la
+    manette, bouton 🚪 à l'écran (taxi presque arrêté). À pied : Z/S avancer
+    et reculer, Q/D tourner, Maj ou Espace pour courir (manette : stick
+    gauche pour avancer, stick droit pour tourner, O pour courir).
+    Approche-toi d'une portière et appuie encore sur F pour monter : dans
+    ton taxi, ou dans une voiture du trafic (mets-toi devant pour qu'elle
+    s'arrête) — le conducteur s'enfuit en criant « Au voleur ! ».
+    Ton taxi reste garé : point jaune sur la carte et flèche verte pour le
+    retrouver. Les clients ne montent que dans ton taxi ; si tu descends
+    pendant une course, le client s'en va sans payer.
+    Change de voiture LOIN de la police (plus de 55 m) : elle perd ta
+    trace. Si un policier te voit voler une voiture : amende + poursuite.
+  - TIRS DE LA POLICE : après un piéton renversé, ou si tu fuis trop
+    longtemps, les policiers tirent au pistolet par la vitre (détonation,
+    éclair, balles traçantes, étincelles). Barre de vie sous l'alerte :
+    en voiture, la carrosserie encaisse et le moteur finit par lâcher
+    (descends et trouve-en une autre) ; à pied, l'écran rougit quand tu
+    es touché. À zéro : arrêté, soins + amende, retour à ton taxi.
+    Un immeuble entre eux et toi te protège.
   - PIÉTON RENVERSÉ : la personne reste au sol, une AMBULANCE arrive
     (sirène) pour l'emmener à l'hôpital, et la police est appelée dans
     tous les cas : grosse amende et poursuite. Un animal renversé se
@@ -132,8 +151,9 @@ MODE TAXI NOUAKCHOTT
   - Klaxon : H (clavier), R1 (manette), bouton 📯 à l'écran. Les piétons sur
     la chaussée se dépêchent, les clients te font signe.
   - Clavier : Z Q S D / flèches, Espace frein à main, Maj turbo, R replacer
-    le taxi, C caméra, Échap pause.
-  - Manette : mêmes boutons qu'en course ; R1 = klaxon, L1 = replacer.
+    le taxi, F descendre / monter, C caméra, Échap pause.
+  - Manette : mêmes boutons qu'en course ; R1 = klaxon, L1 = replacer,
+    Select = descendre / monter (Start = pause).
   - À la fin du service, ta recette est convertie en crédits pour le garage.
 
 NITRO
