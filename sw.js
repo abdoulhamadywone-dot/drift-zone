@@ -1,5 +1,5 @@
 // Drift Zone — cache hors-ligne + mises à jour
-const VERSION = '2.9.1';
+const VERSION = '2.9.2';
 const CACHE = 'driftzone-' + VERSION;
 const MUSIC = 'dzmusic-1'; // musique : gardée d'une version à l'autre (chaque morceau écouté reste disponible sans Internet)
 // fichiers indispensables (le modèle Audi haute qualité est mis en cache à la première utilisation)

@@ -22,6 +22,16 @@ VERSION INSTALLÉE SUR CE PC (sans Internet)
   « Mettre a jour.bat »     : télécharge la dernière version depuis GitHub
                                et remplace les fichiers de ce dossier.
 
+SUR TÉLÉPHONE
+  En haut de l'écran pendant la partie : 👁 vue dégagée (cache les
+  compteurs, la carte et les panneaux pour profiter de la ville),
+  ↺ replacer la voiture, ⏸ pause. Dans la pause : Reprendre, Menu
+  principal, Recommencer, Caméra, Son, Morceau suivant, Vue dégagée.
+  Le bouton « retour » du téléphone met en pause (au lieu de fermer le
+  jeu) ; un deuxième appui ramène au menu principal.
+  En lançant une partie, le jeu passe en plein écran et en paysage
+  (Options → Écran de jeu pour désactiver). Au clavier : V = vue dégagée.
+
 SON ET MUSIQUE
   Les navigateurs coupent le son tant que tu n'as pas cliqué ou appuyé sur
   une touche du CLAVIER (la manette seule ne suffit pas). Si un bandeau

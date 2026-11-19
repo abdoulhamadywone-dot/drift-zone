@@ -24,7 +24,7 @@ const prof = {
   paint: store.get('paint', 0), rim: store.get('rim', 0),
   upg: Object.assign({ engine: 0, tires: 0, nitro: 0 }, store.get('upg', {})),
   mode: store.get('mode', 0), diff: store.get('diff', 1), laps: [1, 2].includes(store.get('laps2', 1)) ? store.get('laps2', 1) : 1,
-  qual: store.get('qual3', isTouch ? 1 : 2), muted: store.get('muted', false), cam: store.get('cam', 0),
+  qual: store.get('qual3', isTouch ? 1 : 2), muted: store.get('muted', false), cam: store.get('cam', 0), cleanHud: store.get('cleanHud', false), fsLand: store.get('fsLand', true),
   night: store.get('night', false), car: store.get('car', 'audi'),
   car2: store.get('car2', 'viper'), duoAI: store.get('duoAI', 1),
 };
@@ -1789,6 +1789,7 @@ function sndHint() { // bandeau : le navigateur attend un clic / une touche pour
   const el = $('sndHint'); if (!el) return;
   const off = !audio.ctx || audio.ctx.state !== 'running' || (music.blocked && music.el && music.el.paused);
   el.classList.toggle('show', off && (state !== 'loading'));
+  if (isTouch && el.dataset.t !== '1') { el.dataset.t = '1'; el.textContent = '🔊 Touche l’écran pour activer le son'; }
 }
 setInterval(sndHint, 1500);
 function renderMusic() {
@@ -1821,6 +1822,7 @@ window.addEventListener('keydown', e => {
   if (state !== 'play' && state !== 'countdown') return;
   if (e.code === 'KeyR' && state === 'play') { if (TAXI && TAXI.active) TAXI.reset(); else resetToTrack(player, true); }
   if (e.code === 'KeyH' && TAXI && TAXI.active) TAXI.horn();
+  if (e.code === 'KeyV' && !e.repeat && (state === 'play' || state === 'countdown')) setClean(!prof.cleanHud, true);
   if ((e.code === 'KeyF' || e.code === 'KeyE') && TAXI && TAXI.active && !e.repeat) TAXI.door();
   if (e.code === 'KeyC') cycleCam();
   if (e.code === 'KeyM') setMuted(!prof.muted);
@@ -2254,6 +2256,7 @@ function clearAI() { for (const c of cars) if (!c.isPlayer && c.model) scene.rem
 function resetPlayerRun(c) { Object.assign(c, { lap: 0, cp: true, lapStart: 0, lapTimes: [], bestLap: Infinity, finished: false, finishTime: 0, nitro: 0.35, crash: 0, boost: 1, stuck: 0, frozen: true, prog: 0 }); }
 
 function startGame() {
+  goLandscape(); armBack();
   if (mode() === 'taxi' && TAXI) { initAudio(); saveProf(); TAXI.start(); return; }
   if (TAXI && TAXI.active) TAXI.exit();
   initAudio(); saveProf(); ensurePlayer(); repairModel(player.model); crashFx.clear(); clearAI();
@@ -2540,7 +2543,7 @@ function gameLogic(dt, prevIdx) {
   const dotT = pc.onBr ? Math.sin(pc.h) * pc.onBr.br.TX[pc.onBr.k] + Math.cos(pc.h) * pc.onBr.br.TZ[pc.onBr.k] : Math.sin(pc.h) * TX[pc.idx] + Math.cos(pc.h) * TZ[pc.idx];
   game.wrongT = (dotT < -0.35 && pc.speed > 4) ? game.wrongT + dt : 0;
   if (pc.speed < 2.5 && (pc.off || pc.edge < 0.9)) game.stuck += dt; else game.stuck = Math.max(0, game.stuck - dt);
-  if (game.stuck > 3) { game.stuck = -2; popup('BLOQUÉ ?', pad.active ? 'Appuie sur L1 pour te replacer' : isTouch ? 'Touche ↺ pour te replacer' : 'Appuie sur R pour te replacer'); }
+  if (game.stuck > 3) { game.stuck = -2; popup('BLOQUÉ ?', pad.active ? 'Appuie sur L1 pour te replacer' : isTouch ? 'Touche ↺ en haut pour te replacer' : 'Appuie sur R pour te replacer'); }
   if (pc.nitro > 0.3 && !pc.nitroOn && !game.nitroTold && game.raceT > 2) { game.nitroTold = true; popup('🔥 NITRO PRÊT', (isTouch && !pad.active ? 'Bouton NITRO bleu' : 'Appuie sur ' + nitroKeyName()) + ' · ramasse les bouteilles bleues', false, 'blue'); }
   if (m === 'chrono') { game.timeLeft -= dt; if (game.timeLeft <= 0) { game.timeLeft = 0; endSession(); } }
 }
@@ -3084,7 +3087,7 @@ function renderGarage() {
   });
   $('chipCr').textContent = '💰 ' + fmtInt(prof.credits) + ' cr';
 }
-function renderOptions() { setSeg('segQual', prof.qual); setSeg('segNight', prof.night ? 1 : 0); setSeg('segSound', prof.muted ? 0 : 1); setSeg('segCam', prof.cam); renderMusic(); padStatusText(); }
+function renderOptions() { setSeg('segQual', prof.qual); setSeg('segNight', prof.night ? 1 : 0); setSeg('segSound', prof.muted ? 0 : 1); setSeg('segCam', prof.cam); setSeg('segClean', prof.cleanHud ? 1 : 0); setSeg('segFs', prof.fsLand ? 1 : 0); renderMusic(); padStatusText(); }
 function showTab(t) {
   menuTab = t;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('sel', b.dataset.tab === t));
@@ -3098,11 +3101,40 @@ $('segNight').onclick = e => { const b = e.target.closest('button'); if (!b) ret
 $('segQual').onclick = e => { const v = e.target.dataset.v; if (v === undefined || +v === prof.qual) return; prof.qual = +v; store.set('qual3', prof.qual); renderOptions(); { const qn = $('qualNote'); if (qn) qn.textContent = 'Redémarrage pour appliquer…'; } setTimeout(() => location.reload(), 600); };
 $('segSound').onclick = e => { const v = e.target.dataset.v; if (v === undefined) return; initAudio(); setMuted(v === '0'); };
 $('segCam').onclick = e => { const v = e.target.dataset.v; if (v === undefined) return; prof.cam = +v; store.set('cam', prof.cam); renderOptions(); };
+$('segClean').onclick = e => { const v = e.target.dataset.v; if (v === undefined) return; setClean(v === '1', false); };
+$('segFs').onclick = e => { const v = e.target.dataset.v; if (v === undefined) return; prof.fsLand = v === '1'; store.set('fsLand', prof.fsLand); renderOptions(); };
+/* --- écran de jeu : vue dégagée, plein écran paysage (téléphone), bouton retour d'Android --- */
+function setClean(on, pop) { prof.cleanHud = !!on; store.set('cleanHud', prof.cleanHud); document.body.classList.toggle('cleanHud', prof.cleanHud); renderOptions(); if (pop && (state === 'play' || state === 'countdown')) popup(prof.cleanHud ? 'VUE DÉGAGÉE' : 'INTERFACE COMPLÈTE', prof.cleanHud ? '👁 pour réafficher les compteurs' : '', false, 'blue'); }
+document.body.classList.toggle('cleanHud', prof.cleanHud);
+$('mEye').onclick = () => setClean(!prof.cleanHud, true);
+$('mPause').onclick = () => pauseGame();
+$('mReset').onclick = () => { if (state !== 'play') return; if (TAXI && TAXI.active) TAXI.reset(); else if (player) resetToTrack(player, true); };
+function goLandscape() { // téléphone : plein écran + écran couché (l'appel doit venir d'un toucher)
+  if (!isTouch || !prof.fsLand) return;
+  const lock = () => { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} };
+  try { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen({ navigationUI: 'hide' }).then(lock, lock); else lock(); } catch (e) {}
+}
+let rotOk = false;
+$('rotGo').onclick = () => { rotOk = true; $('rotHint').classList.add('hidden'); };
+function inPlayUi() { // classe « en jeu » + conseil d'écran couché
+  const ip = state === 'play' || state === 'countdown';
+  if (ip !== document.body.classList.contains('inplay')) document.body.classList.toggle('inplay', ip);
+  const rh = $('rotHint'), want = isTouch && ip && !rotOk && innerHeight > innerWidth * 1.15;
+  if (rh && want === rh.classList.contains('hidden')) rh.classList.toggle('hidden', !want);
+}
+// bouton « retour » du téléphone pendant une partie : pause (au lieu de quitter le jeu), puis menu principal
+function armBack() { try { if (!history.state || !history.state.dz) history.pushState({ dz: 1 }, ''); } catch (e) {} }
+window.addEventListener('popstate', () => {
+  if (state === 'play' || state === 'countdown') { pauseGame(); armBack(); }
+  else if (state === 'pause') toMenu();
+  else if (state === 'results') toMenu();
+});
 $('nameInput').addEventListener('input', e => { const v = [...e.target.value].filter(ch => { const c = ch.codePointAt(0); return c >= 32 && !(c >= 0x7f && c <= 0x9f) && !(c >= 0x200b && c <= 0x200f) && !(c >= 0x2028 && c <= 0x202e) && !(c >= 0x2060 && c <= 0x206f) && c !== 0xfeff && !(c >= 0xe000 && c <= 0xf8ff); }).join('').slice(0, 16); prof.name = v.trim() || 'Pilote'; store.set('name', prof.name); $('chipName').textContent = '👤 ' + prof.name; if (player) player.name = prof.name; sendPresence(true); });
 $('btnPlay').onclick = startGame;
 $('btnResume').onclick = resumeGame;
 const CAM_NAMES = ['Proche', 'Loin', 'Drone'];
-function pauseOptsText() { $('btnPCam').textContent = '🎥 Caméra : ' + CAM_NAMES[prof.cam]; $('btnPSound').textContent = prof.muted ? '🔇 Son : coupé' : '🔊 Son : activé'; }
+function pauseOptsText() { $('btnPCam').textContent = '🎥 Caméra : ' + CAM_NAMES[prof.cam]; $('btnPSound').textContent = prof.muted ? '🔇 Son : coupé' : '🔊 Son : activé'; $('btnPClean').textContent = prof.cleanHud ? '👁 Interface complète' : '👁 Vue dégagée'; }
+$('btnPClean').onclick = () => { setClean(!prof.cleanHud, false); pauseOptsText(); };
 $('btnPCam').onclick = () => { cycleCam(); pauseOptsText(); };
 $('btnPSound').onclick = () => { initAudio(); setMuted(!prof.muted); pauseOptsText(); };
 $('btnPReset').onclick = () => { resumeGame(); if (TAXI && TAXI.active) TAXI.reset(); else resetToTrack(player, true); };
@@ -3140,9 +3172,9 @@ function frame() {
   dtS += (raw - dtS) * (Math.abs(raw - dtS) > 0.03 ? 0.6 : 0.25);
   const dt = clamp(dtS, 0.004, 0.1);
   menuTime += dt;
-  if (TAXI && TAXI.active) { pollPad(dt); updateMusic(dt); TAXI.frame(dt); perfAdapt(raw, state === 'play' || state === 'countdown'); renderer.render(scene, camera); return; }
+  if (TAXI && TAXI.active) { pollPad(dt); updateMusic(dt); inPlayUi(); TAXI.frame(dt); perfAdapt(raw, state === 'play' || state === 'countdown'); renderer.render(scene, camera); return; }
   if ((frameN = (frameN + 1) % 4) === 0) updateDistCull();
-  pollPad(dt); updateMusic(dt);
+  pollPad(dt); updateMusic(dt); inPlayUi();
   let inp = NO_INPUT;
   if (!player) { renderer.render(scene, camera); return; }
   const m = mode();
