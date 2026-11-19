@@ -1648,7 +1648,7 @@ function clearSkids() { skidPos.fill(-1000); skidGeo.attributes.position.needsUp
 /* ======================= Audio ======================= */
 const audio = { ctx: null };
 function initAudio() {
-  if (audio.ctx) { if (audio.ctx.state === 'suspended') audio.ctx.resume().catch(() => {}); return; }
+  if (audio.ctx) { if (audio.ctx.state === 'suspended') audio.ctx.resume().then(musicKick, () => {}); musicKick(); return; }
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)(); audio.ctx = ctx;
     const master = ctx.createGain(); master.gain.value = prof.muted ? 0 : 0.5; master.connect(ctx.destination); audio.master = master;
@@ -1755,8 +1755,9 @@ function musicEnsure() {
     const f = audio.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 20000; f.Q.value = 0.7;
     const g = audio.ctx.createGain(); g.gain.value = 0;
     src.connect(f); f.connect(g); g.connect(audio.ctx.destination);
-    el.addEventListener('ended', nextTrack);
-    el.addEventListener('error', () => setTimeout(nextTrack, 800));
+    el.addEventListener('ended', () => { music.fails = 0; nextTrack(); });
+    el.addEventListener('playing', () => { music.fails = 0; music.blocked = false; sndHint(); musicPrefetch(); });
+    el.addEventListener('error', () => { music.fails = (music.fails || 0) + 1; if (music.fails < music.list.length) setTimeout(nextTrack, 400); else setTimeout(() => { music.fails = 0; nextTrack(); }, 30000); }); // hors ligne : seules les pistes déjà écoutées sont disponibles
     Object.assign(music, { el, gain: g, filter: f });
     nextTrack();
   } catch (e) {}
@@ -1765,11 +1766,31 @@ function nextTrack() {
   if (!music.el || !music.list.length) return;
   music.pos++; if (music.pos >= music.order.length) { reshuffle(); music.pos = 0; }
   const t = music.list[music.order[music.pos]]; music.cur = t;
-  music.el.src = t.file; music.el.play().catch(() => {});
+  music.el.src = t.file; musicPlay();
   const label = '♪ ' + t.title + (t.artist ? ' — ' + t.artist : '');
   const np = $('nowPlaying'); if (np) { np.textContent = label; np.classList.add('show'); music.toastT = 5; }
   renderMusic();
 }
+function musicPlay() {
+  if (!music.el) return;
+  const p = music.el.play(); if (p && p.catch) p.catch(e => { if (e && e.name === 'NotAllowedError') { music.blocked = true; sndHint(); } });
+}
+function musicKick() { // relance après un geste (clic, touche, écran) si la musique était bloquée
+  if (!audio.ctx) return; if (!music.el) { musicEnsure(); return; }
+  if (music.el.paused && music.el.src) musicPlay();
+  sndHint();
+}
+function musicPrefetch() { // la piste suivante est téléchargée à l'avance : elle reste disponible hors ligne
+  if (!music.list.length || !('serviceWorker' in navigator) || !navigator.onLine) return;
+  const nx = music.order[(music.pos + 1) % music.order.length], t = music.list[nx]; if (!t || music.pre === t.file) return;
+  music.pre = t.file; setTimeout(() => { fetch(t.file).then(r => r.blob()).catch(() => {}); }, 15000);
+}
+function sndHint() { // bandeau : le navigateur attend un clic / une touche pour autoriser le son
+  const el = $('sndHint'); if (!el) return;
+  const off = !audio.ctx || audio.ctx.state !== 'running' || (music.blocked && music.el && music.el.paused);
+  el.classList.toggle('show', off && (state !== 'loading'));
+}
+setInterval(sndHint, 1500);
 function renderMusic() {
   const el = $('musicNow'); if (el) el.textContent = music.cur ? 'En cours : ' + music.cur.title + (music.cur.artist ? ' — ' + music.cur.artist : '') + ' · ' + music.list.length + ' morceaux en aléatoire' : (music.list.length ? music.list.length + ' morceaux en aléatoire' : 'Aucune musique');
   const v = $('musicVol'); if (v && +v.value !== Math.round(music.vol * 100)) v.value = Math.round(music.vol * 100);
@@ -1785,6 +1806,7 @@ function updateMusic(dt) {
   music.filter.frequency.setTargetAtTime(state === 'pause' ? 700 : (state === 'countdown' ? 3500 : 20000), t, 0.25);
 }
 ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, () => { initAudio(); }, { passive: true }));
+{ const sh = document.getElementById('sndHint'); if (sh) sh.addEventListener('click', () => { initAudio(); musicKick(); }); }
 
 /* ======================= Entrées ======================= */
 const keys = {};
@@ -3285,7 +3307,8 @@ loadAll(() => {
   $('loading').classList.add('hidden');
   const toMenuNow = () => { state = 'menu'; showScreen('menu'); renderMenu(); orbitAng = 0.6; camera.fov = 42; camera.updateProjectionMatrix(); };
   if (!TEST || /[?&]intro/.test(location.search)) { state = 'intro'; showScreen(null); introPlay(mainIntroShots(), toMenuNow); } else toMenuNow();
-  if (TEST) window.__dz = { THREE, intro, introUpdate, get TAXI() { return TAXI; }, get player2() { return player2; }, wiz, readInput, pollPad, buildCar, CARS, loadAsset, updateDistCull, TAG, EL, MANCHES, audio, ASSETS, carKey, LM_PLACED, showScreen, BR, BOTTLES, nearestBr, applyAmbience, selectCar, placeCar, get bottleCount() { return game.bottles || 0; }, perf, get pixelRatio() { return pixelRatio; }, LOW, scene, renderer, camera, get player() { return player; }, get cars() { return cars; }, game, combo, keys, net, prof, get state() { return state; }, startGame, netUpdate, onlinePeers, physicsStep, aiInput, __setPlay() { state = 'play'; $('lights').classList.add('hidden'); }, standings, K, N, SEG, track: i => [PX[i], PZ[i]], endSession, toMenu,
+  if (!TEST) initAudio(); // si le navigateur l'autorise (appli installée, lanceur du PC), la musique démarre tout de suite ; sinon au premier clic / à la première touche
+  if (TEST) window.__dz = { THREE, music, initAudio, intro, introUpdate, get TAXI() { return TAXI; }, get player2() { return player2; }, wiz, readInput, pollPad, buildCar, CARS, loadAsset, updateDistCull, TAG, EL, MANCHES, audio, ASSETS, carKey, LM_PLACED, showScreen, BR, BOTTLES, nearestBr, applyAmbience, selectCar, placeCar, get bottleCount() { return game.bottles || 0; }, perf, get pixelRatio() { return pixelRatio; }, LOW, scene, renderer, camera, get player() { return player; }, get cars() { return cars; }, game, combo, keys, net, prof, get state() { return state; }, startGame, netUpdate, onlinePeers, physicsStep, aiInput, __setPlay() { state = 'play'; $('lights').classList.add('hidden'); }, standings, K, N, SEG, track: i => [PX[i], PZ[i]], endSession, toMenu,
     simulate(sec, ctl) { const dt = 1 / 60, out = []; for (let t = 0; t < sec; t += dt) { const ins = new Map(); ins.set(player, ctl ? ctl(player, t) : AUTO(player)); if (player2) ins.set(player2, AUTO(player2)); for (const c of cars) if (c.isAI) ins.set(c, aiInput(c, cars)); const prevs = new Map(cars.map(c => [c, c.idx])); for (let s = 0; s < 3; s++) for (const c of cars) if (!c.frozen) physicsStep(c, ins.get(c) || NO_INPUT, dt / 3); for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) collidePair(cars[i], cars[j], false); for (const c of cars) if (c.isAI) { const lp = trackLaps(c, prevs.get(c)); if (lp && lp.crossed && c.lap > game.laps && !c.finished) { c.finished = true; c.finishTime = game.raceT; } } if (state === 'play') { gameLogic(dt, prevs.get(player)); bottleLogic(dt); if (player2) duoLogic(dt, prevs.get(player2)); } else { game.raceT += dt; trackLaps(player, prevs.get(player)); } aiLogic(dt); if (state === 'finish') { game.finishWait -= dt; if (game.finishWait <= 0) endSession(); } if (state === 'results') break; } return out; } };
 });
 frame();

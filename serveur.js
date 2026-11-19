@@ -5,7 +5,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
@@ -57,8 +57,21 @@ server.on('error', e => {
 function openPage() {
   const page = process.argv.includes('--emulateur') ? 'emulateur.html' : 'index.html';
   const url = 'http://localhost:' + PORT + '/' + page;
+  if (process.argv.includes('--sans-navigateur')) return;
+  // Chrome / Edge avec la musique autorisée dès le lancement (sinon le navigateur attend un clic ;
+  // une manette seule ne suffit pas à débloquer le son)
+  if (process.platform === 'win32') {
+    const E = process.env, cands = [
+      [E['ProgramFiles'], 'Google\\Chrome\\Application\\chrome.exe'], [E['ProgramFiles(x86)'], 'Google\\Chrome\\Application\\chrome.exe'], [E['LOCALAPPDATA'], 'Google\\Chrome\\Application\\chrome.exe'],
+      [E['ProgramFiles(x86)'], 'Microsoft\\Edge\\Application\\msedge.exe'], [E['ProgramFiles'], 'Microsoft\\Edge\\Application\\msedge.exe']
+    ].filter(c => c[0]).map(c => path.join(c[0], c[1]));
+    const exe = cands.find(f => { try { return fs.existsSync(f); } catch (e) { return false; } });
+    if (exe) {
+      try { spawn(exe, ['--autoplay-policy=no-user-gesture-required', url], { detached: true, stdio: 'ignore' }).unref(); return; } catch (e) {}
+    }
+  }
   const cmd = process.platform === 'win32' ? 'start "" "' + url + '"' : process.platform === 'darwin' ? 'open "' + url + '"' : 'xdg-open "' + url + '"';
-  if (!process.argv.includes('--sans-navigateur')) exec(cmd);
+  exec(cmd);
 }
 
 server.listen(PORT, '0.0.0.0', () => {

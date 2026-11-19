@@ -156,6 +156,8 @@ body.taxi #btnHorn{display:flex}
 #onlineBar .peers{font-size:14px;font-weight:600;opacity:.9;margin-top:4px;max-height:96px;overflow:hidden}
 #labels{position:absolute;inset:0;overflow:hidden}
 .tag{position:absolute;transform:translate(-50%,-100%);font-size:14px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.55);white-space:nowrap;border-bottom:2px solid currentColor}
+#sndHint{position:fixed;left:50%;top:14px;transform:translate(-50%,-30px);opacity:0;pointer-events:none;transition:.35s;z-index:70;padding:8px 16px;border-radius:999px;background:rgba(10,14,24,.88);border:1px solid rgba(255,214,10,.6);color:#ffe27a;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap}
+#sndHint.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 #nowPlaying{position:absolute;left:50%;bottom:62px;transform:translateX(-50%) translateY(20px);opacity:0;transition:.4s;padding:6px 14px;font-size:14px;font-weight:700;white-space:nowrap;max-width:80vw;overflow:hidden;text-overflow:ellipsis}
 #nowPlaying.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .has-touch #nowPlaying{bottom:auto;top:14px}
@@ -312,6 +314,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 </style>
 </head>
 <body>
+<div id="sndHint" role="button">🔊 Clique ou appuie sur une touche du clavier pour activer le son</div>
 <div id="game"></div>
 
 <div id="intro" class="hidden"><div class="bar t"></div><div class="bar b"></div><div id="introTitle" class="disp"></div><div id="introSub"></div><div id="introCap"></div><div id="introCredit"></div><button id="introSkip">Passer ▶</button></div>
@@ -495,7 +498,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.9.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '2.9.1';</script>
 <script src="engine-dsp.js"></script>
 <script src="taxi.js"></script>
 <script src="game.js"></script>

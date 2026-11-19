@@ -22,6 +22,18 @@ VERSION INSTALLÉE SUR CE PC (sans Internet)
   « Mettre a jour.bat »     : télécharge la dernière version depuis GitHub
                                et remplace les fichiers de ce dossier.
 
+SON ET MUSIQUE
+  Les navigateurs coupent le son tant que tu n'as pas cliqué ou appuyé sur
+  une touche du CLAVIER (la manette seule ne suffit pas). Si un bandeau
+  jaune « Clique ou appuie sur une touche… » apparaît en haut : clique une
+  fois, la musique démarre.
+  « Lancer Drift Zone.bat » ouvre maintenant Chrome (ou Edge) avec la
+  musique autorisée dès le départ (si le navigateur n'était pas déjà
+  ouvert).
+  Sans Internet (appli installée) : chaque morceau écouté est gardé sur
+  l'appareil, et le morceau suivant est téléchargé à l'avance. Plus tu
+  joues en ligne, plus il y a de musique hors ligne.
+
 QUALITÉ GRAPHIQUE (Options)
   « Haute » : choisie automatiquement sur téléphone (image nette, lisse et fluide).
   « Ultra » : choisie automatiquement sur PC (ombres douces, ville plus dense).
@@ -119,7 +131,7 @@ MODE TAXI NOUAKCHOTT
     suivent la vitesse) et attendent au bord du trottoir ; chèvres en
     troupeau, ânes, chiens, poules et chats traversent le goudron et s'y
     arrêtent parfois — les voitures klaxonnent et les contournent.
-    Charrettes tirées par un âne, camions (benne, citerne, plateau), Audi,
+    Charrettes tirées par un cheval (avec leur charretier), camions (benne, citerne, plateau), Audi,
     taxis et Mondeo : le goudron est chargé, surtout aux carrefours à feux.
   - Code de la route : feux rouges à respecter, piétons qui traversent (même
     sans regarder !), animaux, charrettes, camions, bus, ambulance…

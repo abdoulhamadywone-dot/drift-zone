@@ -486,7 +486,8 @@ window.DZTaxi = function (A) {
     const add = (g, x, y, z) => { g = g.toNonIndexed(); g.translate(x, y, z); if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2)); gs.push(g); };
     add(new THREE.BoxGeometry(1.5, 0.12, 2.0), 0, 0.85, -0.9); add(new THREE.BoxGeometry(1.5, 0.35, 0.08), 0, 1.05, -1.9); add(new THREE.BoxGeometry(0.08, 0.35, 2.0), 0.72, 1.05, -0.9); add(new THREE.BoxGeometry(0.08, 0.35, 2.0), -0.72, 1.05, -0.9);
     add(new THREE.BoxGeometry(1.2, 0.5, 0.9), 0, 1.15, -1.2); // chargement : sacs, bidons
-    for (const s of [-1, 1]) { const w = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 14); w.rotateZ(Math.PI / 2); add(w, s * 0.85, 0.5, -0.9); add(new THREE.BoxGeometry(0.06, 0.06, 1.6), s * 0.45, 0.85, 0.55); }
+    for (const s of [-1, 1]) { const w = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16); w.rotateZ(Math.PI / 2); add(w, s * 0.85, 0.5, -0.9); const hb = new THREE.CylinderGeometry(0.11, 0.11, 0.2, 10); hb.rotateZ(Math.PI / 2); add(hb, s * 0.85, 0.5, -0.9); add(new THREE.BoxGeometry(0.07, 0.07, 2.5), s * 0.42, 0.92, 1.2); } // brancards jusqu'aux flancs du cheval
+    add(new THREE.BoxGeometry(1.3, 0.1, 0.3), 0, 1.12, 0.0); // siège du charretier
     return [{ geo: mergeGeos(gs), mat: wood }];
   }
   const VIM = {}; // InstancedMesh par type
@@ -648,7 +649,7 @@ window.DZTaxi = function (A) {
   let peds = [], WM = {}, walkLib = null;
   const PED_N = LOW ? 34 : LITE ? 64 : 96, CLIENT_N = 8;
   const HUMANS = ['wk_ped0', 'wk_ped1', 'wk_ped2', 'wk_ped3', 'wk_ped4', 'wk_ped5', 'wk_ped6', 'wk_ped7', 'wk_ped8', 'wk_ped9', 'wk_ba', 'wk_survie'];
-  const ANI = { wk_goat: { spd: 0.7, hl: 0.55, hw: 0.25, stride: 1.05, tint: [0xf4f1ea, 0x2b2622, 0x8a5a33, 0xd9cbb2] }, wk_donkey: { spd: 0.85, hl: 1.0, hw: 0.32, stride: 1.6 }, wk_dog: { spd: 1.1, hl: 0.45, hw: 0.2, stride: 0.95, tint: [0xd8c3a0, 0x3a2e24, 0xf0f0f0] }, wk_chicken: { spd: 0.5, hl: 0.18, hw: 0.12, stride: 0.34 }, wk_cat: { spd: 0.65, hl: 0.25, hw: 0.1, stride: 0.55 } };
+  const ANI = { wk_goat: { spd: 0.7, hl: 0.55, hw: 0.25, stride: 1.05, tint: [0xf4f1ea, 0x2b2622, 0x8a5a33, 0xd9cbb2] }, wk_donkey: { spd: 0.85, hl: 1.1, hw: 0.34, stride: 1.9 }, wk_dog: { spd: 1.1, hl: 0.45, hw: 0.2, stride: 0.95, tint: [0xd8c3a0, 0x3a2e24, 0xf0f0f0] }, wk_chicken: { spd: 0.5, hl: 0.18, hw: 0.12, stride: 0.34 }, wk_cat: { spd: 0.65, hl: 0.25, hw: 0.1, stride: 0.55 } };
   const TINTS = [0xc0392b, 0x1f6fb2, 0x2e8b57, 0xf2c14e, 0x8e44ad, 0xf2f2f2, 0x1b1b1b, 0x16a085, 0xd35400, 0x34495e, 0x7f8c8d, 0xe84393];
   const VAT_OK = A.renderer.capabilities.isWebGL2 || !!A.renderer.extensions.get('OES_texture_float');
   const VAT_V = 'uniform sampler2D vatTex; uniform vec3 vatInfo; uniform float walkN;\nattribute float vid; attribute vec2 iAnim; attribute vec4 iTint; varying vec4 vTint;\nvec3 vatAt(float f) { float i = f * vatInfo.y * vatInfo.x + vid; float y = floor(i / vatInfo.x); float x = i - y * vatInfo.x; return texture2D(vatTex, vec2((x + 0.5) / vatInfo.x, (y + 0.5) / vatInfo.z)).xyz; }\n';
@@ -828,13 +829,16 @@ window.DZTaxi = function (A) {
     drawFoot();
     // ânes attelés aux charrettes
     const D = WM.wk_donkey;
-    if (D) for (const c of cars) if (c.cart && Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) < far) { c.wph = (c.wph || 0) + c.v * dt / D.stride; _q.setFromAxisAngle(_Y, c.h); drawPed(D, c.x + Math.sin(c.h) * 1.85, 0.02, c.z + Math.cos(c.h) * 1.85, _q, c.wph, c.v > 0.2 ? 0 : 1, NO_TINT); }
+    if (D) for (const c of cars) if (c.cart && Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) < far) {
+      if (c.drv === undefined) { const n = ['wk_ped0', 'wk_ped1', 'wk_ped2', 'wk_ped3', 'wk_ped7', 'wk_ped8', 'wk_ba'].filter(k => WM[k]); c.drv = n.length ? WM[n[c.slot % n.length]] : null; c.drvT = R() < 0.6 ? tintOf(pick(TINTS), 0.78) : NO_TINT; }
+      if (c.drv) { _q.setFromAxisAngle(_Y, c.h); drawPed(c.drv, c.x - Math.sin(c.h) * 0.25, 0.92, c.z - Math.cos(c.h) * 0.25, _q, 0, 1, c.drvT); } // le charretier, debout à l'avant
+      c.wph = (c.wph || 0) + c.v * dt / D.stride; _q.setFromAxisAngle(_Y, c.h); drawPed(D, c.x + Math.sin(c.h) * 1.95, 0.02, c.z + Math.cos(c.h) * 1.95, _q, c.wph, c.v > 0.2 ? 0 : 1, NO_TINT); }
     for (const k in WM) { const M = WM[k]; M.im.count = M.n; M.im.visible = M.n > 0; M.im.instanceMatrix.needsUpdate = true; M.iAnim.needsUpdate = true; M.iTint.needsUpdate = true; }
   }
 
   /* ======================= Le taxi du joueur ======================= */
   const DRIVERS = [
-    { id: 'moulaye', name: 'Moulaye', build: 'audi', paint: 0xffc21a, sign: true, char: 'ch_moulaye', foot: 'wk_ped0', perk: 'Rapide · moteur nerveux', color: '#ffd60a', st: { power: 1.08, max: 1.07 } },
+    { id: 'moulaye', name: 'Moulaye', build: 'audi', paint: 0xffc21a, sign: true, char: 'ch_moulaye', foot: 'wk_ped8', perk: 'Rapide · moteur nerveux', color: '#ffd60a', st: { power: 1.08, max: 1.07 } },
     { id: 'ba', name: 'Taximan Ba', car: 'tx_mondeo_taxi', char: 'ch_ba', foot: 'wk_ba', perk: 'Vétéran · clients patients (+25 % de temps)', color: '#ff9f1c', st: { time: 1.25 } },
     { id: 'sidi', name: 'Sidi', car: 'tx_mondeo_civil', tint: 0x1f9a52, sign: true, char: 'ped_9', foot: 'wk_ped9', perk: 'Maniable · tient la route', color: '#2f9e5b', st: { grip: 1.1, steer: 1.08 } },
     { id: 'mamadou', name: 'Mamadou', car: 'tx_mondeo_civil', tint: 0x2a62d8, sign: true, char: 'ped_1', foot: 'wk_ped1', perk: 'Connaît la ville · courses +15 %', color: '#2d6cdf', st: { fare: 1.15 } },
