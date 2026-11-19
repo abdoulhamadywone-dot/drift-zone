@@ -17,7 +17,10 @@ Sources
 
 Fichiers
 --------
-  geo.js                            données utilisées par le jeu (chargé par index.html)
+  nkc_real.js                       carte réelle du centre-ville (rues, carrefours, feux, 43 000 bâtiments,
+                                    côte, arrêts, monuments) : extrait OpenStreetMap de Geofabrik,
+                                    chargé seulement quand on choisit « Nouakchott réelle »
+  geo.js                            données de la ville classique (chargé par index.html)
   elminassa_moughataas_zones.json   moughataas et zones (El Minassa)
   elminassa_positions.json          positions des zones repérées (El Minassa)
   mauritanie_villes.json            64 villes + les routes nationales RN1, RN2, RN3
@@ -25,8 +28,16 @@ Fichiers
   nouakchott_carrefours_quartiers.json   35 carrefours et 21 quartiers
   nouakchott_lieux.json             lieux retenus comme destinations
 
-Comment la ville du jeu est construite
---------------------------------------
+Carte réelle (« Nouakchott réelle »)
+-----------------------------------
+Échelle 1 : 1 m dans le jeu = 1 m à Nouakchott. Zone : 18,058–18,118 N, 16,034–15,952 O.
+Rues découpées aux carrefours, simplifiées à 0,7 m près ; bâtiments simplifiés à 0,35 m près,
+hauteur tirée du nombre d'étages OSM ou de la surface. Positions contrôlées sur la vue
+satellite (Carrefour BMD, avenue Gamal Abdel Nasser, Palais du Peuple, Sheraton, Fasq,
+Hôtel Nouakchott, Stade olympique, Marché Capitale).
+
+Ville classique (damier)
+------------------------
 Le damier du jeu (9 avenues nord-sud × 8 avenues est-ouest) est une version resserrée
 de Nouakchott, de la plage (ouest) au Carrefour 24 (est) et de Tevragh Zeina (nord) à
 El Mina / Arafat (sud). Chaque avenue du jeu correspond à une vraie rue :

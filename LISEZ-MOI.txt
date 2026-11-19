@@ -116,10 +116,21 @@ MODE 2 JOUEURS (même PC, écran partagé)
   Ce mode fonctionne hors ligne (pas encore en ligne à deux sur le même PC).
 
 MODE TAXI NOUAKCHOTT
-  Menu Jouer → « Taxi Nouakchott ». Une autre partie du jeu, dans une ville
-  en damier construite d'après la VRAIE carte de Nouakchott (El Minassa et
-  OpenStreetMap, voir data/LISEZ-MOI-DONNEES.txt) : la ville est resserrée,
-  mais chaque rue, carrefour, quartier et lieu est à sa place relative.
+  Menu Jouer → « Taxi Nouakchott ». Deux cartes au choix (réglage « Carte ») :
+  - NOUAKCHOTT RÉELLE (par défaut) : le centre-ville à l'échelle 1, de la
+    plage et du port de pêche jusqu'au Ksar, de Tevragh Zeina à El Mina
+    (environ 8 × 6 km). Chaque rue a son vrai tracé et son vrai nom
+    (1 064 km de rues, 10 000 carrefours, 55 feux tricolores aux vrais
+    carrefours), chaque bâtiment est à sa place avec sa vraie forme
+    (43 000 bâtiments), la côte suit le vrai rivage. Données
+    OpenStreetMap vérifiées sur la vue satellite ; monuments (SNIM,
+    AFARCO, BMD, Marché Capitale, Grande Mosquée, Palais des Congrès,
+    Sheraton, Fasq, Hôtel Nouakchott, Iman, Mauricenter, Stade olympique,
+    Gare routière, Musée…) à leur vraie adresse. Rues goudronnées ou en
+    sable comme en vrai, sens uniques respectés par le trafic. La carte
+    en bas à gauche montre l'itinéraire GPS par les vraies rues.
+  - VILLE CLASSIQUE : l'ancienne ville en damier (plus légère, conseillée
+    sur les petits téléphones), avec les noms de Nouakchott.
   - Rues réelles, d'ouest en est : route de la Plage, route de Nouadhibou,
     avenue Charles de Gaulle et avenue de l'Indépendance, route de Rosso,
     avenue Bourguiba, route d'Akjoujt… et du nord au sud : avenue Moktar
@@ -218,4 +229,6 @@ CRÉDITS
   (allégés et retexturés dans Blender pour le jeu).
   Bâtiments de Nouakchott : modélisés dans Blender pour le jeu.
   Carte de Nouakchott : moughataas et zones relevées sur elminassa.com ;
-  rues, carrefours, lieux et villes © contributeurs OpenStreetMap (ODbL).
+  rues, carrefours, bâtiments, lieux et villes © contributeurs
+  OpenStreetMap (ODbL), extrait Geofabrik ; positions vérifiées sur
+  l'imagerie satellite.

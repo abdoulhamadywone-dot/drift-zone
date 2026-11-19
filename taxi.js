@@ -44,6 +44,7 @@ window.DZTaxi = function (A) {
   const nsName = (i, z) => GEO ? segName(GEO.ns[i], clamp((z - Z0) / P, 0, NJ - 1)) : AV_NS[i];
   const ewName = (j, x) => GEO ? segName(GEO.ew[j], clamp((x - X0) / P, 0, NI - 1)) : AV_EW[j];
   const placeName = (x, z) => {
+    if (REAL) return rPlaceName(x, z);
     const bi = clamp(Math.floor((x - X0) / P), 0, NI - 2), bj = clamp(Math.floor((z - Z0) / P), 0, NJ - 2);
     const fi = clamp(Math.round((x - X0) / P), 0, NI - 1), fj = clamp(Math.round((z - Z0) / P), 0, NJ - 1);
     const onNS = Math.abs(x - nx(fi)) < HW + 2, onEW = Math.abs(z - nz(fj)) < HW + 2;
@@ -54,7 +55,7 @@ window.DZTaxi = function (A) {
   const CARREF = GEO ? GEO.carref : { '5,3': 'Carrefour BMD', '6,5': 'Carrefour Madrid', '7,6': 'Carrefour Bamako', '7,2': 'Carrefour Cité Smar', '4,4': 'Carrefour Capitale', '2,2': 'Carrefour Tevragh Zeina', '8,5': 'Sortie PK10' };
 
   // lieux connus : monuments (îlot + façade) et carrefours ; face 0 E, 1 S, 2 O, 3 N
-  const PLACES = [
+  const GPLACES = [
     { id: 'snim', name: 'Tour SNIM', ar: 'برج سنيم', lm: 'lm_snim', b: [4, 2], face: 1 },
     { id: 'afarco', name: 'Immeuble AFARCO', ar: 'عمارة أفاركو', lm: 'lm_afarco', b: [5, 2], face: 1 },
     { id: 'bmd', name: 'Banque BMD', ar: 'البنك الموريتاني للتنمية', lm: 'lm_bmd', b: [4, 3], face: 3 },
@@ -77,6 +78,7 @@ window.DZTaxi = function (A) {
     { id: 'smar', name: 'Cité Smar', ar: 'حي سمار', node: [7, 2], dir: 3 },
     { id: 'bmdx', name: 'Carrefour BMD', ar: 'ملتقى البنك', node: [5, 3], dir: 0 },
   ];
+  let PLACES = GPLACES;
   if (GEO) { // monuments à leur vraie place, carrefours réels et lieux de la ville (OSM / El Minassa)
     for (const pl of PLACES) { const g = GEO.lm[pl.id]; if (g) { pl.b = [g[0], g[1]]; pl.face = g[2]; } }
     const pg = PLACES.find(p => p.id === 'plage'); if (pg) { pg.j = clamp(Math.floor(GEO.beachJ), 0, NJ - 2); pg.name = 'Plage des Pêcheurs · Port de pêche'; }
@@ -128,7 +130,7 @@ window.DZTaxi = function (A) {
   }
 
   /* ======================= Monde statique : collisions ======================= */
-  const CELL = 24, grid = new Map();
+  const CELL = 24, colMaps = { grid: new Map(), real: new Map() }; let grid = colMaps.grid;
   const gkey = (cx, cz) => cx * 4096 + cz;
   function addCol(c) { // c : { box: [x0, z0, x1, z1] } ou { x, z, r }
     const b = c.box || [c.x - c.r, c.z - c.r, c.x + c.r, c.z + c.r];
@@ -143,6 +145,21 @@ window.DZTaxi = function (A) {
     const px = c.x + ox, pz = c.z + oz; let hit = 0;
     for (const o of nearCols(px, pz, _cols)) {
       let qx, qz;
+      if (o.poly) { // emprise exacte d'un bâtiment (carte réelle)
+        const P_ = o.poly, n = P_.length / 2; let bd = 1e9, inside = false;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+          const ax = P_[2 * j], az = P_[2 * j + 1], bx = P_[2 * i], bz = P_[2 * i + 1];
+          if ((bz > pz) !== (az > pz) && px < (ax - bx) * (pz - bz) / (az - bz) + bx) inside = !inside;
+          const ex = bx - ax, ez = bz - az, l2 = ex * ex + ez * ez || 1, t = clamp(((px - ax) * ex + (pz - az) * ez) / l2, 0, 1), cx = ax + ex * t, cz = az + ez * t, dd = Math.hypot(px - cx, pz - cz);
+          if (dd < bd) { bd = dd; qx = cx; qz = cz; }
+        }
+        let dx, dz, d;
+        if (inside) { d = bd || 1e-3; dx = (qx - px) / d; dz = (qz - pz) / d; d = -d; } else { if (bd >= r) continue; d = bd || 1e-3; dx = (px - qx) / d; dz = (pz - qz) / d; }
+        const pen = r - d; c.x += dx * pen; c.z += dz * pen;
+        const vn = c.vx * dx + c.vz * dz;
+        if (vn < 0) { c.vx -= dx * vn * 1.3; c.vz -= dz * vn * 1.3; c.vx *= 0.85; c.vz *= 0.85; c.w *= 0.6; hit = Math.max(hit, -vn); if (c === taxi && -vn > lastHit.v) Object.assign(lastHit, { v: -vn, x: qx, z: qz, nx: dx, nz: dz, o: null }); }
+        continue;
+      }
       if (o.box) { qx = clamp(px, o.box[0], o.box[2]); qz = clamp(pz, o.box[1], o.box[3]); }
       else { const dx = px - o.x, dz = pz - o.z, d = Math.hypot(dx, dz) || 1e-3; qx = o.x + dx / d * o.r; qz = o.z + dz / d * o.r; if (d > o.r + r) continue; }
       let dx = px - qx, dz = pz - qz; let d = Math.hypot(dx, dz);
@@ -319,7 +336,8 @@ window.DZTaxi = function (A) {
     arafat: ['mrt_shop1A', 'mrt_kioskB', 'B_House03', 'B_House04', 'mrt_villaA', 'mrt_shop2A', 'mrt_market'],
   };
   const LM_DIMS = { lm_snim: [44, 34], lm_afarco: [42, 15], lm_bmd: [32, 24], lm_fasq: [44, 26], lm_mauricenter: [50, 30], lm_nkc: [56, 16], lm_iman: [30, 32], lm_tasiast: [42, 22], lm_sheraton: [52, 36], lm_palais: [86, 60], lm_marche: [64, 36] };
-  const used = new Set(), STOPS = [], PROPS = { lamp: [], slamp: [], palm: [], tree: [], bench: [], bin: [], skip: [], rock: [], khaima: [], shelter: [] }, LAMP_HEADS = [];
+  const used = new Set(), GSTOPS = [], PROPS = { lamp: [], slamp: [], palm: [], tree: [], bench: [], bin: [], skip: [], rock: [], khaima: [], shelter: [] }, LAMP_HEADS = [];
+  let STOPS = GSTOPS;
   function buildBuildings(rnd) {
     const occupied = new Set();
     // 1) monuments
@@ -458,6 +476,7 @@ window.DZTaxi = function (A) {
   // corrige le bras des poteaux : il part vers l'intérieur du carrefour (côté gauche du boîtier)
   let lastLightUpd = -1;
   function updateLights() {
+    if (REAL) return rUpdateLights();
     if (!lampIM) return;
     for (let h = 0; h < HEADS.length; h++) {
       const H = HEADS[h], s = light(H.i, H.j, H.axis).s;
@@ -616,7 +635,15 @@ window.DZTaxi = function (A) {
       let gap = obstacleGap(c, fx, fz), limit = c.vmax, stopByLight = false;
       if (c.piece === 'edge') {
         const stopS = c.len - STOP_GAP - c.hl, toStop = stopS - c.s;
-        if (toStop > -0.5) {
+        if (REAL) { // carte réelle : feux OSM, priorité aux grands axes
+          const toS = c.len - c.hl - 1 - c.s; limit = Math.min(c.vlim, c.vmax * c.vlim / 12);
+          if (toS > -0.5 && toS < 70) {
+            let must = false;
+            if (RD.sig[c.endN]) { const L = rLight(c.endN, c.axis); must = L.s === 'R' || (L.s === 'Y' && toS > c.v * c.v / 7 + 1); }
+            else if (c.yield && toS < 14 && lightT - RD.busy[c.endN] < 0.5) { c.wait += dt; must = c.wait < 9; }
+            if (must) { gap = Math.min(gap, toS); stopByLight = true; }
+          }
+        } else if (toStop > -0.5) {
           const L = light(c.i + DIRS[c.d][0], c.j + DIRS[c.d][1], c.d % 2);
           let mustStop = L.s === 'R' || (L.s === 'Y' && toStop > c.v * c.v / 7 + 1);
           if (!mustStop && c.turn === -1 && L.s === 'G' && toStop < 12 && oncomingBusy(c)) { c.wait += dt; mustStop = c.wait < 7; }
@@ -629,14 +656,16 @@ window.DZTaxi = function (A) {
       if (c.bump > 0) want = 0;
       c.v += clamp(want - c.v, -9 * dt, 2.6 * dt); if (c.v < 0) c.v = 0;
       // embouteillage : klaxon, et on finit par passer
-      if (c.v < 0.2 && !stopByLight && c.blocker && (c.blocker.kind || c.blocker.parked) && c.piece === 'edge' && c.stuck > 2.5 && !c.cart && c.s < c.len - 18) { c.lane = 1 - c.lane; const s0 = c.s; edgePath(c); c.s = s0; chooseNext(c); c.stuck = 0; honk(c.x, c.z, 0.7); } // contourner
+      if (c.v < 0.2 && !stopByLight && c.blocker && (c.blocker.kind || c.blocker.parked) && c.piece === 'edge' && c.stuck > 2.5 && !c.cart && c.s < c.len - 18) { if (REAL) rLaneSwap(c); else { c.lane = 1 - c.lane; const s0 = c.s; edgePath(c); c.s = s0; chooseNext(c); } c.stuck = 0; honk(c.x, c.z, 0.7); } // contourner
       if (c.v < 0.2 && !stopByLight && c.blocker) { c.stuck += dt; if ((c.blocker === taxi || c.blocker.kind) && c.honkT <= 0 && c.stuck > 1.8) { honk(c.x, c.z, 1); c.honkT = 2.5 + R() * 2; } if (c.stuck > 6 && (c.blocker !== taxi || taxi.parked)) { c.ghost = 2.5; c.stuck = 0; } } else c.stuck = 0;
       c.s += c.v * dt;
       if (c.s >= c.len) {
         const over = c.s - c.len;
-        if (c.piece === 'edge') { turnPath(c); c.s = over; c.wait = 0; }
+        if (c.piece === 'edge') { if (REAL) rTurnPath(c); else turnPath(c); c.s = over; c.wait = 0; }
+        else if (REAL) { rEnterNext(c); c.s = over; }
         else { c.i = c.bi; c.j = c.bj; c.d = c.nd; c.lane = c.nl; edgePath(c); chooseNext(c); c.s = over; }
       }
+      if (REAL && c.piece === 'turn') RD.busy[c.tn] = lightT;
       if (c.pvx || c.pvz || c.spin) { c.ox = (c.ox || 0) + c.pvx * dt; c.oz = (c.oz || 0) + c.pvz * dt; c.oh = (c.oh || 0) + c.spin * dt; const k = Math.exp(-dt * 2.4); c.pvx *= k; c.pvz *= k; c.spin *= Math.exp(-dt * 2); if (Math.abs(c.pvx) + Math.abs(c.pvz) + Math.abs(c.spin) < 0.03) c.pvx = c.pvz = c.spin = 0; }
       if (c.bump <= 0 && (c.ox || c.oz || c.oh)) { const k = Math.exp(-dt * 1.1); c.ox *= k; c.oz *= k; c.oh *= k; if (Math.abs(c.ox) + Math.abs(c.oz) + Math.abs(c.oh) < 0.02) c.ox = c.oz = c.oh = 0; }
       if (c.smoke > 0) { c.smoke -= dt; c.smA = (c.smA || 0) + dt * 6; if (c.smA > 1) { c.smA = 0; A.spawnSmoke(c.x + Math.sin(c.h) * c.hl * 0.7, c.z + Math.cos(c.h) * c.hl * 0.7, 0, 0, 0.35, true, 0.9); } }
@@ -739,6 +768,7 @@ window.DZTaxi = function (A) {
     peds.push(p); return p;
   }
   function placeWalker(p, near) {
+    if (REAL) return rPlaceWalker(p, near);
     for (let k = 0; k < 30; k++) { p.bi = Math.floor(R() * (NI - 1)); p.bj = Math.floor(R() * (NJ - 1)); const [bx, bz] = blockC(p.bi, p.bj); if (!taxi || (Math.hypot(bx - taxi.x, bz - taxi.z) > 40 && (!near || Math.hypot(bx - taxi.x, bz - taxi.z) < 300))) break; }
     p.p = R() * 8 * HS; p.st = 'walk'; p.road = false; p.fall = 0; p.down = false; p.leader = null;
     const q = loopPos(p.bi, p.bj, p.p, p.lat); p.x = q[0]; p.z = q[1];
@@ -803,6 +833,7 @@ window.DZTaxi = function (A) {
       if (p.st === 'walk') {
         const pausing = p.kind === 'animal' && Math.sin(p.t2 = (p.t2 || R() * 50) + dt * 0.21) > 0.55;
         const sp = p.spd * (p.run > 0 ? 2.4 : 1) * (pausing ? 0 : 1); v = sp;
+        if (REAL) rWalk(p, dt, sp); else {
         const before = Math.floor(p.p / (2 * HS));
         p.p += p.dir * sp * dt;
         const after = Math.floor(p.p / (2 * HS));
@@ -811,6 +842,7 @@ window.DZTaxi = function (A) {
           const corner = ((p.dir > 0 ? after : before) % 4 + 4) % 4;
           if (p.kind === 'ped' && R() < 0.42) startCross(p, corner, R() < 0.5);
         } else if (R() < dt * (p.kind === 'animal' ? 0.03 : 0.0045) && Math.abs(((p.p % (2 * HS)) + 2 * HS) % (2 * HS) - HS) < HS - 14) startJay(p);
+        }
       } else if (p.st === 'cwait') {
         const L = light(p.ni, p.nj, p.axis); p.wait += dt; p.h = Math.atan2(p.cx1 - p.cx0, p.cz1 - p.cz0);
         if ((L.s === 'R' && L.toG > 8) || p.wait > 40) { p.st = 'cross'; p.t = 0; p.jay = false; p.spd2 = p.spd * 1.1; }
@@ -821,7 +853,8 @@ window.DZTaxi = function (A) {
         else { v = p.st === 'flee' ? (p.kind === 'animal' ? 2.6 : 4.2) : p.spd2 * (p.run > 0 ? 2 : 1); p.t += v * dt / L; }
         const t = clamp(p.t, 0, 1); p.x = p.cx0 + (p.cx1 - p.cx0) * t; p.z = p.cz0 + (p.cz1 - p.cz0) * t; p.h = Math.atan2(p.cx1 - p.cx0, p.cz1 - p.cz0);
         p.road = t > 0.12 && t < 0.88;
-        if (p.t >= 1) { p.st = 'walk'; p.road = false; p.bi = p.nbi; p.bj = p.nbj; p.p = p.np; p.lat = p.kind === 'animal' ? 1 + R() * 0.6 : (R() - 0.5) * 2.2; p.dir = R() < 0.5 ? 1 : -1; }
+        if (p.t >= 1 && REAL) rAfterCross(p);
+        else if (p.t >= 1) { p.st = 'walk'; p.road = false; p.bi = p.nbi; p.bj = p.nbj; p.p = p.np; p.lat = p.kind === 'animal' ? 1 + R() * 0.6 : (R() - 0.5) * 2.2; p.dir = R() < 0.5 ? 1 : -1; }
       } else if (p.st === 'wait') { // client à l'arrêt
         p.h = p.face + Math.sin(p.t2 = (p.t2 || 0) + dt * 0.9) * 0.3;
       } else if (p.st === 'board' || p.st === 'alight') {
@@ -870,6 +903,7 @@ window.DZTaxi = function (A) {
   T.driver = clamp(store.get('taxiDriver', 0), 0, DRIVERS.length - 1);
   T.shift = clamp(store.get('taxiShift', 1), 0, 2); // 4 / 6 / 8 minutes
   T.traffic = clamp(store.get('taxiTraffic', 1), 0, 2);
+  T.map = clamp(store.get('taxiMap', 1), 0, 1); // 1 : Nouakchott réelle (OSM) · 0 : ville classique en damier
   const SHIFT_S = [240, 360, 480];
   let taxi = null, taxiModel = null, homeTaxi = null, homeModel = null, me = null; // taxi : le véhicule conduit (ou quitté) · me : ce que suivent la police et la caméra
   function buildVehModel(o) { // o : { car (nœud de taxi.glb) | build (voiture du garage), tint | paint, char, sign }
@@ -926,6 +960,7 @@ window.DZTaxi = function (A) {
   const spawnSpot = () => ({ x: nx(4) + HW + 30, z: nz(4) + LANE[1], h: HEAD(0) });
   function placeTaxi(x, z, h) { Object.assign(taxi, { x, z, h, vx: 0, vz: 0, w: 0, steer: 0, speed: 0, vF: 0, slip: 0, drifting: false, nitroOn: false }); taxi.skidLast[0] = taxi.skidLast[1] = null; A.camState.init = false; }
   function resetTaxi() { // remettre le taxi sur la chaussée la plus proche, dans le bon sens
+    if (REAL) return rResetTaxi();
     const fi = clamp(Math.round((taxi.x - X0) / P), 0, NI - 1), fj = clamp(Math.round((taxi.z - Z0) / P), 0, NJ - 1);
     const dxN = taxi.x - nx(fi), dzN = taxi.z - nz(fj);
     let x, z, h;
@@ -947,7 +982,7 @@ window.DZTaxi = function (A) {
     // trottoirs : léger dénivelé
     const bi = Math.floor((c.x - X0) / P), bj = Math.floor((c.z - Z0) / P);
     let onWalk = false;
-    if (inBlocks(bi, bj)) { const [bx, bz] = blockC(bi, bj); onWalk = Math.abs(c.x - bx) < BLK / 2 && Math.abs(c.z - bz) < BLK / 2; }
+    if (!REAL && inBlocks(bi, bj)) { const [bx, bz] = blockC(bi, bj); onWalk = Math.abs(c.x - bx) < BLK / 2 && Math.abs(c.z - bz) < BLK / 2; }
     c.y += ((onWalk ? 0.15 : 0) - c.y) * Math.min(1, dt * 12);
     if (onWalk && !c.wasWalk && c.speed > 4) { A.camState && (c.crash = Math.max(c.crash, 1)); }
     c.wasWalk = onWalk;
@@ -1033,7 +1068,7 @@ window.DZTaxi = function (A) {
       p.on = true; p.st = 'wait'; p.x = s.mx; p.z = s.mz; p.face = s.look; p.road = false; p.fall = 0;
       const fem = R() < 0.5; p.name = pick(fem ? NAMES_F : NAMES_M); p.stop = s; s.client = p; p.wave = false;
       // destination : un lieu connu assez loin
-      const far = PLACES.filter(pl => pl.mx !== undefined && manhattan(pl.mx, pl.mz, s.mx, s.mz) > 260);
+      const far = PLACES.filter(pl => pl.mx !== undefined && (REAL ? (d => d > 450 && d < 2600)(Math.hypot(pl.mx - s.mx, pl.mz - s.mz)) : manhattan(pl.mx, pl.mz, s.mx, s.mz) > 260));
       // un tiers des courses vers les monuments et carrefours, le reste vers les lieux de la ville
       const big = far.filter(pl => !pl.pb), poi = far.filter(pl => pl.pb);
       p.dest = pick(poi.length && (!big.length || R() > 0.35) ? poi : big.length ? big : PLACES.filter(pl => pl.mx !== undefined));
@@ -1058,7 +1093,7 @@ window.DZTaxi = function (A) {
       }
       if (dd < 1.6 || job.board > 4) {
         p.st = 'ride'; job.st = 'ride'; job.dest = p.dest; job.stars = 5;
-        job.dist = manhattan(taxi.x, taxi.z, job.dest.zx, job.dest.zz);
+        job.dist = REAL ? rRoutePts(taxi.x, taxi.z, job.dest.zx, job.dest.zz, taxi.h, true).len : manhattan(taxi.x, taxi.z, job.dest.zx, job.dest.zz);
         const dr = DRIVERS[T.driver];
         job.timer = Math.round((job.dist / 8.6 + 22) * (dr.st.time || 1)); job.t = job.timer;
         job.fare = Math.round((90 + job.dist * 0.42) * (dr.st.fare || 1) / 10) * 10;
@@ -1112,7 +1147,8 @@ window.DZTaxi = function (A) {
   function spawnCop() { // renfort : une voiture de police arrive d'un carrefour voisin, hors de vue
     let best = null;
     const fx = Math.sin(me.h), fz = Math.cos(me.h);
-    for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const x = nx(i), z = nz(j), d = Math.hypot(x - me.x, z - me.z); if (d < 45) continue; const ahead = (x - me.x) * fx + (z - me.z) * fz, sc = Math.abs(d - 105) + ahead * 0.25 + R() * 20; if (!best || sc < best.a) best = { x, z, a: sc }; } // de préférence derrière, à ~100 m, hors de vue
+    if (REAL) { const q = rNodeRing(me.x - fx * 60, me.z - fz * 60, 60, 190, 90); if (q) best = { x: q.x, z: q.z, a: 0 }; }
+    else for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const x = nx(i), z = nz(j), d = Math.hypot(x - me.x, z - me.z); if (d < 45) continue; const ahead = (x - me.x) * fx + (z - me.z) * fz, sc = Math.abs(d - 105) + ahead * 0.25 + R() * 20; if (!best || sc < best.a) best = { x, z, a: sc }; } // de préférence derrière, à ~100 m, hors de vue
     if (!best) return null;
     const t = VT.police || { hl: 2.35, hw: 0.95 };
     return { x: best.x, z: best.z, h: Math.atan2(me.x - best.x, me.z - best.z), vx: 0, vz: 0, hl: t.hl, hw: t.hw, police: true, synthetic: true };
@@ -1132,6 +1168,7 @@ window.DZTaxi = function (A) {
     return false;
   }
   function checkRedLight() {
+    if (REAL) return rCheckRedLight();
     const fi = Math.round((taxi.x - X0) / P), fj = Math.round((taxi.z - Z0) / P);
     if (!inGrid(fi, fj)) { lastNode = null; return; }
     const dx = taxi.x - nx(fi), dz = taxi.z - nz(fj), inside = Math.abs(dx) < HW && Math.abs(dz) < HW;
@@ -1157,6 +1194,7 @@ window.DZTaxi = function (A) {
     const c = pc.src; c.chase = false; pc.pm.used = false; pc.pm.g.visible = false;
     if (c.synthetic) { chasers.splice(chasers.indexOf(pc), 1); if (!chasers.length) sirenOn(false); return; }
     // la voiture reprend une voie du réseau la plus proche
+    if (REAL) { c.h = pc.car.h; if (!rPlaceOnRoad(c, pc.car.x, pc.car.z)) { const k = cars.indexOf(c); if (k >= 0) { freeCar(c); cars.splice(k, 1); } } chasers.splice(chasers.indexOf(pc), 1); if (!chasers.length) sirenOn(false); return; }
     let best = null, bd = 1e9;
     for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) for (let d = 0; d < 4; d++) { if (!inGrid(i + DIRS[d][0], j + DIRS[d][1])) continue; const mx = nx(i) + DIRS[d][0] * P / 2, mz = nz(j) + DIRS[d][1] * P / 2, dd = Math.hypot(mx - pc.car.x, mz - pc.car.z) + (me ? -Math.min(250, Math.hypot(mx - me.x, mz - me.z)) : 0); if (dd < bd) { bd = dd; best = [i, j, d]; } }
     c.i = best[0]; c.j = best[1]; c.d = best[2]; c.lane = 1; c.s = 10; c.v = 4; edgePath(c); chooseNext(c);
@@ -1176,7 +1214,8 @@ window.DZTaxi = function (A) {
     if (!amb.mdl) return;
     if (amb.st !== 'off') { if (amb.target !== p && !amb.queue.includes(p)) amb.queue.push(p); return; }
     let best = null;
-    for (let k = 0; k < 60; k++) { const i = Math.floor(R() * NI), j = Math.floor(R() * NJ), x = nx(i), z = nz(j), d = Math.hypot(x - p.x, z - p.z); if (d > 170 && d < 320 && (!best || Math.abs(d - 220) < Math.abs(best.d - 220))) best = { x, z, d }; }
+    if (REAL) { const q = rNodeRing(p.x, p.z, 170, 330, 230); best = q ? { x: q.x, z: q.z } : { x: p.x + 200, z: p.z }; }
+    else for (let k = 0; k < 60; k++) { const i = Math.floor(R() * NI), j = Math.floor(R() * NJ), x = nx(i), z = nz(j), d = Math.hypot(x - p.x, z - p.z); if (d > 170 && d < 320 && (!best || Math.abs(d - 220) < Math.abs(best.d - 220))) best = { x, z, d }; }
     if (!best) best = { x: nx(0), z: nz(0) };
     const spec = A.makeSpec('race', { engine: 0, tires: 0, nitro: 0 }, 'audi');
     Object.assign(spec, { power: 9, maxSpeed: 24, grip: 8.2, latMax: 13, steer: 2.3, driftGrip: 2.4 });
@@ -1217,7 +1256,7 @@ window.DZTaxi = function (A) {
       else if (Math.hypot(p.x - c.x, p.z - c.z) < 8.5) { amb.st = 'load'; amb.t = 5; A.popup('🚑 LES SECOURS SONT LÀ', 'le blessé est emmené à l’hôpital', false, 'blue'); }
     } else if (amb.st === 'load') {
       amb.t -= dt;
-      if (amb.t <= 0) { p.down = false; p.on = false; p.respawn = 30; p.road = false; const far = [[nx(0), nz(0)], [nx(NI - 1), nz(0)], [nx(0), nz(NJ - 1)], [nx(NI - 1), nz(NJ - 1)]].sort((a, b) => Math.hypot(b[0] - c.x, b[1] - c.z) - Math.hypot(a[0] - c.x, a[1] - c.z)); amb.leaveTo = far[1]; amb.st = 'leave'; amb.route = null; amb.rt = 0; }
+      if (amb.t <= 0) { p.down = false; p.on = false; p.respawn = 30; p.road = false; const far = [[nx(0), nz(0)], [nx(NI - 1), nz(0)], [nx(0), nz(NJ - 1)], [nx(NI - 1), nz(NJ - 1)]].sort((a, b) => Math.hypot(b[0] - c.x, b[1] - c.z) - Math.hypot(a[0] - c.x, a[1] - c.z)); amb.leaveTo = far[1]; if (REAL) { const q = rNodeRing(c.x, c.z, 380, 650, 500); amb.leaveTo = q ? [q.x, q.z] : [c.x + 500, c.z]; } amb.st = 'leave'; amb.route = null; amb.rt = 0; }
     } else if (amb.st === 'leave') {
       const nxt = amb.queue.find(q => q.down && q.on);
       if (nxt) { amb.queue = amb.queue.filter(q => q !== nxt); Object.assign(amb, { st: 'go', target: nxt, route: null, rt: 0 }); }
@@ -1242,6 +1281,7 @@ window.DZTaxi = function (A) {
     return { thr: fast ? 0 : 1, brk: fast && c.vF > 3 ? 0.7 : 0, steer, hb: 0, nitro: 0 };
   }
   function gridRoute(ax, az, bx, bz) { // L-trajet par les nœuds (BFS inutile sur une grille sans obstacle)
+    if (REAL) return rRoute(ax, az, bx, bz);
     const ai = clamp(Math.round((ax - X0) / P), 0, NI - 1), aj = clamp(Math.round((az - Z0) / P), 0, NJ - 1), bi = clamp(Math.round((bx - X0) / P), 0, NI - 1), bj = clamp(Math.round((bz - Z0) / P), 0, NJ - 1);
     const r = [[nx(ai), nz(aj)]]; let i = ai, j = aj;
     const horiz = Math.abs(az - nz(aj)) < HW + 2; // déjà sur une rue E-O
@@ -1455,9 +1495,10 @@ window.DZTaxi = function (A) {
     const g = ac.createGain(); g.gain.setValueAtTime(g0, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
     src.connect(f); f.connect(g); g.connect(A.audio.master || ac.destination); src.start(t); src.stop(t + 0.25);
   }
+  function ptInPoly(P_, x, z) { let ins = false; const n = P_.length / 2; for (let i = 0, j = n - 1; i < n; j = i++) { const ax = P_[2 * j], az = P_[2 * j + 1], bx = P_[2 * i], bz = P_[2 * i + 1]; if ((bz > z) !== (az > z) && x < (ax - bx) * (z - bz) / (az - bz) + bx) ins = !ins; } return ins; }
   function lineBlocked(ax, az, bx, bz) { // un immeuble entre le policier et toi ?
     const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 2.5);
-    for (let k = 1; k < n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n; for (const o of nearCols(x, z, _cols)) if (o.box && x > o.box[0] && x < o.box[2] && z > o.box[1] && z < o.box[3] && (o.h === undefined || o.h > 1.2)) return true; }
+    for (let k = 1; k < n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n; for (const o of nearCols(x, z, _cols)) if (o.box && x > o.box[0] && x < o.box[2] && z > o.box[1] && z < o.box[3] && (o.h === undefined || o.h > 1.2) && (!o.poly || ptInPoly(o.poly, x, z))) return true; }
     return false;
   }
   function policeFire(pc, d, dt) { // retourne true si l'arrestation a eu lieu
@@ -1537,6 +1578,654 @@ window.DZTaxi = function (A) {
       else if (p.st === 'wait') p.wave = true;
     }
   };
+  /* ======================= Nouakchott réelle (rues et bâtiments d'OpenStreetMap) ======================= */
+  // Carte à l'échelle 1 : x vers l'est, z vers le sud, en mètres (origine 18.088 N, 15.993 O). Données : data/nkc_real.js
+  let REAL = false, RD = null, rReady = false, gridStatic = [], rLampIM = null, rLampGlow = null;
+  const realG = new THREE.Group(); realG.name = 'realCity'; realG.visible = false;
+  const RCULL = [], RSTOPS = [], RPLACES = [], RHEADS = [];
+  const RW_W = [16, 14, 12, 10, 7, 5, 4], RW_V = [16, 14.5, 13, 11.5, 8.6, 6, 4.5], R_CELL = 64;
+  const rKey = (cx, cz) => (cx + 2048) * 4096 + (cz + 2048);
+  function rDec(s, Tp) { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new Tp(u.buffer); }
+  function rLoadData(cb) { // chargé seulement quand on choisit la carte réelle
+    if (window.DZ_REAL) return cb(true);
+    const s = document.createElement('script'); s.src = 'data/nkc_real.js'; s.onload = () => cb(!!window.DZ_REAL); s.onerror = () => cb(false); document.head.appendChild(s);
+  }
+  function rDecode(D) {
+    const nd = rDec(D.nodes, Int16Array), NN = nd.length / 2, NX = new Float32Array(NN), NZ = new Float32Array(NN);
+    for (let i = 0; i < NN; i++) { NX[i] = nd[2 * i] * 0.25; NZ[i] = nd[2 * i + 1] * 0.25; }
+    const ea = rDec(D.ea, Uint16Array), ec = rDec(D.ec, Uint8Array), en = rDec(D.en, Uint16Array), ecnt = rDec(D.ecnt, Uint16Array), ep = rDec(D.ep, Int16Array);
+    const E = [], inc = Array.from({ length: NN }, () => []);
+    let po = 0;
+    for (let k = 0; k < ec.length; k++) {
+      const a = ea[2 * k], b = ea[2 * k + 1], cnt = ecnt[k], pts = new Float32Array((cnt + 2) * 2);
+      pts[0] = NX[a]; pts[1] = NZ[a];
+      for (let i = 0; i < cnt; i++) { pts[2 + 2 * i] = ep[(po + i) * 2] * 0.25; pts[3 + 2 * i] = ep[(po + i) * 2 + 1] * 0.25; }
+      po += cnt; pts[2 * cnt + 2] = NX[b]; pts[2 * cnt + 3] = NZ[b];
+      const cum = new Float32Array(cnt + 2); for (let i = 1; i < cnt + 2; i++) cum[i] = cum[i - 1] + Math.hypot(pts[2 * i] - pts[2 * i - 2], pts[2 * i + 1] - pts[2 * i - 1]);
+      const cl = ec[k] & 7, link = !!(ec[k] & 8), pv = (ec[k] >> 4) & 3, ow = !!(ec[k] & 64);
+      const w = RW_W[cl] * (link ? 0.7 : 1) * (ow && cl <= 3 && !link ? 0.62 : 1);
+      let pv2 = pv;
+      if (pv === 2) { // revêtement inconnu : goudron dans les quartiers bitumés (Tevragh Zeina, Capitale, Ksar), sable ailleurs
+        const mx = (NX[a] + NX[b]) / 2, mz = (NZ[a] + NZ[b]) / 2; let q = null, bd = 1e9; for (const Q of D.quart) { const dd = Math.hypot(Q[1] - mx, Q[2] - mz); if (dd < bd) { bd = dd; q = Q; } }
+        pv2 = q && (q[3] === 'Tevragh Zeina' || q[3] === 'Ksar') && !/Socogim PS|Centrale/.test(q[0]) ? 1 : 0;
+      }
+      E.push({ k, a, b, cl, link, pv: pv2, ow, name: D.names[en[k]] || '', ar: D.ar[en[k]] || '', pts, cum, L: cum[cnt + 1], w });
+      inc[a].push(k); inc[b].push(k);
+    }
+    // rayon de chaque carrefour (où les voies s'arrêtent), feux, noms
+    const rn = new Float32Array(NN), sig = new Uint8Array(NN), ofs = new Float32Array(NN), axis = new Float32Array(NN), busy = new Float32Array(NN).fill(-99), carN = new Array(NN);
+    for (let n = 0; n < NN; n++) { const l = inc[n]; if (l.length >= 3) { let m = 0; for (const k of l) m = Math.max(m, E[k].w / 2); rn[n] = m + 1.2; } }
+    for (const n of D.sig) {
+      sig[n] = 1; ofs[n] = (n * 7.31) % CYC;
+      let best = null; for (const k of inc[n]) if (!best || E[k].cl < best.cl) best = E[k];
+      const t = rTan(best, best.a === n ? 0 : best.L); axis[n] = Math.atan2(t[0], t[1]);
+    }
+    for (const [n, nm, ar] of D.carn) carN[n] = [nm, ar];
+    // index spatial : arêtes et nœuds par cellule
+    const idx = new Map(), nidx = new Map();
+    for (const e of E) {
+      const P_ = e.pts, seen = new Set();
+      for (let i = 0; i < P_.length / 2 - 1; i++) {
+        const x0 = Math.min(P_[2 * i], P_[2 * i + 2]) - e.w, x1 = Math.max(P_[2 * i], P_[2 * i + 2]) + e.w, z0 = Math.min(P_[2 * i + 1], P_[2 * i + 3]) - e.w, z1 = Math.max(P_[2 * i + 1], P_[2 * i + 3]) + e.w;
+        for (let cx = Math.floor(x0 / R_CELL); cx <= Math.floor(x1 / R_CELL); cx++) for (let cz = Math.floor(z0 / R_CELL); cz <= Math.floor(z1 / R_CELL); cz++) { const kk = rKey(cx, cz); if (seen.has(kk)) continue; seen.add(kk); let l = idx.get(kk); if (!l) idx.set(kk, l = []); l.push(e.k); }
+      }
+    }
+    for (let n = 0; n < NN; n++) { const kk = rKey(Math.floor(NX[n] / R_CELL), Math.floor(NZ[n] / R_CELL)); let l = nidx.get(kk); if (!l) nidx.set(kk, l = []); l.push(n); }
+    // bâtiments
+    const bn = rDec(D.bn, Uint8Array), bh = rDec(D.bh, Uint8Array), bt = rDec(D.bt, Uint8Array), bp = rDec(D.bp, Int16Array), boff = new Uint32Array(bn.length + 1);
+    for (let i = 0; i < bn.length; i++) boff[i + 1] = boff[i] + bn[i];
+    return { NN, NX, NZ, E, inc, rn, sig, ofs, axis, busy, carN, idx, nidx, bld: { n: bn, h: bh, t: bt, p: bp, off: boff }, box: D.box, coast: D.coast, lm: D.lm, dest: D.dest, stops: D.stops, quart: D.quart };
+  }
+  // point et tangente sur une arête (s depuis a)
+  function rAt(e, s) {
+    const c = e.cum, p = e.pts; s = clamp(s, 0, e.L); let i = 1; while (i < c.length - 1 && c[i] < s) i++;
+    const t = (s - c[i - 1]) / ((c[i] - c[i - 1]) || 1), ax = p[2 * i - 2], az = p[2 * i - 1], bx = p[2 * i], bz = p[2 * i + 1], L = Math.hypot(bx - ax, bz - az) || 1;
+    return [ax + (bx - ax) * t, az + (bz - az) * t, (bx - ax) / L, (bz - az) / L];
+  }
+  function rTan(e, s) { const q = rAt(e, s); return [q[2], q[3]]; }
+  // voies : décalages à droite du sens de marche
+  function rLanes(e) { if (e.ow) return e.w >= 8 ? [-e.w * 0.22, e.w * 0.22] : [0]; return e.w >= 12 ? [e.w * 0.14, e.w * 0.36] : [e.w * 0.25]; }
+  function rTrim(e) { // portion utilisable d'une arête (hors carrefours)
+    let s0 = RD.rn[e.a], s1 = e.L - RD.rn[e.b];
+    if (s1 - s0 < 3) { s0 = e.L * 0.35; s1 = e.L * 0.65; }
+    return [s0, s1];
+  }
+  function rLanePts(e, dir, o, s0, s1) { // polyligne de la voie (sens dir), décalée de o à droite, entre s0 et s1 (abscisses sur a->b)
+    const out = [], c = e.cum, P_ = e.pts, n = c.length;
+    const push = s => { const q = rAt(e, s); const tx = q[2] * dir, tz = q[3] * dir; out.push(q[0] - tz * o, q[1] + tx * o); };
+    if (dir > 0) { push(s0); for (let i = 1; i < n - 1; i++) if (c[i] > s0 + 0.5 && c[i] < s1 - 0.5) { const tx0 = P_[2 * i] - P_[2 * i - 2], tz0 = P_[2 * i + 1] - P_[2 * i - 1], tx1 = P_[2 * i + 2] - P_[2 * i], tz1 = P_[2 * i + 3] - P_[2 * i + 1], l0 = Math.hypot(tx0, tz0) || 1, l1 = Math.hypot(tx1, tz1) || 1; let mx = tx0 / l0 + tx1 / l1, mz = tz0 / l0 + tz1 / l1; const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml; const k = 1 / Math.max(0.5, mx * tx1 / l1 + mz * tz1 / l1); out.push(P_[2 * i] - mz * o * k, P_[2 * i + 1] + mx * o * k); } push(s1); }
+    else { push(s1); for (let i = n - 2; i >= 1; i--) if (c[i] > s0 + 0.5 && c[i] < s1 - 0.5) { const tx0 = P_[2 * i] - P_[2 * i + 2], tz0 = P_[2 * i + 1] - P_[2 * i + 3], tx1 = P_[2 * i - 2] - P_[2 * i], tz1 = P_[2 * i - 1] - P_[2 * i + 1], l0 = Math.hypot(tx0, tz0) || 1, l1 = Math.hypot(tx1, tz1) || 1; let mx = tx0 / l0 + tx1 / l1, mz = tz0 / l0 + tz1 / l1; const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml; const k = 1 / Math.max(0.5, mx * tx1 / l1 + mz * tz1 / l1); out.push(P_[2 * i] - mz * o * k, P_[2 * i + 1] + mx * o * k); } push(s0); }
+    return out;
+  }
+  function rEdgesNear(x, z, r, out) { out.length = 0; const s = new Set(); for (let cx = Math.floor((x - r) / R_CELL); cx <= Math.floor((x + r) / R_CELL); cx++) for (let cz = Math.floor((z - r) / R_CELL); cz <= Math.floor((z + r) / R_CELL); cz++) { const l = RD.idx.get(rKey(cx, cz)); if (l) for (const k of l) if (!s.has(k)) { s.add(k); out.push(k); } } return out; }
+  const _re = [];
+  function rNearest(x, z, maxD, maxCl) { // arête la plus proche : { e, s, d, side, px, pz, tx, tz }
+    let best = null; maxCl = maxCl === undefined ? 5 : maxCl;
+    for (const k of rEdgesNear(x, z, maxD, _re)) {
+      const e = RD.E[k]; if (e.cl > maxCl) continue; const P_ = e.pts;
+      for (let i = 0; i < P_.length / 2 - 1; i++) {
+        const ax = P_[2 * i], az = P_[2 * i + 1], dx = P_[2 * i + 2] - ax, dz = P_[2 * i + 3] - az, l2 = dx * dx + dz * dz || 1;
+        const t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1), px = ax + dx * t, pz = az + dz * t, d = Math.hypot(x - px, z - pz) - e.w / 2;
+        if (d < maxD && (!best || d < best.d)) { const l = Math.sqrt(l2); best = { e, s: e.cum[i] + t * l, d, px, pz, tx: dx / l, tz: dz / l, side: (x - px) * (-dz / l) + (z - pz) * (dx / l) >= 0 ? 1 : -1 }; }
+      }
+    }
+    return best;
+  }
+  const rOnRoad = (x, z) => { const q = rNearest(x, z, 2); return !!q && q.d < 0.3; };
+  function rNodesNear(x, z, r) { const out = []; for (let cx = Math.floor((x - r) / R_CELL); cx <= Math.floor((x + r) / R_CELL); cx++) for (let cz = Math.floor((z - r) / R_CELL); cz <= Math.floor((z + r) / R_CELL); cz++) { const l = RD.nidx.get(rKey(cx, cz)); if (l) for (const n of l) if (Math.hypot(RD.NX[n] - x, RD.NZ[n] - z) < r) out.push(n); } return out; }
+
+  /* --- itinéraires (A*) : police, ambulance, GPS --- */
+  function rAstar(n0, n1, oneway) {
+    const N = RD.NN, g = rAstar.g || (rAstar.g = new Float32Array(N)), from = rAstar.f || (rAstar.f = new Int32Array(N)), fe = rAstar.fe || (rAstar.fe = new Int32Array(N)), mark = rAstar.m || (rAstar.m = new Uint32Array(N));
+    const stamp = rAstar.s = (rAstar.s || 0) + 1, X = RD.NX, Z = RD.NZ, tx = X[n1], tz = Z[n1];
+    const heap = [], push = (n, f) => { heap.push([f, n]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    mark[n0] = stamp; g[n0] = 0; from[n0] = -1; fe[n0] = -1; push(n0, Math.hypot(X[n0] - tx, Z[n0] - tz));
+    let it = 0;
+    while (heap.length && it++ < 30000) {
+      const [, n] = pop(); if (n === n1) break;
+      for (const k of RD.inc[n]) {
+        const e = RD.E[k]; if (e.cl >= 6) continue; if (oneway && e.ow && e.a !== n) continue;
+        const m = e.a === n ? e.b : e.a, cost = g[n] + e.L * (e.cl >= 5 ? 1.6 : e.pv === 1 ? 1 : 1.15) + 4;
+        if (mark[m] !== stamp || cost < g[m]) { mark[m] = stamp; g[m] = cost; from[m] = n; fe[m] = k; push(m, cost + Math.hypot(X[m] - tx, Z[m] - tz)); }
+      }
+    }
+    if (mark[n1] !== stamp) return null;
+    const path = []; let n = n1; while (n !== n0 && n >= 0) { path.push([n, fe[n]]); n = from[n]; } path.reverse();
+    return { path, len: g[n1] };
+  }
+  function rEndNode(x, z, h, tx, tz) { // nœud de départ : bout de l'arête courante dans la direction voulue
+    const q = rNearest(x, z, 60, 5); if (!q) return null;
+    const e = q.e, fwd = Math.sin(h) * q.tx + Math.cos(h) * q.tz;
+    const toA = Math.hypot(RD.NX[e.a] - tx, RD.NZ[e.a] - tz), toB = Math.hypot(RD.NX[e.b] - tx, RD.NZ[e.b] - tz);
+    let n = (fwd >= 0 ? e.b : e.a); if (h === undefined) n = toA < toB ? e.a : e.b;
+    return { n, q };
+  }
+  function rRoutePts(ax, az, bx, bz, h, oneway) { // liste de points [x,z] de a vers b par les rues
+    const qa = rNearest(ax, az, 60, 5), qb = rNearest(bx, bz, 60, 5), direct = { pts: [[bx, bz]], len: Math.hypot(bx - ax, bz - az) };
+    if (!qa || !qb) return direct;
+    if (qa.e === qb.e) { // même rue : tout droit (demi-tour si la cible est derrière)
+      const fwd = h === undefined ? 0 : Math.sin(h) * qa.tx + Math.cos(h) * qa.tz, ahead = (qb.s - qa.s) * (fwd >= 0 ? 1 : -1) >= -3;
+      if (h === undefined || ahead || !oneway) return direct;
+    }
+    const ea = qa.e, eb = qb.e, X = RD.NX, Z = RD.NZ;
+    const fwdA = h === undefined ? null : (Math.sin(h) * qa.tx + Math.cos(h) * qa.tz >= 0 ? ea.b : ea.a);
+    const starts = fwdA !== null ? [fwdA] : ea.ow && oneway ? [ea.b] : [ea.a, ea.b];
+    const ends = eb.ow && oneway ? [eb.a] : [eb.a, eb.b];
+    let best = null;
+    for (const n0 of starts) for (const n1 of ends) {
+      const d0 = Math.abs((n0 === ea.a ? 0 : ea.L) - qa.s), d1 = Math.abs((n1 === eb.a ? 0 : eb.L) - qb.s);
+      const r = n0 === n1 ? { path: [], len: 0 } : rAstar(n0, n1, oneway); if (!r) continue;
+      const tot = r.len + d0 + d1; if (!best || tot < best.tot) best = { r, n0, n1, tot };
+    }
+    if (!best) return { pts: [[bx, bz]], len: direct.len * 1.3 };
+    const pts = [[X[best.n0], Z[best.n0]]];
+    for (const [n, k] of best.r.path) { const e = RD.E[k], P_ = e.pts, fw = e.b === n, m = P_.length / 2; if (fw) for (let i = 1; i < m - 1; i++) pts.push([P_[2 * i], P_[2 * i + 1]]); else for (let i = m - 2; i >= 1; i--) pts.push([P_[2 * i], P_[2 * i + 1]]); pts.push([X[n], Z[n]]); }
+    pts.push([bx, bz]);
+    return { pts, len: best.tot };
+  }
+  function rRoute(ax, az, bx, bz) { // pour la police et l'ambulance (sens uniques ignorés, gyrophare oblige)
+    const c = Math.abs(ax - (taxi ? taxi.x : 0)) < 0.01 ? taxi : null; void c;
+    return rRoutePts(ax, az, bx, bz, undefined, false).pts;
+  }
+
+  /* --- construction : sol, mer, routes, bâtiments, monuments, mobilier --- */
+  function rBuild() {
+    const D = window.DZ_REAL; RD = rDecode(D);
+    const keepGrid = grid; grid = colMaps.real; // collisions de la carte réelle
+    const [XA, ZA, XB, ZB] = RD.box;
+    // sol de sable
+    const gt = A.canvasTex(512, 512, (c, w, h) => { A.noise(c, w, h, '#d7b98c', 0.2, 22000); c.fillStyle = 'rgba(160,120,70,0.16)'; for (let k = 0; k < 40; k++) { c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, 40 + Math.random() * 60, 10 + Math.random() * 20, Math.random() * 3, 0, 6.3); c.fill(); } }, true);
+    gt.repeat.set(180, 160); gt.anisotropy = 4;
+    const GW = XB - XA + 3000, GH = ZB - ZA + 3000;
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(GW, GH), A.surf({ map: gt, roughness: 1, envMapIntensity: 0.2 })); ground.rotation.x = -Math.PI / 2; ground.position.set((XA + XB) / 2 + 700, -0.02, (ZA + ZB) / 2); ground.receiveShadow = !LOW; realG.add(ground);
+    // océan et plage, à l'ouest de la vraie ligne de côte
+    const co = RD.coast.slice().sort((a, b) => a[1] - b[1]); co.unshift([co[0][0], ZA - 1600]); co.push([co[co.length - 1][0], ZB + 1600]);
+    const op = [], oi = [], bp = [], bi_ = [], buv = [];
+    co.forEach(([x, z], i) => { op.push(x - 4, 0.012, z, XA - 4000, 0.012, z); bp.push(x - 8, 0.01, z, x + 48, 0.004, z); buv.push(0, z / 30, 1, z / 30); if (i) { const b = (i - 1) * 2; oi.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); bi_.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); } });
+    const ot = A.canvasTex(256, 256, (c, w, h) => { A.noise(c, w, h, '#1f6382', 0.12, 9000); c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 2; for (let k = 0; k < 40; k++) { const y = Math.random() * h, x = Math.random() * w; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 30, y + 2); c.stroke(); } }, true); ot.repeat.set(0.02, 0.02);
+    const og = new THREE.BufferGeometry(); og.setAttribute('position', new THREE.Float32BufferAttribute(op, 3)); og.setIndex(oi);
+    const ouv = []; for (let i = 0; i < op.length; i += 3) ouv.push(op[i] / 40, op[i + 2] / 40); og.setAttribute('uv', new THREE.Float32BufferAttribute(ouv, 2)); og.computeVertexNormals();
+    const oceanM = A.surf({ map: ot, roughness: 0.2, metalness: 0.2, envMapIntensity: 1.1, side: THREE.DoubleSide }); ot.repeat.set(1, 1);
+    realG.add(new THREE.Mesh(og, oceanM));
+    const btx = A.canvasTex(64, 256, (c, w, h) => { const g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, '#f2f6f8'); g.addColorStop(0.12, '#bfd9dc'); g.addColorStop(0.3, '#d9bf8f'); g.addColorStop(1, '#e3c793'); c.fillStyle = g; c.fillRect(0, 0, w, h); }, true);
+    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(bp, 3)); bg.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bg.setIndex(bi_); bg.computeVertexNormals();
+    realG.add(new THREE.Mesh(bg, A.surf({ map: btx, roughness: 1, side: THREE.DoubleSide })));
+    for (let i = 1; i < co.length; i++) { const [x0, z0] = co[i - 1], [x1, z1] = co[i]; addCol({ box: [Math.min(x0, x1) - 600, Math.min(z0, z1), Math.max(x0, x1) - 6, Math.max(z0, z1) + 1] }); }
+    addCol({ box: [XA - 700, ZA - 900, XB + 900, ZA - 60] }); addCol({ box: [XA - 700, ZB + 60, XB + 900, ZB + 900] }); addCol({ box: [XB + 60, ZA - 900, XB + 900, ZB + 900] });
+    rBuildRoads(); rBuildBuildings(); rBuildLandmarks(); rBuildProps(); rBuildLights(); rBuildSigns(); rBuildStops();
+    grid = keepGrid;
+    root.add(realG);
+    rReady = true;
+  }
+  function rChunkKey(x, z) { return Math.floor(x / 256) + ',' + Math.floor(z / 256); }
+  function rAddChunkMesh(geo, mat, opt) {
+    geo.computeBoundingSphere(); const m = new THREE.Mesh(geo, mat); m.receiveShadow = !LOW; m.castShadow = !!(opt && opt.cast); if (opt && opt.order !== undefined) m.renderOrder = opt.order;
+    realG.add(m); RCULL.push({ m, c: geo.boundingSphere.center.clone(), r: geo.boundingSphere.radius, d: (opt && opt.maxD) || (LITE ? 700 : 1300) }); return m;
+  }
+  function rBuildRoads() {
+    const asT = A.canvasTex(256, 256, (c, w, h) => { A.noise(c, w, h, '#45474a', 0.14, 26000); c.fillStyle = 'rgba(0,0,0,0.12)'; for (let k = 0; k < 10; k++) { c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, 30, 10, Math.random() * 3, 0, 6.3); c.fill(); } }, true);
+    const trT = A.canvasTex(256, 256, (c, w, h) => { A.noise(c, w, h, '#b0916a', 0.2, 20000); c.strokeStyle = 'rgba(85,64,40,0.35)'; c.lineWidth = 10; for (const x of [0.3, 0.7]) { c.beginPath(); c.moveTo(x * w, 0); c.lineTo(x * w, h); c.stroke(); } c.fillStyle = 'rgba(70,52,32,0.25)'; c.fillRect(0, 0, 10, h); c.fillRect(w - 10, 0, 10, h); }, true);
+    const swT = A.canvasTex(128, 128, (c, w, h) => { A.noise(c, w, h, '#cdbfa6', 0.1, 6000); c.strokeStyle = 'rgba(80,70,55,0.3)'; c.lineWidth = 2; for (let k = 0; k <= w; k += 32) { c.beginPath(); c.moveTo(k, 0); c.lineTo(k, h); c.stroke(); } }, true);
+    const po = (m, f) => { m.polygonOffset = true; m.polygonOffsetFactor = f; m.polygonOffsetUnits = f * 2; return m; };
+    const MAT = {
+      asph: po(A.surf({ map: asT, roughness: 0.9, envMapIntensity: 0.3 }), -1), track: po(A.surf({ map: trT, roughness: 1, envMapIntensity: 0.2 }), -1),
+      walk: po(A.surf({ map: swT, roughness: 0.95, envMapIntensity: 0.2 }), -1), disc: po(A.surf({ map: asT, roughness: 0.9, envMapIntensity: 0.3 }), -2),
+      white: po(new THREE.MeshLambertMaterial({ color: 0xe8e8e2 }), -3), yellow: po(new THREE.MeshLambertMaterial({ color: 0xe8c547 }), -3),
+    };
+    const B = {}; // chunk -> matériau -> {p, uv, i}
+    const buf = (ck, mk) => { const c = B[ck] || (B[ck] = {}); return c[mk] || (c[mk] = { p: [], uv: [], i: [] }); };
+    // ruban entre deux décalages latéraux (offA < offB) sur la portion [s0, s1] d'une arête
+    const ribbon = (e, s0, s1, offA, offB, y, mk, ustep) => {
+      if (s1 - s0 < 0.2) return;
+      const L = rLanePts(e, 1, 0, s0, s1), n = L.length / 2; if (n < 2) return;
+      const ck = rChunkKey(L[0], L[1]), b = buf(ck, mk), base = b.p.length / 3; let acc = s0;
+      for (let i = 0; i < n; i++) {
+        const x = L[2 * i], z = L[2 * i + 1];
+        let tx, tz; if (i === 0) { tx = L[2] - x; tz = L[3] - z; } else if (i === n - 1) { tx = x - L[2 * i - 2]; tz = z - L[2 * i - 1]; } else { const a1 = Math.hypot(x - L[2 * i - 2], z - L[2 * i - 1]) || 1, a2 = Math.hypot(L[2 * i + 2] - x, L[2 * i + 3] - z) || 1; tx = (x - L[2 * i - 2]) / a1 + (L[2 * i + 2] - x) / a2; tz = (z - L[2 * i - 1]) / a1 + (L[2 * i + 3] - z) / a2; }
+        const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+        let k = 1; if (i > 0 && i < n - 1) { const a2 = Math.hypot(L[2 * i + 2] - x, L[2 * i + 3] - z) || 1; k = 1 / Math.max(0.55, tx * (L[2 * i + 2] - x) / a2 + tz * (L[2 * i + 3] - z) / a2); }
+        if (i > 0) acc += Math.hypot(x - L[2 * i - 2], z - L[2 * i - 1]);
+        const rx = -tz * k, rz = tx * k; // droite du sens a -> b
+        b.p.push(x + rx * offA, y, z + rz * offA, x + rx * offB, y, z + rz * offB);
+        const u = acc / (ustep || 8); if (mk === 'track') b.uv.push(0, u, 1, u); else b.uv.push(offA / 8, u, offB / 8, u);
+        if (i) { const q = base + (i - 1) * 2; b.i.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+      }
+    };
+    for (const e of RD.E) {
+      if (e.cl >= 6 && e.pv !== 1) { ribbon(e, 0, e.L, -e.w / 2, e.w / 2, 0.03, 'track', 6); continue; }
+      const paved = e.pv === 1, mk = paved ? 'asph' : 'track', hw = e.w / 2;
+      ribbon(e, 0, e.L, -hw, hw, paved ? 0.06 : 0.03, mk, paved ? 8 : 6);
+      if (paved && e.cl <= 3 && !e.link) { // trottoirs des grandes avenues
+        ribbon(e, 0, e.L, hw, hw + 2.6, 0.05, 'walk', 4); ribbon(e, 0, e.L, -hw - 2.6, -hw, 0.05, 'walk', 4);
+      }
+      if (paved && e.cl <= 4 && e.w >= 7) { // marquages (hors carrefours)
+        const [s0, s1] = rTrim(e);
+        if (!e.ow) { if (e.cl <= 3) { ribbon(e, s0, s1, -0.22, -0.1, 0.1, 'yellow'); ribbon(e, s0, s1, 0.1, 0.22, 0.1, 'yellow'); } else for (let s = s0 + 1; s < s1 - 3; s += 9) ribbon(e, s, s + 3, -0.07, 0.07, 0.1, 'white'); }
+        if (e.cl <= 3) { ribbon(e, s0, s1, -hw + 0.35, -hw + 0.5, 0.1, 'white'); ribbon(e, s0, s1, hw - 0.5, hw - 0.35, 0.1, 'white'); }
+        if (rLanes(e).length > 1 && e.ow) for (let s = s0 + 1; s < s1 - 3; s += 9) ribbon(e, s, s + 3, -0.07, 0.07, 0.1, 'white');
+        if (!e.ow && e.w >= 12) for (const sd of [-1, 1]) for (let s = s0 + 1; s < s1 - 3; s += 9) ribbon(e, s, s + 3, sd * e.w * 0.25 - 0.07, sd * e.w * 0.25 + 0.07, 0.1, 'white');
+      }
+    }
+    // carrefours : disques de goudron qui couvrent les raccords
+    for (let n = 0; n < RD.NN; n++) {
+      const l = RD.inc[n]; if (l.length < 2) continue; let paved = false, r = 0; for (const k of l) { const e = RD.E[k]; if (e.pv === 1) paved = true; r = Math.max(r, e.w / 2); }
+      if (l.length === 2 && r < 4) continue;
+      const x = RD.NX[n], z = RD.NZ[n], b = buf(rChunkKey(x, z), paved ? 'disc' : 'track'), base = b.p.length / 3, S = 14, y = paved ? 0.075 : 0.035;
+      b.p.push(x, y, z); b.uv.push(x / 8, z / 8);
+      for (let k = 0; k <= S; k++) { const a = k / S * Math.PI * 2; b.p.push(x + Math.cos(a) * r, y, z + Math.sin(a) * r); b.uv.push((x + Math.cos(a) * r) / 8, (z + Math.sin(a) * r) / 8); if (k) b.i.push(base, base + k + 1, base + k); }
+    }
+    for (const ck in B) for (const mk in B[ck]) {
+      const b = B[ck][mk]; if (!b.i.length) continue;
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2));
+      const nor = new Float32Array(b.p.length); for (let i = 1; i < nor.length; i += 3) nor[i] = 1; g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      g.setIndex(b.p.length / 3 > 65000 ? new THREE.Uint32BufferAttribute(b.i, 1) : new THREE.Uint16BufferAttribute(b.i, 1));
+      rAddChunkMesh(g, MAT[mk], { maxD: mk === 'white' || mk === 'yellow' ? (LITE ? 260 : 420) : undefined, order: mk === 'disc' ? 1 : mk === 'white' || mk === 'yellow' ? 2 : 0 });
+    }
+  }
+  const R_TINTS = [0xd9c19a, 0xece4d6, 0xc9a77a, 0xe0c49e, 0xbfb3a1, 0xe6d6bb, 0xd3b083, 0xf1e9dc];
+  function rBuildingMat() {
+    const m = LOW ? new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000 }) : new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.93, metalness: 0, envMapIntensity: 0.3 });
+    m.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n' +
+        '{ vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz);\n' +
+        '  if (wn.y > 0.6) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.74, 0.71, 0.66), 0.55) * 0.9; }\n' +
+        '  else { vec2 t = normalize(vec2(-wn.z, wn.x) + 1e-5); float u = dot(vWp.xz, t); float fy = fract(vWp.y / 3.3), fx = fract(u / 3.4);\n' +
+        '    float win = step(0.3, fx) * step(fx, 0.72) * step(0.36, fy) * step(fy, 0.8) * step(1.0, vWp.y);\n' +
+        '    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.16, 0.19), win * 0.82); diffuseColor.rgb *= 0.88 + 0.12 * smoothstep(0.0, 0.6, vWp.y); } }');
+    };
+    m.customProgramCacheKey = () => 'dzbld' + (LOW ? 1 : 0);
+    return m;
+  }
+  function rBuildBuildings() {
+    const Bd = RD.bld, N = Bd.n.length, chunks = new Map(), mat = rBuildingMat(), col = R_TINTS.map(h => lin(h));
+    for (let i = 0; i < N; i++) { const o = Bd.off[i]; const x = Bd.p[2 * o] * 0.25, z = Bd.p[2 * o + 1] * 0.25, k = rChunkKey(x, z); let l = chunks.get(k); if (!l) chunks.set(k, l = []); l.push(i); }
+    const tmp = [];
+    for (const list of chunks.values()) {
+      let nv = 0; for (const i of list) nv += Bd.n[i] * 2;
+      const pos = new Float32Array(nv * 3), clr = new Uint8Array(nv * 3), idx = []; let v = 0;
+      for (const i of list) {
+        const n = Bd.n[i], o = Bd.off[i], H = Bd.h[i] * 0.25, c = col[Bd.t[i] & 7], base = v;
+        tmp.length = 0; for (let k = 0; k < n; k++) tmp.push(new THREE.Vector2(Bd.p[2 * (o + k)] * 0.25, Bd.p[2 * (o + k) + 1] * 0.25));
+        let area = 0; for (let k = 0; k < n; k++) { const a = tmp[k], b = tmp[(k + 1) % n]; area += a.x * b.y - b.x * a.y; }
+        const ccw = area > 0; // en (x, z)
+        const sh = 0.92 + ((i * 37) % 17) / 100;
+        for (let k = 0; k < n; k++) {
+          const p = tmp[k];
+          pos.set([p.x, 0, p.y, p.x, H, p.y], v * 3); for (let q = 0; q < 2; q++) { clr[(v + q) * 3] = c.r * 255 * sh; clr[(v + q) * 3 + 1] = c.g * 255 * sh; clr[(v + q) * 3 + 2] = c.b * 255 * sh; }
+          v += 2;
+        }
+        for (let k = 0; k < n; k++) { // murs (normales vers l'extérieur)
+          const a = base + 2 * k, b = base + 2 * ((k + 1) % n);
+          if (ccw) idx.push(a, a + 1, b, b, a + 1, b + 1); else idx.push(a, b, a + 1, b, b + 1, a + 1);
+        }
+        // toit : éventail si convexe, sinon triangulation
+        let convex = true; for (let k = 0; k < n && convex; k++) { const a = tmp[k], b = tmp[(k + 1) % n], c2 = tmp[(k + 2) % n]; const cr = (b.x - a.x) * (c2.y - b.y) - (b.y - a.y) * (c2.x - b.x); if (cr * (ccw ? 1 : -1) < -1e-6) convex = false; }
+        const tris = convex ? (() => { const t = []; for (let k = 1; k < n - 1; k++) t.push([0, k, k + 1]); return t; })() : THREE.ShapeUtils.triangulateShape(tmp, []);
+        for (const [a, b, c2] of tris) { const ia = base + 2 * a + 1, ib = base + 2 * b + 1, ic = base + 2 * c2 + 1; const ax = tmp[a].x, az = tmp[a].y, bx = tmp[b].x, bz = tmp[b].y, cx = tmp[c2].x, cz = tmp[c2].y; const up = (bz - az) * (cx - ax) - (bx - ax) * (cz - az) > 0; if (up) idx.push(ia, ib, ic); else idx.push(ia, ic, ib); }
+        // collision : l'emprise exacte du bâtiment
+        let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; const poly = new Float32Array(n * 2); for (let k = 0; k < n; k++) { const p = tmp[k]; poly[2 * k] = p.x; poly[2 * k + 1] = p.y; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.y); z1 = Math.max(z1, p.y); }
+        if (H > 1.5) addCol({ poly, box: [x0, z0, x1, z1], h: H });
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(clr, 3, true));
+      g.setIndex(nv > 65000 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+      rAddChunkMesh(g, mat, { cast: !LITE, maxD: LITE ? 650 : 1250 });
+    }
+  }
+  const R_LM = { palais: 'lm_palais', marche: 'lm_marche', bmd: 'lm_bmd', snim: 'lm_snim', afarco: 'lm_afarco', sheraton: 'lm_sheraton', fasq: 'lm_fasq', mauricenter: 'lm_mauricenter', iman: 'lm_iman', nkc: 'lm_nkc' };
+  const rinst = {};
+  function rBuildLandmarks() {
+    for (const [id, name, ar, x, z, face, ek, s, side] of RD.lm) {
+      const rot = face; // la façade (+z local) regarde la rue
+      let g = null, w = 30, d = 24, sc = 1;
+      if (R_LM[id]) { const lm = A.glbLM(R_LM[id]); if (lm) { g = lm.g; [w, d] = LM_DIMS[R_LM[id]]; } }
+      else if (id === 'mosquee') { const lm = A.LANDMARKS.mosqueSaudi(); g = lm.g; w = 48; d = 44; }
+      else if (id === 'musee') { const lm = A.LANDMARKS.museum(); g = lm.g; w = 40; d = 26; }
+      else if (id === 'stade' || id === 'station') {
+        const key = id === 'stade' ? 'B_Stadium' : 'mrt_station', s3 = libSize(key);
+        if (s3) { sc = id === 'stade' ? Math.min(1.6, 110 / Math.max(s3.w, s3.d)) : 1; const ca = Math.cos(rot), sa = Math.sin(rot), ox = (s3.cx * ca + s3.cz * sa) * sc, oz = (-s3.cx * sa + s3.cz * ca) * sc; (rinst[key] = rinst[key] || []).push([x - ox, 0.06, z - oz, rot, sc]); rOBB(x, z, rot, s3.w * sc / 2, s3.d * sc / 2, 12); }
+      }
+      if (g) { g.position.set(x, 0.05, z); g.rotation.y = rot; g.scale.setScalar(sc); realG.add(g); A.mergeGroup(g); rOBB(x, z, rot, w * sc / 2 - 0.5, d * sc / 2 - 0.5, 20); }
+      void name; void ar; void ek; void s; void side;
+    }
+  }
+  function rOBB(x, z, rot, hw, hd, h) { // boîte tournée -> polygone de collision
+    const ca = Math.cos(rot), sa = Math.sin(rot), pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([u, v]) => [x + u * ca + v * sa, z - u * sa + v * ca]);
+    const poly = new Float32Array(pts.flat()); let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const [px, pz] of pts) { x0 = Math.min(x0, px); x1 = Math.max(x1, px); z0 = Math.min(z0, pz); z1 = Math.max(z1, pz); }
+    addCol({ poly, box: [x0, z0, x1, z1], h });
+  }
+  function rBuildProps() {
+    const lamps = [], palms = [], heads = [], rnd = seeded(77);
+    for (const e of RD.E) {
+      if (e.pv !== 1 || e.cl > 2 || e.link) continue;
+      const [s0, s1] = rTrim(e), sides = e.ow ? [1] : [-1, 1];
+      for (let s = s0 + 12; s < s1 - 8; s += 34) for (const sd of sides) {
+        const q = rAt(e, s), rx = -q[3], rz = q[2], off = e.w / 2 + 1.4, x = q[0] + rx * sd * off, z = q[1] + rz * sd * off;
+        lamps.push([x, 0.05, z, Math.atan2(-rx * sd, -rz * sd) + Math.PI / 2, 1]); addCol({ x, z, r: 0.35 }); heads.push([x - rx * sd * 1.1, 6.1, z - rz * sd * 1.1]);
+        if (rnd() < 0.7) { const x2 = q[0] + rx * sd * (off + 0.2) + q[2] * 15, z2 = q[1] + rz * sd * (off + 0.2) + q[3] * 15; palms.push([x2, 0.05, z2, rnd() * 6.3, 0.62 + rnd() * 0.25]); addCol({ x: x2, z: z2, r: 0.45 }); }
+      }
+    }
+    const opt = o => Object.assign({ parent: realG, cull: RCULL, cell: 300 }, o);
+    const fromLib = (name, list, o) => { if (!list.length) return; const src = lib.getObjectByName(name) || (A.ASSETS.city && A.ASSETS.city.getObjectByName(name)); if (!src) return; for (const b of bake(src)) A.addInstanced(b.geo, texFix(lowMat(b.mat)), list.map(([x, y, z, r, s]) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(_Y, r), new THREE.Vector3(s, s, s))), null, opt(o)); };
+    fromLib('P_StreetLight', lamps, { cast: !LITE, maxD: LITE ? 280 : 440, name: 'rlamp' });
+    const pm = palms.map(([x, y, z, r, s]) => new THREE.Matrix4().compose(_v.set(x, y, z), _q.setFromAxisAngle(_Y, r), _s.set(s, s, s)).clone());
+    if (pm.length) { A.addInstanced(A.PALM.trunk, A.PALM.trunkMat, pm, null, opt({ cast: !LITE, maxD: LITE ? 360 : 580, name: 'rpalmT' })); A.addInstanced(A.PALM.crown, A.PALM.crownMat, pm, pm.map(() => new THREE.Color().setHSL(0.27 + R() * 0.06, 0.45 + R() * 0.2, 0.62 + R() * 0.2)), opt({ cast: !LITE, maxD: LITE ? 400 : 620, name: 'rpalmC' })); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(heads.flat(), 3));
+    rLampGlow = new THREE.Points(g, new THREE.PointsMaterial({ map: A.glowSpriteTex, color: 0xffd29a, size: 5, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    rLampGlow.frustumCulled = false; realG.add(rLampGlow);
+    A.instanceLib(rinst, { parent: realG, cull: RCULL, cell: 400, maxD: (det, small) => det ? (LITE ? 340 : 560) : small ? 300 : (LITE ? 620 : 980) });
+  }
+  function rBuildLights() { // feux tricolores réels : un poteau à droite de chaque arrivée
+    const poles = [], boxes = [], lamps = [];
+    for (let n = 0; n < RD.NN; n++) {
+      if (!RD.sig[n]) continue;
+      for (const k of RD.inc[n]) {
+        const e = RD.E[k]; if (e.ow && e.b !== n) continue; // pas d'arrivée par ce côté
+        const atEnd = e.b === n, s = atEnd ? Math.max(0, e.L - RD.rn[n] - 0.5) : Math.min(e.L, RD.rn[n] + 0.5), q = rAt(e, s);
+        const tx = q[2] * (atEnd ? 1 : -1), tz = q[3] * (atEnd ? 1 : -1), rx = -tz, rz = tx, h = Math.atan2(tx, tz);
+        const px = q[0] + rx * (e.w / 2 + 1.1), pz = q[1] + rz * (e.w / 2 + 1.1), rot = h + Math.PI;
+        poles.push(new THREE.Matrix4().compose(_v.set(px, 0, pz), _q.setFromAxisAngle(_Y, rot), _s.set(1, 1, 1)).clone());
+        const hx = px - rx * 1.6, hz = pz - rz * 1.6;
+        boxes.push(new THREE.Matrix4().compose(_v.set(hx, 4.35, hz), _q.setFromAxisAngle(_Y, rot), _s.set(1, 1, 1)).clone());
+        RHEADS.push({ n, axis: Math.abs(Math.cos(h - RD.axis[n])) > 0.7071 ? 0 : 1 });
+        for (let L = 0; L < 3; L++) lamps.push(new THREE.Matrix4().compose(_v.set(hx - tx * 0.17, 4.75 - L * 0.4, hz - tz * 0.17), _q.setFromAxisAngle(_Y, rot), _s.set(1, 1, 1)).clone());
+        addCol({ x: px, z: pz, r: 0.3 });
+      }
+    }
+    if (!poles.length) return;
+    const poleG = new THREE.CylinderGeometry(0.09, 0.11, 5, 6); poleG.translate(0, 2.5, 0);
+    const arm = new THREE.BoxGeometry(0.08, 0.08, 1.7); arm.rotateY(Math.PI / 2); arm.translate(-0.85, 4.9, 0);
+    const pg = mergeGeos([poleG.toNonIndexed(), arm.toNonIndexed()].map(g => { if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2)); return g; }));
+    A.addInstanced(pg, A.surf({ color: 0x2b2f33, roughness: 0.6, metalness: 0.4 }), poles, null, { parent: realG, cull: RCULL, cell: 440, cast: !LITE, maxD: 420, name: 'rtlPole' });
+    A.addInstanced(new THREE.BoxGeometry(0.42, 1.3, 0.3), A.surf({ color: 0x15171a, roughness: 0.7 }), boxes, null, { parent: realG, cull: RCULL, cell: 440, cast: !LITE, maxD: 420, name: 'rtlBox' });
+    rLampIM = new THREE.InstancedMesh(new THREE.CircleGeometry(0.15, 12), new THREE.MeshBasicMaterial({ toneMapped: false }), lamps.length);
+    lamps.forEach((m, k) => { rLampIM.setMatrixAt(k, m); rLampIM.setColorAt(k, LCOL.R[1]); }); rLampIM.frustumCulled = false; realG.add(rLampIM);
+  }
+  const rLight = (n, axis) => { let ph = (lightT + RD.ofs[n]) % CYC; if (axis) ph = (ph + CYC / 2) % CYC; if (ph < G_T) return { s: 'G', toG: 0, left: G_T - ph }; if (ph < G_T + Y_T) return { s: 'Y', toG: CYC - ph, left: G_T + Y_T - ph }; return { s: 'R', toG: CYC - ph, left: CYC - ph }; };
+  const rAxisOf = (n, h) => Math.abs(Math.cos(h - RD.axis[n])) > 0.7071 ? 0 : 1;
+  function rUpdateLights() {
+    if (!rLampIM) return;
+    for (let h = 0; h < RHEADS.length; h++) { const H = RHEADS[h], s = rLight(H.n, H.axis).s; rLampIM.setColorAt(h * 3, s === 'R' ? LCOL.R[0] : LCOL.R[1]); rLampIM.setColorAt(h * 3 + 1, s === 'Y' ? LCOL.Y[0] : LCOL.Y[1]); rLampIM.setColorAt(h * 3 + 2, s === 'G' ? LCOL.G[0] : LCOL.G[1]); }
+    rLampIM.instanceColor.needsUpdate = true;
+  }
+  function rBuildSigns() { // panneaux bilingues des carrefours nommés
+    const g = new THREE.Group();
+    for (let n = 0; n < RD.NN; n++) {
+      const cn = RD.carN[n]; if (!cn) continue;
+      let e = null; for (const k of RD.inc[n]) if (!e || RD.E[k].cl < e.cl) e = RD.E[k];
+      const s = e.a === n ? Math.min(e.L, RD.rn[n] + 3) : Math.max(0, e.L - RD.rn[n] - 3), q = rAt(e, s), rx = -q[3], rz = q[2], x = q[0] + rx * (e.w / 2 + 2.2), z = q[1] + rz * (e.w / 2 + 2.2);
+      const sg = new THREE.Group(); sg.position.set(x, 0, z); sg.rotation.y = Math.atan2(q[2], q[3]) + Math.PI / 2;
+      A.prim(sg, new THREE.CylinderGeometry(0.1, 0.1, 5.6, 8), A.poleMat, 0, 2.8, 0);
+      A.signMesh(sg, A.textTex([{ t: cn[0].toUpperCase(), y: 0.32, size: 92 }, { t: cn[1] || ' ', y: 0.74, size: 84, font: '700 SZpx Arial, Tahoma, sans-serif' }], { bg: '#0b6b3a', fg: '#ffffff', border: '#ffffff', w: 768, h: 230 }), 5, 1.5, 0, 4.9, 0.12, 0.9);
+      g.add(sg); addCol({ x, z, r: 0.3 });
+    }
+    realG.add(g); A.mergeGroup(g);
+  }
+  function rCurb(e, s, side, inLane) { // point sur le trottoir (m) et dans la voie de droite (z), côté side (+1 = droite de a->b)
+    const q = rAt(e, s), rx = -q[3] * side, rz = q[2] * side, lane = e.ow ? e.w / 2 - 1.9 : Math.max(1.9, e.w / 2 - 1.9);
+    return { mx: q[0] + rx * (e.w / 2 + 1.3), mz: q[1] + rz * (e.w / 2 + 1.3), zx: q[0] + rx * (inLane === false ? 0 : lane), zz: q[1] + rz * (inLane === false ? 0 : lane), look: Math.atan2(-rx, -rz), e: e.k, s, side };
+  }
+  function rBuildStops() {
+    RSTOPS.length = 0; RPLACES.length = 0;
+    const shel = [];
+    for (const [k, s, side] of RD.stops) {
+      const e = RD.E[k], sp = rCurb(e, s, side);
+      RSTOPS.push(Object.assign({ client: null, cool: 0, id: RSTOPS.length }, sp));
+      const fx = -Math.sin(sp.look), fz = -Math.cos(sp.look); shel.push([sp.mx + fx * 1.2, 0.05, sp.mz + fz * 1.2, sp.look, 0.8]); addCol({ x: sp.mx + fx * 1.6, z: sp.mz + fz * 1.6, r: 1.2 });
+    }
+    const src = lib.getObjectByName('P_BusStop') || (A.ASSETS.city && A.ASSETS.city.getObjectByName('P_BusStop'));
+    if (src && shel.length) for (const b of bake(src)) A.addInstanced(b.geo, texFix(lowMat(b.mat)), shel.map(([x, y, z, r, s]) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(_Y, r), new THREE.Vector3(s, s, s))), null, { parent: realG, cull: RCULL, cell: 300, cast: !LITE, maxD: 420, name: 'rshelter' });
+    for (const [id, name, ar, x, z, face, k, s, side] of RD.lm) RPLACES.push(Object.assign({ id, name, ar, rx: x, rz: z, lmFace: face }, rCurb(RD.E[k], s, side)));
+    RD.dest.forEach(([name, ar, cat, x, z, k, s, side], i) => RPLACES.push(Object.assign({ id: 'rp' + i, name, ar, cat, pb: true, rx: x, rz: z }, rCurb(RD.E[k], s, side))));
+    for (let n = 0; n < RD.NN; n++) { const cn = RD.carN[n]; if (!cn) continue; let e = null; for (const k of RD.inc[n]) if (!RD.E[k].ow && (!e || RD.E[k].cl < e.cl)) e = RD.E[k]; if (!e) continue; const s = e.a === n ? Math.min(e.L, RD.rn[n] + 14) : Math.max(0, e.L - RD.rn[n] - 14); RPLACES.push(Object.assign({ id: 'rc' + n, name: cn[0], ar: cn[1] || '', cat: 'carrefour', node: n }, rCurb(e, s, 1))); }
+  }
+
+  /* --- trafic sur les vraies rues --- */
+  function rEdgePath(c) {
+    const e = RD.E[c.e], [s0, s1] = rTrim(e), L = rLanes(e), o = L[clamp(c.lane, 0, L.length - 1)];
+    setPath(c, rLanePts(e, c.dir, o, s0, s1)); c.piece = 'edge'; c.o = o;
+    c.endN = c.dir > 0 ? e.b : e.a; c.vlim = RW_V[e.cl] * (e.pv === 1 ? 1 : 0.8) * (e.link ? 0.8 : 1);
+    const l = RD.inc[c.endN]; c.yield = false;
+    if (l.length >= 3 && !RD.sig[c.endN]) { let mx = 9; for (const k of l) if (k !== c.e) mx = Math.min(mx, RD.E[k].cl); c.yield = e.cl >= mx; }
+    c.axis = RD.sig[c.endN] ? rAxisOf(c.endN, Math.atan2(c.pts[c.pts.length - 2] - c.pts[c.pts.length - 4], c.pts[c.pts.length - 1] - c.pts[c.pts.length - 3])) : 0;
+  }
+  function rChooseNext(c) {
+    const e = RD.E[c.e], n = c.endN, hin = (() => { const p = c.pts, m = p.length; return Math.atan2(p[m - 2] - p[m - 4], p[m - 1] - p[m - 3]); })();
+    const opts = []; let tot = 0;
+    for (const k of RD.inc[n]) {
+      if (k === c.e) continue; const f = RD.E[k]; if (f.cl >= 6 || (f.cl === 5 && !c.cart && R() > 0.25)) continue;
+      if (f.ow && f.a !== n) continue;
+      const dir = f.a === n ? 1 : -1, t = rTan(f, dir > 0 ? 0 : f.L), hout = Math.atan2(t[0] * dir, t[1] * dir), da = wrapAng(hout - hin);
+      let w = [6, 5, 4, 3, 1.4, 0.4, 0][f.cl] * (Math.abs(da) < 0.6 ? 2.6 : 1) * (f.cl < e.cl ? 1.4 : 1); if (c.cart && f.cl <= 1) w *= 0.3;
+      opts.push([k, dir, da, w]); tot += w;
+    }
+    if (!opts.length) { // impasse : demi-tour (ou sens interdit si vraiment coincé)
+      if (!e.ow) { c.ne = c.e; c.ndir = -c.dir; c.turn = 2; c.nl = 0; return; }
+      for (const k of RD.inc[n]) if (k !== c.e) { const f = RD.E[k]; opts.push([k, f.a === n ? 1 : -1, 0, 1]); tot += 1; }
+      if (!opts.length) { c.ne = c.e; c.ndir = -c.dir; c.turn = 2; c.nl = 0; return; }
+    }
+    let r = R() * tot, pk = opts[0]; for (const o of opts) { r -= o[3]; if (r <= 0) { pk = o; break; } }
+    c.ne = pk[0]; c.ndir = pk[1]; c.turn = Math.abs(pk[2]) < 0.6 ? 0 : pk[2] > 0 ? -1 : 1; // da > 0 : à gauche (x est, z sud, cap = atan2(x, z))
+    const nL = rLanes(RD.E[c.ne]).length; c.nl = c.turn === 1 ? nL - 1 : c.turn === -1 ? 0 : Math.min(c.lane, nL - 1);
+  }
+  function rTurnPath(c) {
+    const f = RD.E[c.ne], [s0, s1] = rTrim(f), L = rLanes(f), o2 = L[clamp(c.nl, 0, L.length - 1)];
+    const nxt = rLanePts(f, c.ndir, o2, s0, s1), p = c.pts, m = p.length;
+    const p0x = p[m - 2], p0z = p[m - 1], d0x = p0x - p[m - 4], d0z = p0z - p[m - 3], p2x = nxt[0], p2z = nxt[1], d2x = nxt[2] - p2x, d2z = nxt[3] - p2z;
+    const l0 = Math.hypot(d0x, d0z) || 1, l2 = Math.hypot(d2x, d2z) || 1, ux = d0x / l0, uz = d0z / l0, vx = d2x / l2, vz = d2z / l2;
+    let p1x, p1z; const den = ux * vz - uz * vx, gap = Math.hypot(p2x - p0x, p2z - p0z);
+    if (c.turn === 2) { p1x = RD.NX[c.endN] + ux * 3; p1z = RD.NZ[c.endN] + uz * 3; }
+    else if (Math.abs(den) < 0.15) { p1x = (p0x + p2x) / 2; p1z = (p0z + p2z) / 2; }
+    else { const t = ((p2x - p0x) * vz - (p2z - p0z) * vx) / den; const tt = clamp(t, 0, gap * 1.2); p1x = p0x + ux * tt; p1z = p0z + uz * tt; }
+    setPath(c, bezierPts(p0x, p0z, p1x, p1z, p2x, p2z, gap < 4 ? 2 : 8)); c.piece = 'turn'; c.tn = c.endN;
+  }
+  function rEnterNext(c) { c.e = c.ne; c.dir = c.ndir; c.lane = c.nl; rEdgePath(c); rChooseNext(c); }
+  function rSpawnCar(type, e, dir, lane, s) {
+    const t = VT[type]; if (!t || !t.free || !t.free.length) return null;
+    const hex = t.tint ? pick(t.tint) : null, c = { type, t, slot: t.free.pop(), hex, col: hex !== null ? lin(hex) : null, e, dir, lane, s: s || 0, v: 6, vmax: (t.vmax || 12.5) + R() * 2, hl: t.hl, hw: t.hw, x: 0, z: 0, h: 0, vx: 0, vz: 0, police: !!t.police, cart: !!t.cart, bump: 0, honkT: 0, stuck: 0, ghost: 0, id: cars.length, gap: 99, wait: 0, i: 0, j: 0, d: 0 };
+    rEdgePath(c); if (c.cart) c.lane = rLanes(RD.E[e]).length - 1, rEdgePath(c);
+    c.s = Math.min(c.s, Math.max(0, c.len - 2)); rChooseNext(c); const p = pathAt(c, c.s); c.x = p[0]; c.z = p[1]; c.h = p[2];
+    if (me && Math.hypot(c.x - me.x, c.z - me.z) < 28) { t.free.push(c.slot); return null; }
+    if (cars.some(o => !o.chase && Math.hypot(o.x - c.x, o.z - c.z) < 9)) { t.free.push(c.slot); return null; }
+    cars.push(c); return c;
+  }
+  function rRandomEdge(x, z, rMin, rMax, maxCl) { // une arête au hasard dans l'anneau autour de (x, z)
+    for (let k = 0; k < 24; k++) {
+      const a = R() * Math.PI * 2, r = rMin + R() * (rMax - rMin), px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
+      const l = RD.idx.get(rKey(Math.floor(px / R_CELL), Math.floor(pz / R_CELL))); if (!l || !l.length) continue;
+      const e = RD.E[l[Math.floor(R() * l.length)]]; if (e.cl > maxCl || e.L < 14) continue; if (e.cl === 4 && R() > 0.45) continue;
+      return e;
+    }
+    return null;
+  }
+  const R_TRAFFIC_R = LITE ? 300 : 420;
+  function rPopulateTraffic() {
+    for (const c of cars) freeCar(c); cars = [];
+    rTrafficTick(true);
+  }
+  function rTrafficTick(all) {
+    if (!me) return;
+    const R_ = R_TRAFFIC_R;
+    for (let k = cars.length - 1; k >= 0; k--) { const c = cars[k]; if (c.chase) continue; if (Math.hypot(c.x - me.x, c.z - me.z) > R_ + 60) { freeCar(c); cars.splice(k, 1); } }
+    const n = Math.round((LOW ? 22 : LITE ? 36 : 52) * [0.65, 1, 1.35][T.traffic]), types = [];
+    for (const k in VT) if (VT[k].ims && !VT[k].police && !VT[k].cart) for (let q = 0; q < Math.round(VT[k].w * 4); q++) types.push(k);
+    const fx = Math.sin(me.h), fz = Math.cos(me.h);
+    let tries = all ? 400 : 6;
+    while (tries-- > 0) {
+      const pol = cars.filter(c => c.police && !c.chase).length, crt = cars.filter(c => c.cart).length, tot = cars.filter(c => !c.chase).length;
+      const type = pol < (LOW ? 2 : 3) ? 'police' : crt < (LOW ? 2 : 4) ? 'cart' : tot < n ? pick(types) : null; if (!type) break;
+      const e = rRandomEdge(me.x, me.z, all ? 30 : 180, R_, type === 'cart' ? 4 : 4); if (!e) continue;
+      const dir = e.ow ? 1 : R() < 0.5 ? 1 : -1, nl = rLanes(e).length, s0 = 4 + R() * Math.max(1, e.L - 20);
+      const q = rAt(e, s0); if (!all && ((q[0] - me.x) * fx + (q[1] - me.z) * fz) > 0 && Math.hypot(q[0] - me.x, q[1] - me.z) < 260) continue; // pas sous les yeux du joueur
+      rSpawnCar(type, e.k, dir, Math.floor(R() * nl), 0);
+      const c = cars[cars.length - 1]; if (c && c.e === e.k && c.s === 0) { c.s = Math.min(c.len - 2, Math.max(0, s0 - rTrim(e)[0])); const p = pathAt(c, c.s); c.x = p[0]; c.z = p[1]; c.h = p[2]; }
+    }
+  }
+  function rLaneSwap(c) { const L = rLanes(RD.E[c.e]); if (L.length < 2) return false; const s0 = c.s; c.lane = 1 - c.lane; rEdgePath(c); c.s = Math.min(s0, c.len - 1); rChooseNext(c); return true; }
+  function rPlaceOnRoad(c, x, z) { // remettre une voiture (fin de poursuite) sur la voie la plus proche
+    const q = rNearest(x, z, 80, 4); if (!q) return false;
+    const fwd = Math.sin(c.h || 0) * q.tx + Math.cos(c.h || 0) * q.tz;
+    c.e = q.e.k; c.dir = q.e.ow ? 1 : fwd >= 0 ? 1 : -1; c.lane = 0; rEdgePath(c);
+    const [s0, s1] = rTrim(q.e); c.s = clamp(c.dir > 0 ? q.s - s0 : s1 - q.s, 0, Math.max(0, c.len - 1)); c.v = 4; rChooseNext(c); return true;
+  }
+
+  /* --- piétons et animaux sur les trottoirs réels --- */
+  function rSidewalk(p) { // position sur le trottoir : arête p.e, côté p.sd, abscisse p.s
+    const e = RD.E[p.e], q = rAt(e, p.s), off = e.w / 2 + (e.cl <= 3 && e.pv === 1 ? 1.4 : 0.9) + p.lat * 0.4;
+    return [q[0] - q[3] * p.sd * off, q[1] + q[2] * p.sd * off, Math.atan2(q[2] * p.dir, q[3] * p.dir)];
+  }
+  function rPlaceWalker(p, near) {
+    const x0 = me ? me.x : 0, z0 = me ? me.z : 0;
+    let e = null; for (let k = 0; k < 10 && !e; k++) e = rRandomEdge(x0, z0, near ? 70 : 25, near ? 230 : 230, 4);
+    if (!e) e = RD.E[0];
+    p.e = e.k; p.sd = R() < 0.5 ? 1 : -1; p.dir = R() < 0.5 ? 1 : -1; p.s = R() * e.L; p.st = 'walk'; p.road = false; p.fall = 0; p.down = false; p.leader = null;
+    const q = rSidewalk(p); p.x = q[0]; p.z = q[1]; p.h = q[2];
+  }
+  function rWalk(p, dt, sp) {
+    const e = RD.E[p.e]; p.s += p.dir * sp * dt;
+    if (p.s < 0 || p.s > e.L) { // bout de rue : on tourne dans une rue voisine (ou on traverse)
+      const n = p.s < 0 ? e.a : e.b, opts = RD.inc[n].filter(k => k !== p.e && RD.E[k].cl <= 4);
+      const k = opts.length ? pick(opts) : p.e, f = RD.E[k], from = rSidewalk(Object.assign({}, p, { s: clamp(p.s, 0, e.L) }));
+      p.e = k; p.dir = k === p.e && !opts.length ? -p.dir : (f.a === n ? 1 : -1); p.s = p.dir > 0 ? 0.5 : f.L - 0.5;
+      if (!opts.length) p.dir = p.s < 1 ? 1 : -1;
+      if (R() < 0.5 && p.kind === 'ped') p.sd = -p.sd;
+      const to = rSidewalk(p);
+      if (Math.hypot(to[0] - from[0], to[1] - from[1]) > 2.5) { p.cx0 = from[0]; p.cz0 = from[1]; p.cx1 = to[0]; p.cz1 = to[1]; p.st = 'cross'; p.t = 0; p.jay = false; p.spd2 = p.spd * 1.1; p.pauseAt = 2; p.pauseT = 0; p.rNext = { e: p.e, s: p.s, sd: p.sd, dir: p.dir }; return; }
+    }
+    const q = rSidewalk(p); p.x = q[0]; p.z = q[1]; p.h = q[2];
+    if (R() < dt * (p.kind === 'animal' ? 0.03 : 0.004) && e.L > 20 && p.s > 8 && p.s < e.L - 8) rStartJay(p);
+  }
+  function rStartJay(p) { // traverser la rue n'importe où
+    const from = rSidewalk(p); p.rNext = { e: p.e, s: p.s, sd: -p.sd, dir: R() < 0.5 ? 1 : -1 };
+    const to = rSidewalk(Object.assign({}, p, p.rNext));
+    p.cx0 = from[0]; p.cz0 = from[1]; p.cx1 = to[0]; p.cz1 = to[1]; p.st = 'cross'; p.t = 0; p.jay = true; p.spd2 = p.kind === 'animal' ? p.spd * 1.1 : 1.8 + R() * 0.8;
+    p.pauseAt = p.kind === 'animal' && R() < 0.75 ? 0.25 + R() * 0.5 : 2; p.pauseT = 0;
+    return true;
+  }
+  function rAfterCross(p) { const nx_ = p.rNext; if (nx_) { p.e = nx_.e; p.s = nx_.s; p.sd = nx_.sd; p.dir = nx_.dir; } p.st = 'walk'; p.road = false; p.lat = p.kind === 'animal' ? 1 + R() * 0.6 : (R() - 0.5) * 2.2; }
+  function rPedTick() { // les passants restent autour du joueur
+    if (!me) return;
+    for (const p of peds) { if (!p.on || p.client || p.down || p.leader || p.st !== 'walk') continue; if (Math.hypot(p.x - me.x, p.z - me.z) > 260) rPlaceWalker(p, true); }
+  }
+
+  /* --- noms des lieux, carrefours, quartiers --- */
+  function rPlaceName(x, z) {
+    let q = null, best = 1e9; for (const Q of RD.quart) { const d = Math.hypot(Q[1] - x, Q[2] - z); if (d < best) { best = d; q = Q; } }
+    const out = { street: '', district: q ? q[0] : 'Nouakchott', moug: q ? q[3] : '' };
+    const nn = rNodesNear(x, z, 26); let node = -1, nd = 1e9;
+    for (const n of nn) { const d = Math.hypot(RD.NX[n] - x, RD.NZ[n] - z); if (RD.inc[n].length >= 3 && d < RD.rn[n] + 3 && d < nd) { nd = d; node = n; } }
+    if (node >= 0) { const cn = RD.carN[node]; if (cn) { out.street = cn[0]; return out; } const names = [...new Set(RD.inc[node].map(k => RD.E[k].name).filter(Boolean))]; if (names.length >= 2) { out.street = names[0] + ' × ' + names[1]; return out; } }
+    const e = rNearest(x, z, 8, 6); if (e && e.d < 4) out.street = e.e.name;
+    return out;
+  }
+
+  /* --- changement de carte --- */
+  function setWorld(real) {
+    REAL = !!real && rReady;
+    grid = REAL ? colMaps.real : colMaps.grid;
+    STOPS = REAL ? RSTOPS : GSTOPS; PLACES = REAL ? RPLACES : GPLACES;
+    for (const o of gridStatic) o.visible = !REAL;
+    realG.visible = REAL;
+    if (REAL) for (const d of CULL) d.m.visible = false; else for (const d of RCULL) d.m.visible = false;
+  }
+  function rSpawnSpot() { // avenue Gamal Abdel Nasser, juste à l'est du Carrefour BMD, vers l'est
+    const q = rNearest(1420, 24, 60, 1) || rNearest(1420, 24, 300, 4);
+    const e = q.e, dir = e.ow ? 1 : (q.tx >= 0 ? 1 : -1), L = rLanes(e), o = L[L.length - 1], p = rAt(e, q.s), tx = p[2] * dir, tz = p[3] * dir;
+    return { x: p[0] - tz * o, z: p[1] + tx * o, h: Math.atan2(tx, tz) };
+  }
+  function rResetTaxi() {
+    const q = rNearest(taxi.x, taxi.z, 120, 5); if (!q) { const sp = rSpawnSpot(); placeTaxi(sp.x, sp.z, sp.h); return; }
+    const e = q.e, fwd = Math.sin(taxi.h) * q.tx + Math.cos(taxi.h) * q.tz, dir = e.ow ? 1 : fwd >= 0 ? 1 : -1, L = rLanes(e), o = L[L.length - 1];
+    const s = clamp(q.s, 2, e.L - 2), p = rAt(e, s), tx = p[2] * dir, tz = p[3] * dir; placeTaxi(p[0] - tz * o, p[1] + tx * o, Math.atan2(tx, tz));
+  }
+  let rLastSig = null;
+  function rCheckRedLight() {
+    let hitN = -1; for (const n of rNodesNear(taxi.x, taxi.z, 30)) if (RD.sig[n] && Math.hypot(RD.NX[n] - taxi.x, RD.NZ[n] - taxi.z) < RD.rn[n]) hitN = n;
+    if (hitN >= 0 && rLastSig !== hitN && taxi.speed > 3.5) {
+      const L = rLight(hitN, rAxisOf(hitN, Math.atan2(taxi.vx, taxi.vz)));
+      if (L.s === 'R' && L.left < CYC / 2 - 1.5) { stats.reds++; loseStar(0.6, 'Hé ! C’était rouge !'); offence('red', 200, 1, 120); }
+    }
+    rLastSig = hitN;
+  }
+  function rNodeRing(x, z, rMin, rMax, pref) { // un nœud de carrefour à distance donnée (renforts, ambulance)
+    let best = null;
+    for (const n of rNodesNear(x, z, rMax)) { if (RD.inc[n].length < 2) continue; const d = Math.hypot(RD.NX[n] - x, RD.NZ[n] - z); if (d < rMin) continue; const sc = Math.abs(d - pref) + R() * 25; if (!best || sc < best.sc) best = { n, sc, x: RD.NX[n], z: RD.NZ[n] }; }
+    return best;
+  }
+  // GPS : itinéraire par les vraies rues jusqu'à la cible
+  const gps = { tx: null, tz: null, pts: null, t: 0, len: 0 };
+  function rGpsAim(x, z, h, tx, tz, dt) {
+    gps.t -= dt || 0;
+    const off = gps.pts && gps.pts.length > 1 ? segDistPts(x, z, gps.pts) : 99;
+    if (gps.tx !== tx || gps.tz !== tz || gps.t <= 0 || off > 25) { const r = rRoutePts(x, z, tx, tz, h, true); gps.pts = r.pts; gps.len = r.len; gps.tx = tx; gps.tz = tz; gps.t = 1.5; }
+    const P_ = gps.pts; let bi = 0, bd = 1e9; for (let i = 0; i < Math.min(P_.length, 40); i++) { const d = Math.hypot(P_[i][0] - x, P_[i][1] - z); if (d < bd) { bd = d; bi = i; } }
+    for (let i = bi; i < P_.length; i++) if (Math.hypot(P_[i][0] - x, P_[i][1] - z) > 18) return P_[i];
+    return [tx, tz];
+  }
+  function segDistPts(x, z, P_) { let b = 1e9; for (let i = 0; i < Math.min(P_.length - 1, 40); i++) { const [ax, az] = P_[i], [bx, bz] = P_[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1); b = Math.min(b, Math.hypot(x - ax - dx * t, z - az - dz * t)); } return b; }
+
+  /* --- minicarte : tuiles dessinées à la demande --- */
+  const rTiles = new Map(), R_TILE = 256, R_TK = 0.75;
+  function rTile(tx, tz) {
+    const key = tx + ',' + tz; let cv = rTiles.get(key); if (cv) { rTiles.delete(key); rTiles.set(key, cv); return cv; }
+    const S = Math.round(R_TILE * R_TK); cv = document.createElement('canvas'); cv.width = cv.height = S; const c = cv.getContext('2d');
+    const x0 = tx * R_TILE, z0 = tz * R_TILE, m = v => v * R_TK;
+    c.fillStyle = '#d8c39a'; c.fillRect(0, 0, S, S);
+    // mer
+    const co = RD.coast; if (x0 < co[0][0] + 50 || x0 < -3000) { c.fillStyle = '#2a6f8f'; c.beginPath(); c.moveTo(-1, -1); for (const [x, z] of co) if (z > z0 - 300 && z < z0 + R_TILE + 300) c.lineTo(m(x - x0), m(z - z0)); c.lineTo(-1, S + 1); c.closePath(); c.fill(); }
+    // bâtiments
+    const Bd = RD.bld; c.fillStyle = '#a99376';
+    for (const ck of [rChunkKey(x0 + 1, z0 + 1)]) void ck;
+    for (let i = 0; i < Bd.n.length; i++) { const o = Bd.off[i], bx = Bd.p[2 * o] * 0.25, bz = Bd.p[2 * o + 1] * 0.25; if (bx < x0 - 60 || bx > x0 + R_TILE + 60 || bz < z0 - 60 || bz > z0 + R_TILE + 60) continue; c.beginPath(); for (let k = 0; k < Bd.n[i]; k++) { const px = m(Bd.p[2 * (o + k)] * 0.25 - x0), pz = m(Bd.p[2 * (o + k) + 1] * 0.25 - z0); if (k) c.lineTo(px, pz); else c.moveTo(px, pz); } c.fill(); }
+    // rues
+    const near = rEdgesNear(x0 + R_TILE / 2, z0 + R_TILE / 2, R_TILE * 0.75, []);
+    near.sort((a, b) => RD.E[b].cl - RD.E[a].cl);
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const k of near) { const e = RD.E[k]; c.strokeStyle = e.pv === 1 ? (e.cl <= 2 ? '#4a4e54' : '#5b6066') : '#c2a46f'; c.lineWidth = Math.max(2, e.w * R_TK * 1.1); c.beginPath(); for (let i = 0; i < e.pts.length / 2; i++) { const px = m(e.pts[2 * i] - x0), pz = m(e.pts[2 * i + 1] - z0); if (i) c.lineTo(px, pz); else c.moveTo(px, pz); } c.stroke(); }
+    // noms
+    c.font = 'bold 11px Rajdhani, Arial'; c.textAlign = 'center'; c.fillStyle = '#2b2620';
+    for (const P_ of RPLACES) if (!P_.pb && P_.cat !== 'carrefour' && P_.rx > x0 && P_.rx < x0 + R_TILE && P_.rz > z0 && P_.rz < z0 + R_TILE) c.fillText(P_.name.replace('Hôtel ', ''), m(P_.rx - x0), m(P_.rz - z0));
+    rTiles.set(key, cv); if (rTiles.size > 30) rTiles.delete(rTiles.keys().next().value);
+    return cv;
+  }
+  function rDrawMap() {
+    const cv = $('mapCv'); if (!cv) return; const c = cv.getContext('2d'), W = cv.width, H = cv.height, k = W / MAP_W / R_TK;
+    c.save(); c.fillStyle = '#d8c39a'; c.fillRect(0, 0, W, H);
+    c.translate(W / 2, H / 2); c.scale(k, k);
+    const span = MAP_W * 0.75, t0x = Math.floor((me.x - span) / R_TILE), t1x = Math.floor((me.x + span) / R_TILE), t0z = Math.floor((me.z - span) / R_TILE), t1z = Math.floor((me.z + span) / R_TILE);
+    for (let tx = t0x; tx <= t1x; tx++) for (let tz = t0z; tz <= t1z; tz++) c.drawImage(rTile(tx, tz), (tx * R_TILE - me.x) * R_TK, (tz * R_TILE - me.z) * R_TK);
+    const P = (x, z) => [(x - me.x) * R_TK, (z - me.z) * R_TK];
+    // itinéraire GPS
+    if (gps.pts && targetPoint()) { c.strokeStyle = job.dest ? 'rgba(255,214,10,0.9)' : 'rgba(34,197,94,0.9)'; c.lineWidth = 5 / k; c.lineJoin = 'round'; c.beginPath(); c.moveTo(...P(me.x, me.z)); for (const q of gps.pts) c.lineTo(...P(q[0], q[1])); c.stroke(); }
+    const dot = (x, z, r, col, stroke) => { const [px, pz] = P(x, z); c.beginPath(); c.arc(px, pz, r / k, 0, 6.3); c.fillStyle = col; c.fill(); if (stroke) { c.lineWidth = 2 / k; c.strokeStyle = stroke; c.stroke(); } };
+    if (job.st === 'free' || job.st === 'board') for (const s of STOPS) if (s.client) dot(s.zx, s.zz, 7, '#22c55e', '#fff');
+    if (job.dest) { const t = A.menuTime(); dot(job.dest.zx, job.dest.zz, 9 + Math.sin(t * 6) * 2, '#ffd60a', '#111'); }
+    for (const q of cars) if (q.police && !q.chase) dot(q.x, q.z, 4, '#3b82f6');
+    if (taxi !== homeTaxi || foot.on) dot(homeTaxi.x, homeTaxi.z, 7, '#ffd60a', '#111');
+    for (const pc of chasers) dot(pc.car.x, pc.car.z, 6, Math.sin(A.menuTime() * 12) > 0 ? '#ef4444' : '#3b82f6', '#fff');
+    c.restore();
+    c.save(); c.translate(W / 2, H / 2); c.rotate(Math.PI - me.h); c.beginPath(); c.moveTo(0, -12); c.lineTo(8, 9); c.lineTo(0, 4); c.lineTo(-8, 9); c.closePath(); c.fillStyle = '#ffd60a'; c.fill(); c.lineWidth = 2; c.strokeStyle = '#111'; c.stroke(); c.restore();
+    const tgt = targetPoint();
+    if (tgt) { const dx = (tgt[0] - me.x) * R_TK * k, dz = (tgt[1] - me.z) * R_TK * k; if (Math.abs(dx) > W / 2 - 10 || Math.abs(dz) > H / 2 - 10) { const a = Math.atan2(dz, dx), r = W / 2 - 14; c.save(); c.translate(W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r); c.rotate(a); c.beginPath(); c.moveTo(10, 0); c.lineTo(-6, 7); c.lineTo(-6, -7); c.closePath(); c.fillStyle = job.dest ? '#ffd60a' : '#22c55e'; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 2; c.stroke(); c.restore(); } }
+  }
+  function rIntroShots(full) {
+    const V = (x, y, z) => new THREE.Vector3(x, y, z), shots = [], dr = DRIVERS[T.driver], h = taxi.h, fx = Math.sin(h), fz = Math.cos(h);
+    if (full) {
+      const port = RPLACES.find(p => p.name === 'Port de pêche') || { rx: -3486, rz: -1703 };
+      shots.push({ dur: 4.2, p0: V(port.rx - 260, 38, port.rz + 160), p1: V(port.rx - 120, 26, port.rz + 60), t0: V(port.rx + 120, 0, port.rz - 40), t1: V(port.rx + 260, 4, port.rz - 60), fov: 55, title: 'TAXI NOUAKCHOTT', sub: 'La vraie ville · sur l’Atlantique', credit: '' });
+      shots.push({ dur: 4.4, p0: V(900, 62, 60), p1: V(1260, 44, 40), t0: V(1500, 0, 20), t1: V(1720, 0, 10), fov: 56, title: '', sub: '', credit: 'Rues, carrefours et bâtiments : la vraie carte (OpenStreetMap, El Minassa)' });
+      const credits = ['Taximen : Moulaye · Taximan Ba · Sidi · Mamadou', 'Feux rouges, piétons, animaux, police : prudence !', 'Clients aux arrêts verts · destinations en jaune'];
+      ['snim', 'marche', 'mosquee'].forEach((id, k) => {
+        const q = RPLACES.find(p => p.id === id); if (!q) return;
+        const ex = q.mx, ez = q.mz, dx = ex - q.rx, dz = ez - q.rz, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, px = -uz, pz = ux, sd = k % 2 ? 1 : -1;
+        shots.push({ dur: 3.6, p0: V(ex + ux * 4 + px * 46 * sd, 17, ez + uz * 4 + pz * 46 * sd), p1: V(ex + ux * 6 + px * 14 * sd, 6.5, ez + uz * 6 + pz * 14 * sd), t0: V(q.rx, 12, q.rz), t1: V(q.rx, 8, q.rz), fov: 58, cap: q.name, capSub: q.ar, credit: credits[k] });
+      });
+    }
+    shots.push({ dur: full ? 4 : 3, p0: V(taxi.x - fx * 34 + fz * 12, 24, taxi.z - fz * 34 - fx * 12), p1: V(taxi.x - fx * 8.2, 2.9, taxi.z - fz * 8.2), t0: V(taxi.x, 0, taxi.z), t1: V(taxi.x + fx * 2, 1.2, taxi.z + fz * 2), fov: 60, title: dr.name.toUpperCase(), sub: 'prend son service · ' + fmtClock(T.timeLeft) });
+    return shots;
+  }
+
   /* ======================= HUD ======================= */
   let hudEl = null, mapBg = null, hudAcc = 0;
   function buildHud() {
@@ -1579,6 +2268,7 @@ window.DZTaxi = function (A) {
     mapBg.mx = mx; mapBg.mz = mz;
   }
   function drawMap() {
+    if (REAL) return rDrawMap();
     const cv = $('mapCv'); if (!cv || !mapBg) return; const c = cv.getContext('2d'), W = cv.width, H = cv.height, k = W / MAP_W / MAP_K;
     const px = mapBg.mx(me.x), pz = mapBg.mz(me.z);
     c.save(); c.fillStyle = '#c9a877'; c.fillRect(0, 0, W, H);
@@ -1648,7 +2338,9 @@ window.DZTaxi = function (A) {
     const a1 = new THREE.Mesh(ag, arrow.mat), a0 = new THREE.Mesh(ol, new THREE.MeshBasicMaterial({ color: 0x0a0a0a, depthTest: false, transparent: true, opacity: 0.55 }));
     a0.renderOrder = 10; a1.renderOrder = 11; a0.position.y = -0.02; tilt.add(a0, a1); root.add(arrow);
   }
+  let gpsDt = 0;
   function nextAim(x, z, tx, tz) { // GPS : itinéraire en L par les rues (on tourne dans la rue de la cible)
+    if (REAL) return rGpsAim(x, z, me.h, tx, tz, gpsDt);
     const fi = clamp(Math.round((x - X0) / P), 0, NI - 1), fj = clamp(Math.round((z - Z0) / P), 0, NJ - 1);
     const ti = clamp(Math.round((tx - X0) / P), 0, NI - 1), tj = clamp(Math.round((tz - Z0) / P), 0, NJ - 1);
     const onEW = Math.abs(z - nz(fj)) < HW + 3, onNS = Math.abs(x - nx(fi)) < HW + 3;
@@ -1662,7 +2354,7 @@ window.DZTaxi = function (A) {
     return [tx, tz];
   }
   function updateMarkers(dt) {
-    const t = A.menuTime(); let k = 0;
+    const t = A.menuTime(); let k = 0; gpsDt = dt;
     const show = (x, z, col, big) => { if (k >= markers.length) return; const m = markers[k++], s = (big ? 11 : 9) + Math.sin(t * 4) * 0.6; m.r.visible = m.b.visible = true; m.r.material = ringMats[col].ring; m.b.material.color.copy(ringMats[col].beam.color); m.b.material.opacity = clamp((Math.hypot(x - A.camera.position.x, z - A.camera.position.z) - 6) / 40, 0.08, 1); m.r.position.set(x, 0.12, z); m.r.scale.set(s, 1, s); m.b.position.set(x, 0, z); m.b.scale.set(big ? 2.6 : 2.0, big ? 60 : 38, big ? 2.6 : 2.0); };
     if (job.st === 'free' || job.st === 'board') for (const s of STOPS) if (s.client || (job.st === 'board' && job.client && job.client.stop === s)) show(s.zx, s.zz, 'green');
     if (job.dest) show(job.dest.zx, job.dest.zz, 'yellow', true);
@@ -1684,10 +2376,11 @@ window.DZTaxi = function (A) {
     if (!lib) throw new Error('taxi.glb manquant');
     if (walkLib) walkLib.updateMatrixWorld(true);
     lib.updateMatrixWorld(true);
-    const rnd = seeded(20261118);
+    const rnd = seeded(20261118), n0 = root.children.length;
     buildRoads(); buildBlocks(); buildBuildings(rnd);
     A.instanceLib(inst, { parent: root, cull: CULL, cell: 400, maxD: (det, small) => det ? (LITE ? 340 : 560) : small ? 300 : (LITE ? 620 : 980) });
     buildSignsAndNames(); buildProps(); buildLights();
+    gridStatic = root.children.slice(n0); // la ville en damier (cachée sur la carte réelle)
     buildVehicleTypes();
     const counts = {}; for (const k in VT) counts[k] = k === 'police' ? 3 : k === 'cart' ? 5 : Math.max(4, Math.ceil(VT[k].w * 6));
     buildVehicleMeshes(counts);
@@ -1695,7 +2388,7 @@ window.DZTaxi = function (A) {
     root.traverse(o => { if (o.isMesh && o.material && o.material.map) texFix(o.material); });
     T.ready = true;
   }
-  function cullUpdate() { const p = A.camera.position; for (const d of CULL) d.m.visible = p.distanceTo(d.c) - d.r < d.d; }
+  function cullUpdate() { const p = A.camera.position; for (const d of (REAL ? RCULL : CULL)) d.m.visible = p.distanceTo(d.c) - d.r < d.d; }
 
   /* ======================= Cycle de jeu ======================= */
   let driftWas = null, fogWas = null;
@@ -1711,19 +2404,33 @@ window.DZTaxi = function (A) {
         T.loading = false;
         if (!g) { $('loading').classList.add('hidden'); A.state = 'menu'; A.showScreen('menu'); A.popup('Impossible de charger la ville des taxis', 'vérifie ta connexion', true); return; }
         try { build(); } catch (e) { console.error('taxi build', e && e.stack || e); $('loading').classList.add('hidden'); A.state = 'menu'; A.showScreen('menu'); return; }
-        $('loading').classList.add('hidden'); begin();
+        startWorld();
       }), f => { prog.taxi = f; bar(); });
       return;
     }
-    begin();
+    startWorld();
   };
+  function startWorld() { // carte réelle : données chargées et ville construite à la première partie
+    const fail = () => { $('loading').classList.add('hidden'); A.state = 'menu'; A.showScreen('menu'); A.popup('Impossible de charger la carte de Nouakchott', 'vérifie ta connexion, ou choisis la ville classique', true); };
+    if (T.map !== 1 || rReady) { $('loading').classList.add('hidden'); begin(); return; }
+    T.loading = true; A.state = 'loading'; $('loading').classList.remove('hidden'); $('loadTxt').textContent = 'NOUAKCHOTT SE DESSINE : RUES ET BÂTIMENTS…'; $('loadBar').firstElementChild.style.width = '92%'; A.showScreen(null);
+    rLoadData(ok => {
+      if (!ok) { T.loading = false; fail(); return; }
+      setTimeout(() => { // laisser l'écran de chargement s'afficher
+        try { const t0 = performance.now(); rBuild(); console.log('real build ms ' + Math.round(performance.now() - t0)); } catch (e) { console.error('real build', e && e.stack || e); T.loading = false; fail(); return; }
+        T.loading = false; $('loading').classList.add('hidden'); begin();
+      }, 30);
+    });
+  }
   function begin() {
     if (!T.active) { driftWas = A.hideDrift(); A.scene.add(root); root.visible = true; T.active = true; fogWas = [A.scene.fog.near, A.scene.fog.far]; }
     A.scene.fog.near = LITE ? 70 : 110; A.scene.fog.far = LITE ? 560 : 900;
     document.body.classList.add('taxi');
     A.clearSkids(); A.clearSmoke();
-    makeTaxi(); const sp = spawnSpot(); placeTaxi(sp.x, sp.z, sp.h);
-    lightT = 0; populateTraffic(); populatePeds();
+    setWorld(T.map === 1);
+    makeTaxi(); const sp = REAL ? rSpawnSpot() : spawnSpot(); placeTaxi(sp.x, sp.z, sp.h); me = taxi;
+    lightT = 0; if (REAL) rPopulateTraffic(); else populateTraffic(); populatePeds();
+    if (REAL) rLastSig = null;
     for (const s of STOPS) { s.client = null; s.cool = 0; }
     Object.assign(job, { st: 'free', client: null, dest: null, t: 0, timer: 0, fare: 0, stars: 5, late: false });
     for (const k in stats) stats[k] = 0; money = 0; wanted = 0; caughtT = 0;
@@ -1745,7 +2452,7 @@ window.DZTaxi = function (A) {
       updateHud();
     };
     rebuildDyn(); cullUpdate();
-    if (A.introPlay && !(TEST && !/[?&]intro/.test(location.search))) { A.state = 'intro'; A.introPlay(taxiIntroShots(!T.introSeen), go); T.introSeen = true; }
+    if (A.introPlay && !(TEST && !/[?&]intro/.test(location.search))) { A.state = 'intro'; A.introPlay(REAL ? rIntroShots(!T.introSeen) : taxiIntroShots(!T.introSeen), go); T.introSeen = true; }
     else go();
     if (A.applyAmbience) { /* l'ambiance jour/nuit globale reste celle du menu */ }
   }
@@ -1817,6 +2524,7 @@ window.DZTaxi = function (A) {
       }
       updateShotFx(dt);
       if (R() < dt * 0.5) spawnClients();
+      if (REAL && (T.rt = (T.rt || 0) + dt) > 0.5) { T.rt = 0; rTrafficTick(false); rPedTick(); }
       if (sayT > 0) { sayT -= dt; if (sayT <= 0) { const el = $('txSay'); if (el) el.classList.remove('show'); } }
       if (foot.on) { updateFootCam(dt); A.updateAudio(taxi, NO_INP, 0, false); }
       else { updateTaxiVisual(inp, dt); A.updateCamera(dt, taxi); A.updateAudio(taxi, inp, taxi.screech || 0, true); }
@@ -1825,7 +2533,7 @@ window.DZTaxi = function (A) {
       if (T.timeLeft <= 0) { if (job.st === 'ride' && T.timeLeft > -75) { if (!T.overtime) { T.overtime = true; A.popup('FIN DU SERVICE', 'termine ta dernière course !', false, 'gold'); } } else { T.endAt = T.endAt == null ? 2.2 : T.endAt - dt; if (T.endAt <= 0) endShift(); } }
       T.lastInp = inp;
     } else if (st === 'intro') { // générique : la ville vit pendant que la caméra survole
-      lightT += dt; rebuildDyn(); updateCars(dt); updatePeds(dt); A.introUpdate(dt); updateTaxiVisual({ thr: 0, brk: 0, steer: 0, hb: 0, nitro: 0 }, dt);
+      lightT += dt; rebuildDyn(); updateCars(dt); updatePeds(dt); if (REAL && (T.rt = (T.rt || 0) + dt) > 0.5) { T.rt = 0; rTrafficTick(false); rPedTick(); } A.introUpdate(dt); updateTaxiVisual({ thr: 0, brk: 0, steer: 0, hb: 0, nitro: 0 }, dt);
     } else if (st === 'results') {
       orbit += dt * 0.25; const r = 11; A.camera.position.set(taxi.x + Math.sin(orbit + taxi.h) * r, 3.4, taxi.z + Math.cos(orbit + taxi.h) * r); A.camera.lookAt(taxi.x, 1, taxi.z);
       updateCars(dt * 0.5); updatePeds(dt);
@@ -1835,7 +2543,7 @@ window.DZTaxi = function (A) {
     if ((T.fc = (T.fc || 0) + 1) % 4 === 0) cullUpdate();
     A.sun.position.set(me.x + A.SUN_OFF.x, A.SUN_OFF.y, me.z + A.SUN_OFF.z); A.sun.target.position.set(me.x, 0, me.z);
     A.sky.position.set(A.camera.position.x, 0, A.camera.position.z);
-    if (lampGlow) lampGlow.visible = !!prof.night;
+    if (lampGlow) lampGlow.visible = !!prof.night && !REAL; if (rLampGlow) rLampGlow.visible = !!prof.night && REAL;
     A.fx(dt);
     if (TEST && window.__tcam) { const c = window.__tcam; A.camera.position.set(c.p[0], c.p[1], c.p[2]); A.camera.lookAt(c.t[0], c.t[1], c.t[2]); if (c.fov && A.camera.fov !== c.fov) { A.camera.fov = c.fov; A.camera.updateProjectionMatrix(); } }
     if (A.camera.aspect !== window.innerWidth / window.innerHeight) { A.camera.aspect = window.innerWidth / window.innerHeight; A.camera.updateProjectionMatrix(); }
@@ -1851,7 +2559,7 @@ window.DZTaxi = function (A) {
       if (Math.abs(f) < 2.5 && l < 1.25) {
         const push = Math.min(4, 0.6 + taxi.speed * 0.18);
         p.down = true; p.downT = 0; p.fall = 0; p.leader = null; p.x += fx * push; p.z += fz * push; p.h = taxi.h + (R() - 0.5) * 1.5;
-        p.road = !onSidewalk(p.x, p.z); if (p.st === 'cross' || p.st === 'flee' || p.st === 'cwait') p.st = 'walk';
+        p.road = REAL ? rOnRoad(p.x, p.z) : !onSidewalk(p.x, p.z); if (p.st === 'cross' || p.st === 'flee' || p.st === 'cwait') p.st = 'walk';
         A.crashSound(0.4); taxi.vx *= 0.78; taxi.vz *= 0.78; A.shake(0.5);
         if (taxiModel && taxi.speed > 5) A.dentModel(taxiModel, taxi.x + fx * 2.2, 0.8, taxi.z + fz * 2.2, -fx, -fz, 4 + taxi.speed * 0.3);
         if (p.kind === 'animal') { A.popup('ATTENTION AUX ANIMAUX !', 'la bête est blessée', true); loseStar(0.5); }
@@ -1871,12 +2579,14 @@ window.DZTaxi = function (A) {
     const box = document.createElement('div'); box.id = 'taxiOpts'; box.className = 'hidden'; box.style.marginTop = '14px';
     box.innerHTML = '<div class="lbl" style="margin-bottom:6px">Ton taximan</div><div class="carGrid" id="txDrivers"></div>' +
       '<div class="row" style="gap:18px;margin-top:10px;flex-wrap:wrap"><div><div class="lbl" style="margin-bottom:6px">Durée du service</div><div class="seg" id="segShift"><button data-v="0">4 min</button><button data-v="1">6 min</button><button data-v="2">8 min</button></div></div>' +
-      '<div><div class="lbl" style="margin-bottom:6px">Circulation</div><div class="seg" id="segTraffic"><button data-v="0">Calme</button><button data-v="1">Normale</button><button data-v="2">Dense</button></div></div></div>' +
+      '<div><div class="lbl" style="margin-bottom:6px">Circulation</div><div class="seg" id="segTraffic"><button data-v="0">Calme</button><button data-v="1">Normale</button><button data-v="2">Dense</button></div></div>' +
+      '<div><div class="lbl" style="margin-bottom:6px">Carte</div><div class="seg" id="segMap"><button data-v="1">Nouakchott réelle</button><button data-v="0">Ville classique</button></div></div></div>' +
       '<div class="note" style="margin-top:8px">Arrête-toi dans un cercle <b style="color:#4ade80">vert</b> pour prendre un client, dépose-le au cercle <b style="color:#facc15">jaune</b>. Feux rouges, piétons et police : attention aux amendes !</div>';
     const after = $('duoOpts') || $('raceOpts');
     after.parentNode.insertBefore(box, after.nextSibling);
     $('segShift').onclick = e => { const b = e.target.closest('button'); if (!b) return; T.shift = +b.dataset.v; store.set('taxiShift', T.shift); renderOpts(true); };
     $('segTraffic').onclick = e => { const b = e.target.closest('button'); if (!b) return; T.traffic = +b.dataset.v; store.set('taxiTraffic', T.traffic); renderOpts(true); };
+    $('segMap').onclick = e => { const b = e.target.closest('button'); if (!b) return; T.map = +b.dataset.v; store.set('taxiMap', T.map); renderOpts(true); };
   }
   function renderOpts(show) {
     buildMenu();
@@ -1889,10 +2599,10 @@ window.DZTaxi = function (A) {
       e.onclick = () => { T.driver = k; store.set('taxiDriver', k); A.blip(880, 0.06, 0.06); renderOpts(true); };
       l.appendChild(e);
     });
-    for (const [id, v] of [['segShift', T.shift], ['segTraffic', T.traffic]]) $(id).querySelectorAll('button').forEach(b => b.classList.toggle('sel', +b.dataset.v === v));
+    for (const [id, v] of [['segShift', T.shift], ['segTraffic', T.traffic], ['segMap', T.map]]) $(id).querySelectorAll('button').forEach(b => b.classList.toggle('sel', +b.dataset.v === v));
   }
   T.renderOpts = renderOpts;
   T.DRIVERS = DRIVERS;
-  if (TEST) T.dbg = { get mapBg() { return mapBg; }, placeName, get SFX() { return SFX; }, foot, parked, get homeTaxi() { return homeTaxi; }, get me() { return me; }, get chaseT() { return chaseT; }, set wanted(v) { wanted = v; }, amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
+  if (TEST) T.dbg = { get REAL() { return REAL; }, get RD() { return RD; }, rNearest, rPlaceName, rRoutePts, RSTOPS, RPLACES, RCULL, realG, gps, get grid() { return grid; }, get mapBg() { return mapBg; }, placeName, get SFX() { return SFX; }, foot, parked, get homeTaxi() { return homeTaxi; }, get me() { return me; }, get chaseT() { return chaseT; }, set wanted(v) { wanted = v; }, amb, spawnCop, offence, nearestPolice, get WM() { return WM; }, dispatchAmbulance, get taxiModel() { return taxiModel; }, VAT_OK, get taxi() { return taxi; }, get cars() { return cars; }, get peds() { return peds; }, job, stats, STOPS, PLACES, get money() { return money; }, light, get chasers() { return chasers; }, get wanted() { return wanted; }, CULL, root, placeTaxi, spawnClients, startChase, VT, get lightT() { return lightT; }, set lightT(v) { lightT = v; }, nx, nz, HW, LANE, HEAD, EL, P };
   return T;
 };
