@@ -40,8 +40,12 @@ Noms usuels : « Autoroute Rosso » et « Route nationale 2 » (OSM) sont affich
 (route du PK) », « Nouakchott-Nouadhibou » devient « Route de Nouadhibou ». Les quartiers ont leur
 nom arabe (OpenStreetMap, place=suburb). Les grands bâtiments (tour SNIM, Fasq, Sheraton,
 Nouakchott Hôtel, Palais des Congrès) sont modélisés d'après des photos publiques ; les bâtiments
-OSM sous leur emprise ne sont pas posés. L'Hôtel Tasiast se trouve à Nouadhibou (boulevard
-Maritime), pas à Nouakchott : il n'est donc pas sur la carte réelle.
+OSM sous leur emprise ne sont pas posés. Hôtel Tasiast et immeuble Netcom : absents d'OpenStreetMap
+et des cartes en ligne consultées près du Fasq (on y trouve les bureaux Kinross Tasiast plus au sud
+et le siège de Netcom à l'ouest de Tevragh Zeina) ; ils sont placés à côté du Fasq d'après
+l'indication d'un habitant : l'Hôtel Tasiast dans le grand bâtiment à l'ouest du Fasq, l'immeuble
+Netcom de l'autre côté de la rue d'Italie. Hôtel Sunset et Nouakchott Hôtel : positions des cartes
+en ligne. Les modèles de ces trois bâtiments sont des évocations, pas des relevés.
 
 Circuit de course réel (data/circuit_nkc.js)
 --------------------------------------------

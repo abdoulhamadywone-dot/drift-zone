@@ -51,6 +51,30 @@ QUALITÉ GRAPHIQUE (Options)
   Le jeu ajuste tout seul la résolution pour rester fluide, sans descendre
   sous une image nette.
 
+NOUVEAU EN 3.3.0
+  - Tour SNIM remise à l'endroit : large à la base, la partie la plus mince
+    en haut.
+  - Les charrettes sont tirées par de vrais ânes (robe grise, museau blanc,
+    grandes oreilles, pattes plus courtes) : plus de chevaux en ville.
+  - Sous l'AFARCO, le trottoir de l'avenue Gamal Abdel Nasser est un marché :
+    étals de fruits et de tissus sous parasols, charrettes à sandwichs,
+    vendeurs de thé, marchands et clients. En face, côté tour SNIM, une
+    rangée de food trucks (sandwich, chawarma, fast-food, jus et glaces)
+    avec tables et chaises en plastique.
+  - Des marchands ambulants le long des grandes rues de toute la ville
+    (plus nombreux près des commerces et du Marché Capitale).
+  - Autour de la tour SNIM : grand parking plein de voitures, rangée de
+    voitures garées devant la tour, palmiers.
+  - Autour du Fasq : l'Hôtel Tasiast (à l'ouest du Fasq), l'immeuble Netcom
+    (de l'autre côté de la rue d'Italie), l'Hôtel Sunset et le Nouakchott
+    Hôtel (remis à sa vraie place, au sud de l'avenue), un parking entre le
+    Fasq et le Tasiast. L'ancien Palais des Congrès s'ouvre maintenant sur
+    le Fasq, avec ses jardins (pelouses, haies, palmiers) et ses parkings.
+  - Graphismes : enseignes de boutiques et auvents rayés sur les façades
+    qui donnent sur la rue (alimentation, pharmacie, tailleur, téléphones,
+    tissus et melhfas…, en français et en arabe, éclairées la nuit) ; le
+    sable mange le bord du goudron comme dans la vraie ville.
+
 NOUVEAU EN 3.2.0
   - Les passants marchent sur les trottoirs (plus sur la chaussée, ni sur
     l'autre chaussée des avenues à deux sens) et tournent au coin des rues ;
@@ -63,7 +87,7 @@ NOUVEAU EN 3.2.0
     nom usuel affiché, deux chaussées, circulation dans les deux sens.
     La route de Nouadhibou porte aussi son nom usuel.
   - Bâtiments refaits d'après photos, à leur vraie adresse : tour SNIM
-    (15 étages, s'évase vers le haut), Fasq Hôtel (bandeaux blancs ondulés),
+    (15 étages), Fasq Hôtel (bandeaux blancs ondulés),
     Sheraton Nouakchott (hôtel mauresque crénelé, moucharabiehs, piscine),
     Nouakchott Hôtel (tour à balcons), Palais des Congrès (arcades et
     coupole blanche).

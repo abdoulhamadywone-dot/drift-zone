@@ -1139,14 +1139,14 @@ Object.assign(LANDMARKS, {
     flagPole(g, -14, D / 2 + 6, 10); flagPole(g, 14, D / 2 + 6, 10);
     return { g, r: 30, d: 22, w: 56, name: 'Fasq Hôtel' };
   },
-  snimTower() { // Immeuble SNIM (2017) : 15 étages, 54 m, la tour s'évase vers le haut (pignons courbes crème), bandeaux de fenêtres
+  snimTower() { // Immeuble SNIM (2017) : 15 étages, 54 m, large en bas et de plus en plus mince vers le haut (pignons courbes crème), bandeaux de fenêtres
     const g = new THREE.Group();
     const H = 52, D = 17, W0 = 23, W1 = 37, NL = 26;
     const win = facadeMat('snimW', { style: 'glass', wall: '#e9ddc6', win: '#3f4e5c', cols: 6, rows: 4, cellW: 2.2, cellH: 3.45, lit: 0.6, band: '#efe5d3' });
     const endM = plainMat(0xefe2c8, { roughness: 0.7 });
     const roof = plainMat(0xd8cdb8), cream = plainMat(0xf1e6d0), white = plainMat(0xffffff, { roughness: 0.5 });
     const pos = [], uv = [], idx = [], grpF = [], grpE = [];
-    const wAt = y => W0 + (W1 - W0) * Math.pow(y / H, 2.2);
+    const wAt = y => W0 + (W1 - W0) * Math.pow(1 - y / H, 2.2); // évasée à la base, la partie la plus mince en haut
     const vtx = (x, y, z, u, v) => { pos.push(x, y, z); uv.push(u, v); return pos.length / 3 - 1; };
     for (let k = 0; k < NL; k++) { // une tranche par niveau : 2 grandes façades vitrées + 2 pignons courbes
       const y0 = H * k / NL, y1 = H * (k + 1) / NL, a0 = wAt(y0) / 2, a1 = wAt(y1) / 2;
@@ -1159,7 +1159,7 @@ Object.assign(LANDMARKS, {
     const tw = new THREE.Mesh(geo, [win, endM]); tw.position.y = 7; tw.castShadow = !LOW; tw.receiveShadow = !LOW; g.add(tw);
     // bande vitrée verticale au milieu de chaque pignon
     for (const sx of [1, -1]) for (let k = 0; k < 13; k++) { const y = 7 + 4 * k + 2, a = wAt(4 * k + 2) / 2; prim(g, new THREE.BoxGeometry(0.2, 3.6, 1.6), new THREE.MeshStandardMaterial({ color: 0x5d86ad, roughness: 0.2, metalness: 0.3 }), sx * (a + 0.08), y, 0); }
-    const rt = new THREE.BoxGeometry(W1 + 0.6, 1.2, D + 0.6); prim(g, rt, cream, 0, 7 + H + 0.6, 0);
+    const rt = new THREE.BoxGeometry(W0 + 0.6, 1.2, D + 0.6); prim(g, rt, cream, 0, 7 + H + 0.6, 0);
     bbox(g, 40, 7, 25, facadeMat('snimP', { style: 'glass', wall: '#d9cdb5', win: '#2f3e4a', cols: 4, rows: 1, cellW: 4, cellH: 7, lit: 0.8 }), roof, 0, 0, 0);
     prim(g, new THREE.BoxGeometry(44, 0.6, 29), white, 0, 7.3, 0);
     signMesh(g, textTex([{ t: 'SNIM', y: 0.36, size: 100 }, { t: 'شركة اسنيم', y: 0.76, size: 70, font: '700 SZpx Arial, sans-serif' }], { bg: '#0d2f6b', w: 768, h: 256 }), 9, 3, 0, 4.6, 12.6, 0.8);
@@ -1195,6 +1195,55 @@ Object.assign(LANDMARKS, {
     signMesh(g, textTex([{ t: 'PALAIS DES CONGRÈS', y: 0.36, size: 84 }, { t: 'قصر المؤتمرات', y: 0.76, size: 74, font: '700 SZpx Arial, sans-serif' }], { bg: '#0b5d3b', fg: '#ffffff', w: 1024, h: 256 }), 14, 3.5, 0, 13.6, 27.9, 1);
     flagPole(g, -10, 34, 12); flagPole(g, 10, 34, 12);
     return { g, r: 40, d: 60, w: 58, name: 'Palais des Congrès' };
+  },
+  tasiastNkc() { // Hôtel Tasiast (à l'ouest du Fasq, avenue Moktar Ould Daddah) : barre de 7 niveaux gris clair, rubans vitrés bleus, hall vitré sous auvent
+    const g = new THREE.Group();
+    const W = 28, D = 44, NF = 7, FH = 3.3, Y0 = 4.8;
+    const fac = facadeMat('tasW', { style: 'glass', wall: '#dfe2e3', win: '#2d4a63', cols: 4, rows: 4, cellW: 3, cellH: FH, lit: 0.6, band: '#f1f2f2' });
+    const roof = plainMat(0xc9cccd), white = plainMat(0xf6f6f4, { roughness: 0.45 }), stone = plainMat(0xb9a58a, { roughness: 0.8 });
+    const lobby = facadeMat('tasL', { style: 'glass', wall: '#3b3f44', win: '#1f2c36', cols: 3, rows: 1, cellW: 4, cellH: Y0, lit: 0.9 });
+    bbox(g, W, Y0, D, lobby, roof, 0, 0, 0);
+    bbox(g, W - 1, NF * FH, D - 1, fac, roof, 0, Y0, 0);
+    for (const x of [-W / 2 + 0.6, W / 2 - 0.6]) prim(g, new THREE.BoxGeometry(1.4, NF * FH + Y0, D + 0.4), stone, x, (NF * FH + Y0) / 2, 0); // pignons en pierre
+    prim(g, new THREE.BoxGeometry(W + 0.6, 1, D + 0.6), white, 0, Y0 + NF * FH + 0.5, 0);
+    prim(g, new THREE.BoxGeometry(14, 0.5, 6), white, 0, Y0 - 0.6, D / 2 + 3); // auvent d'entrée
+    for (const x of [-6.5, 6.5]) prim(g, new THREE.CylinderGeometry(0.25, 0.25, Y0 - 0.8, 10), white, x, (Y0 - 0.8) / 2, D / 2 + 5.6);
+    prim(g, new THREE.BoxGeometry(8, 3, 6), roof, 6, Y0 + NF * FH + 2.5, -8); // locaux techniques
+    signMesh(g, textTex([{ t: 'HÔTEL TASIAST', y: 0.5, size: 120 }], { bg: '#1d3557', fg: '#f2c14e', w: 1024, h: 180 }), 16, 2.8, 0, Y0 + NF * FH + 2.6, D / 2 + 0.4, 1.3);
+    signMesh(g, textTex([{ t: 'فندق تازيازت', y: 0.5, size: 110, font: '700 SZpx Arial, sans-serif' }], { bg: '#1d3557', fg: '#ffffff', w: 768, h: 180 }), 8, 1.9, 0, Y0 - 0.1, D / 2 + 6.3, 1.1);
+    flagPole(g, -10, D / 2 + 7, 9); flagPole(g, 10, D / 2 + 7, 9);
+    return { g, r: 28, d: 50, w: 30, name: 'Hôtel Tasiast' };
+  },
+  netcomNkc() { // Immeuble Netcom : bureaux de 5 niveaux, mur-rideau vert d'eau, socle en pierre, mât d'antennes sur le toit
+    const g = new THREE.Group();
+    const W = 24, D = 18, NF = 5, FH = 3.4, Y0 = 4.2;
+    const glass = facadeMat('netG', { style: 'glass', wall: '#cfd8d8', win: '#2f6e78', cols: 5, rows: 4, cellW: 2.4, cellH: FH, lit: 0.65 });
+    const side = facadeMat('netS', { wall: '#d9c7a7', win: '#2c3a40', cols: 3, rows: 4, cellW: 3, cellH: FH, lit: 0.5 });
+    const roof = plainMat(0xc4b9a6), stone = plainMat(0xa88f6c, { roughness: 0.85 }), metal = plainMat(0xb9c0c6, { metalness: 0.6, roughness: 0.35 });
+    bbox(g, W, Y0, D, facadeMat('netL', { style: 'glass', wall: '#6b5a45', win: '#1d2b30', cols: 3, rows: 1, cellW: 4, cellH: Y0, lit: 0.9 }), roof, 0, 0, 0);
+    const b = bbox(g, W, NF * FH, D, side, roof, 0, Y0, 0);
+    prim(g, (() => { const q = new THREE.BoxGeometry(W - 4, NF * FH, 0.6); scaleBoxUV(q, W - 4, NF * FH, 0.6, 2.4, FH); return q; })(), glass, 0, Y0 + NF * FH / 2, D / 2 + 0.3); // mur-rideau sur la rue
+    prim(g, new THREE.BoxGeometry(W + 0.4, 0.8, D + 0.4), stone, 0, Y0 + NF * FH + 0.4, 0);
+    prim(g, new THREE.BoxGeometry(2.2, Y0 + NF * FH + 2, 2.2), stone, -W / 2 + 1.1, (Y0 + NF * FH + 2) / 2, D / 2 - 1.1); // tour d'angle
+    prim(g, new THREE.CylinderGeometry(0.18, 0.3, 14, 8), metal, 6, Y0 + NF * FH + 7, -3); // mât télécom
+    for (const [y, a] of [[5, 0], [8, 2.1], [11, 4.2]]) { const d = new THREE.CylinderGeometry(0.75, 0.75, 0.25, 16); d.rotateZ(Math.PI / 2); d.rotateY(a); prim(g, d, metal, 6 + Math.cos(a) * 0.6, Y0 + NF * FH + y, -3 - Math.sin(a) * 0.6); }
+    signMesh(g, textTex([{ t: 'NETCOM', y: 0.5, size: 140 }], { bg: '#0b2545', fg: '#ff8c1a', w: 1024, h: 200 }), 12, 2.4, 2, Y0 + NF * FH + 1.9, D / 2 + 0.4, 1.4);
+    signMesh(g, textTex([{ t: 'نتكوم · Internet & Télécoms', y: 0.5, size: 70, font: '700 SZpx Arial, sans-serif' }], { bg: '#0b2545', fg: '#ffffff', w: 1024, h: 140 }), 11, 1.5, 0, Y0 - 0.9, D / 2 + 0.7, 1.1);
+    void b;
+    return { g, r: 20, d: 20, w: 26, name: 'Immeuble Netcom' };
+  },
+  sunsetNkc() { // Hôtel Sunset : 4 niveaux beige orangé à balcons, rez de commerces
+    const g = new THREE.Group();
+    const W = 24, D = 16, NF = 4, FH = 3.3, Y0 = 4;
+    const fac = facadeMat('sunW', { wall: '#e2b68a', win: '#3a2f2a', cols: 4, rows: 4, cellW: 3, cellH: FH, lit: 0.6, balcony: '#7a4b2f' });
+    const roof = plainMat(0xcfa57d), cream = plainMat(0xf3e7d6), brown = plainMat(0x6e4429);
+    bbox(g, W, Y0, D, facadeMat('sunL', { style: 'arch', wall: '#f0dcc2', win: '#4a4440', cols: 2, rows: 1, cellW: 4, cellH: Y0, lit: 0.85 }), roof, 0, 0, 0);
+    bbox(g, W, NF * FH, D, fac, roof, 0, Y0, 0);
+    for (let f = 0; f < NF; f++) prim(g, new THREE.BoxGeometry(W - 2, 0.2, 1.2), cream, 0, Y0 + f * FH + 0.1, D / 2 + 0.6);
+    prim(g, new THREE.BoxGeometry(W + 0.6, 0.9, D + 0.6), cream, 0, Y0 + NF * FH + 0.45, 0);
+    prim(g, new THREE.BoxGeometry(W - 4, 0.3, 2.4), brown, 0, Y0 - 0.4, D / 2 + 1.2);
+    signMesh(g, textTex([{ t: 'Hôtel Sunset', y: 0.5, size: 120, font: 'italic 700 SZpx Georgia, serif' }], { bg: '#3d1f12', fg: '#ff9a3c', w: 1024, h: 180 }), 11, 1.9, 0, Y0 + NF * FH + 1.9, D / 2 + 0.2, 1.4);
+    return { g, r: 16, d: 18, w: 26, name: 'Hôtel Sunset' };
   },
 });
 // palmiers (géométrie procédurale, instanciée)
