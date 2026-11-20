@@ -2538,6 +2538,19 @@ function pauseGame() {
   if (TAXI && TAXI.active) TAXI.pause();
 }
 function resumeGame() { showScreen(null); state = game.pausedFrom || 'play'; clock.getDelta(); }
+// jeu en arrière-plan (onglet caché, téléphone verrouillé, appli Android réduite) : pause et silence, le son revient au retour
+let bgMusic = false;
+function goBackground() {
+  if (state === 'play' || state === 'countdown') { try { pauseGame(); } catch (e) {} }
+  if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend().catch(() => {});
+  if (music.el && !music.el.paused) { bgMusic = true; try { music.el.pause(); } catch (e) {} }
+}
+function goForeground() {
+  if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume().catch(() => {});
+  if (bgMusic && music.el) { bgMusic = false; musicPlay(); }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) goBackground(); else goForeground(); });
+window.addEventListener('dzpause', goBackground); window.addEventListener('dzresume', goForeground);
 function toMenu() {
   if (TAXI && TAXI.active) TAXI.exit();
   if (mode() === 'online') leaveOnline();

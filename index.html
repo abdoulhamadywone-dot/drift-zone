@@ -461,6 +461,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
           <div class="seg" id="segQual"><button data-v="0">Basse</button><button data-v="1">Haute</button><button data-v="2">Ultra</button></div>
           <div class="note" id="qualNote" style="margin-top:6px">« Haute » : belle image et fluide sur téléphone. « Ultra » : le maximum, pour PC. « Basse » : vieux téléphones.</div>
           <div class="note" id="verLabel" style="margin-top:14px;opacity:.5"></div>
+          <div class="note" id="apkLink" style="margin-top:6px"><a href="https://github.com/abdoulhamadywone-dot/drift-zone/releases/latest/download/DriftZone.apk" target="_blank" rel="noopener" style="color:#7fd4ff">📱 Télécharger l'appli Android (APK)</a></div>
           <div class="note" style="margin-top:4px;opacity:.5;font-size:12px">Crédits : « Nissan Silvia Neo Runner » par P. Kotwica (CC BY-NC, usage non commercial) · « Ferrari 458 Italia » par vicent091036 (Sketchfab, CC BY 4.0) · Hellcat, Viper, Specter GT3 : modèles fournis par le créateur du jeu.</div>
           <h3>Son</h3>
           <div class="seg" id="segSound"><button data-v="1">Activé</button><button data-v="0">Coupé</button></div>
@@ -530,7 +531,7 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 
 <script src="lib/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
-<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '3.3.0';</script>
+<script>window.DZ_ASSET_EXT = 'glb'; window.DZ_VERSION = '3.3.1';</script>
 <script src="engine-dsp.js"></script>
 <script src="data/geo.js"></script>
 <script src="data/circuit_nkc.js"></script>
@@ -541,19 +542,25 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
 (() => {
   // Mises à jour automatiques : le jeu vérifie version.json et propose de recharger
   const bar = document.getElementById('updBar');
+  const APK = !!window.DZ_APK, SITE = 'https://abdoulhamadywone-dot.github.io/drift-zone/', APK_URL = 'https://github.com/abdoulhamadywone-dot/drift-zone/releases/latest/download/DriftZone.apk';
   let reg = null;
-  if ('serviceWorker' in navigator && window.isSecureContext && window.top === window) {
+  if (!APK && 'serviceWorker' in navigator && window.isSecureContext && window.top === window) {
     navigator.serviceWorker.register('sw.js').then(r => { reg = r; }).catch(() => {});
   }
   async function check() {
     try {
-      const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+      const r = await fetch((APK ? SITE : '') + 'version.json?t=' + Date.now(), { cache: 'no-store' });
       if (!r.ok) return;
       const v = await r.json();
-      if (v && v.version && v.version !== window.DZ_VERSION) bar.classList.remove('hidden');
+      const newer = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+      if (v && v.version && newer(v.version, window.DZ_VERSION)) {
+        if (APK) { bar.querySelector('span').textContent = '🚀 Drift Zone ' + v.version + ' est sortie : télécharge la nouvelle appli'; document.getElementById('updGo').textContent = 'Télécharger'; }
+        bar.classList.remove('hidden');
+      }
     } catch (e) {}
   }
   document.getElementById('updGo').onclick = async () => {
+    if (APK) { location.href = APK_URL; return; } // l'appli Android : le navigateur télécharge le nouvel APK
     bar.querySelector('span').textContent = 'Mise à jour…';
     try { if (reg) await reg.update(); } catch (e) {}
     location.reload();
@@ -562,7 +569,8 @@ kbd{font-family:Rajdhani;font-weight:700;background:rgba(255,255,255,.12);border
   setTimeout(check, 4000);
   setInterval(check, 10 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
-  const ver = document.getElementById('verLabel'); if (ver) ver.textContent = 'Version ' + window.DZ_VERSION;
+  const ver = document.getElementById('verLabel'); if (ver) ver.textContent = 'Version ' + window.DZ_VERSION + (APK ? ' · appli Android' : '');
+  const al = document.getElementById('apkLink'); if (al && APK) al.remove();
 })();
 </script>
 </body>

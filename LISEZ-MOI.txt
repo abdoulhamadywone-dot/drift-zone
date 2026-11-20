@@ -51,6 +51,24 @@ QUALITÉ GRAPHIQUE (Options)
   Le jeu ajuste tout seul la résolution pour rester fluide, sans descendre
   sous une image nette.
 
+NOUVEAU EN 3.3.1 : L'APPLI ANDROID (APK)
+  - Drift Zone existe en application Android : DriftZone.apk (≈ 90 Mo),
+    avec tout le jeu dedans (voitures, ville, musiques) : il marche sans
+    Internet. Le mode « En ligne » ne fonctionne que dans la version Claude.
+  - Télécharger : https://github.com/abdoulhamadywone-dot/drift-zone/releases/latest/download/DriftZone.apk
+    (le lien est aussi dans Options, sur le site du jeu).
+  - Installer : ouvre le fichier téléchargé sur le téléphone ; Android
+    demande d'autoriser l'installation depuis le navigateur (ou le
+    gestionnaire de fichiers) : accepte, puis « Installer ». L'appli n'est
+    pas sur le Play Store, c'est normal que Play Protect pose la question.
+  - Mises à jour : quand une nouvelle version sort, l'appli affiche un
+    bandeau « télécharge la nouvelle appli » ; installe-la par-dessus
+    l'ancienne (tes réglages, crédits et records sont gardés).
+  - L'écran reste couché (paysage) et plein écran ; le bouton retour met le
+    jeu en pause, puis revient au menu ; au menu, deux appuis pour quitter.
+  - Le jeu (appli et site) se met en pause et coupe le son quand il passe
+    en arrière-plan (appel, téléphone verrouillé, autre appli).
+
 NOUVEAU EN 3.3.0
   - Tour SNIM remise à l'endroit : large à la base, la partie la plus mince
     en haut.
