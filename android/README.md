@@ -9,5 +9,5 @@ Windows), ajouter `window.DZ_APK = true` dans `index.html`, puis
 `gradle assembleRelease -PdzCode=331 -PdzName=3.3.1` avec un fichier `signing.properties`
 (storeFile, storePassword, keyAlias, keyPassword) à la racine. La clé de signature n'est pas publiée.
 
-L'APK de chaque version est attaché aux « Releases » du dépôt :
-https://github.com/abdoulhamadywone-dot/drift-zone/releases/latest/download/DriftZone.apk
+L'APK de la dernière version est publié avec le site :
+https://abdoulhamadywone-dot.github.io/drift-zone/DriftZone.apk

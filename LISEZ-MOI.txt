@@ -55,8 +55,10 @@ NOUVEAU EN 3.3.1 : L'APPLI ANDROID (APK)
   - Drift Zone existe en application Android : DriftZone.apk (≈ 90 Mo),
     avec tout le jeu dedans (voitures, ville, musiques) : il marche sans
     Internet. Le mode « En ligne » ne fonctionne que dans la version Claude.
-  - Télécharger : https://github.com/abdoulhamadywone-dot/drift-zone/releases/latest/download/DriftZone.apk
-    (le lien est aussi dans Options, sur le site du jeu).
+  - Télécharger (sur le téléphone) :
+    https://abdoulhamadywone-dot.github.io/drift-zone/DriftZone.apk
+    (le lien est aussi dans Options, sur le site du jeu). Une copie est dans
+    le dossier « Android » à côté de ce fichier.
   - Installer : ouvre le fichier téléchargé sur le téléphone ; Android
     demande d'autoriser l'installation depuis le navigateur (ou le
     gestionnaire de fichiers) : accepte, puis « Installer ». L'appli n'est

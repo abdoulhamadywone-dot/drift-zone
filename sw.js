@@ -46,7 +46,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   if (url.pathname.includes('/music/') && url.pathname.endsWith('.mp3')) { e.respondWith(musicResponse(e.request)); return; }
-  if (url.pathname.endsWith('/version.json') || url.pathname.includes('/api/')) return; // toujours en direct
+  if (url.pathname.endsWith('/version.json') || url.pathname.includes('/api/') || url.pathname.endsWith('.apk')) return; // toujours en direct (l'APK n'est pas gardé dans le cache)
   // réseau d'abord (tu reçois toujours la dernière version), cache si hors-ligne
   e.respondWith(fetch(e.request).then(r => {
     if (r.ok && r.type === 'basic') { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
